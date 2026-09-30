@@ -1,0 +1,21 @@
+# Gradle
+.gradle/
+build/
+*/build/
+local.properties
+
+# Android Studio / IntelliJ
+.idea/
+*.iml
+.DS_Store
+captures/
+
+# Ключи подписи и локальные секреты — никогда не коммитить
+*.jks
+*.keystore
+keystore.properties
+
+# ВАЖНО: schemas/ (экспорт схемы Room из storage/build.gradle.kts, ksp room.schemaLocation)
+# СОЗНАТЕЛЬНО НЕ игнорируется — эти JSON-файлы нужны в git для отслеживания эволюции
+# схемы БД между версиями и для будущих миграций. Если когда-нибудь здесь появится
+# паттерн вроде "schemas/" или "*/schemas/" — это ошибка, его нужно убрать.

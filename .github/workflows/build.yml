@@ -1,0 +1,38 @@
+name: Build
+
+# Только push и pull request — никаких секретов в этом workflow не используется
+# и не должно использоваться: сборка debug-варианта и unit-тесты не требуют
+# подписи релиза или доступа к чему-либо за пределами публичных Maven/Google
+# репозиториев.
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Run unit tests
+        run: ./gradlew test
+
+      - name: Assemble debug APK
+        run: ./gradlew :app:assembleDebug
+
+      # Намеренно НЕТ шага upload-artifact: debug-APK подписан debug-ключом
+      # (не секрет сам по себе), но публиковать собранные артефакты как
+      # артефакты CI без явного решения владельца проекта — не задача этого
+      # workflow. Если понадобится — добавлять отдельно и осознанно, никогда
+      # не публикуя release-подписанные сборки или что-либо из */schemas
+      # вместе с реальными пользовательскими данными.

@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Интернет-режим (этап 4) и LAN-сокеты -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Сканирование QR -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <!-- Проверка состояния сети перед попыткой соединения -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- Обнаружение в локальной сети -->
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+    <!-- Уведомления о новых сообщениях (опционально, запрашивается по месту) -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Фоновая доставка (опционально, этап 2+) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <!-- API 34+: разрешение под тип foreground-сервиса specialUse (см. <service> ниже и DEVIATIONS.md, «ЭТАП B.8») -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+
+    <application
+        android:name=".RamkaApp"
+        android:allowBackup="false"
+        android:label="ramka"
+        android:theme="@style/Theme.Ramka"
+        android:usesCleartextTraffic="false">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:theme="@style/Theme.Ramka">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!--
+            Постоянный сервис доставки (опциональный, по умолчанию ВЫКЛ — под-тумблер в настройках).
+            Тип specialUse выбран осознанно: dataSync на Android 15 ограничен 6 часами из 24 и
+            принудительно останавливается, что для сервиса "держать процесс живым" не подходит;
+            connectedDevice предназначен для внешних устройств (Bluetooth/NFC/IR/USB), а не для
+            приёма по локальной сети. У specialUse лимита по времени нет; обоснование обязательно
+            и дано в property ниже. Приложение распространяется только через GitHub, поэтому
+            Play-декларация не требуется.
+        -->
+        <service
+            android:name=".background.PersistentDeliveryService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Peer-to-peer messenger without a server: keeps the app process alive so the local-network message receiver and mDNS discovery keep working under OEM background restrictions. The user enables it explicitly; it processes no data itself." />
+        </service>
+    </application>
+</manifest>
