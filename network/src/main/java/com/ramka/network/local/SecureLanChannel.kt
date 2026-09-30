@@ -2,6 +2,7 @@ package com.ramka.network.local
 
 import com.ramka.crypto.keys.KeyManager
 import com.ramka.crypto.noise.IkHandshake
+import com.ramka.crypto.padding.FramePadding
 import com.ramka.crypto.ratchet.SessionCipher
 import com.ramka.network.protocol.Frame
 import com.ramka.network.protocol.FrameType
@@ -25,7 +26,12 @@ import java.net.SocketTimeoutException
  *
  * Каждое соединение — это полное IK-рукопожатие (см. [IkHandshake]) с проверкой
  * подписи транскрипта Ed25519 обеих сторон, за которым следует ровно одно
- * зашифрованное сообщение. Повторное использование соединения для нескольких
+ * зашифрованное сообщение. Тело сообщения перед шифрованием выравнивается до
+ * фиксированного размера ([FramePadding], этап 2.5), чтобы длина кадра не выдавала
+ * тип и размер сообщения; при приёме тело, не прошедшее проверку формата, и
+ * фиктивные тела ([FramePadding.FLAG_COVER]) молча отбрасываются. Формат несовместим
+ * со старым (без выравнивания) — оба устройства должны быть обновлены одновременно.
+ * Повторное использование соединения для нескольких
  * сообщений (чтобы не делать рукопожатие на каждое сообщение) — оптимизация
  * следующего этапа, зафиксирована в DEVIATIONS.md, безопасности не касается.
  *
@@ -84,10 +90,16 @@ class SecureLanChannel(
         require(encryptedFrame.type == FrameType.ENCRYPTED_MESSAGE) { "Ожидалось зашифрованное сообщение" }
         val counter = readCounter(encryptedFrame.payload)
         val ciphertext = encryptedFrame.payload.copyOfRange(8, encryptedFrame.payload.size)
-        val plaintext = sessionCipher.decryptIfFresh(counter, ciphertext) ?: return null
+        val padded = sessionCipher.decryptIfFresh(counter, ciphertext) ?: return null
 
         sessionCipher.wipe()
-        IncomingMessage(senderStaticX25519 = responderSession.remoteStaticPublic, plaintext = plaintext)
+
+        // Формат выравнивания нарушен (в том числе тело старого формата без выравнивания) —
+        // отбрасываем. Фиктивный пакет (этап 2.5, шаг 7) тоже молча отбрасывается.
+        val unpadded = FramePadding.unpad(padded) ?: return null
+        if ((unpadded.flags and FramePadding.FLAG_COVER) != 0) return null
+
+        IncomingMessage(senderStaticX25519 = responderSession.remoteStaticPublic, plaintext = unpadded.payload)
     }
 
     /** Устанавливает соединение с известным контактом, проводит рукопожатие и отправляет одно сообщение. */
@@ -100,6 +112,9 @@ class SecureLanChannel(
         timeoutMillis: Int = 5000
     ): Boolean = withContext(Dispatchers.IO) {
         try {
+            // Тело длиннее FramePadding.MAX_PAYLOAD_SIZE даёт IllegalArgumentException и
+            // попадает в catch ниже (false) ДО открытия соединения.
+            val body = FramePadding.pad(plaintext)
             Socket().use { socket ->
                 socket.connect(InetSocketAddress(host, port), timeoutMillis)
                 socket.soTimeout = timeoutMillis
@@ -118,7 +133,7 @@ class SecureLanChannel(
                 FrameIo.write(output, Frame(FrameType.HANDSHAKE_3, mySignature))
 
                 val sessionCipher = SessionCipher(handshakeResult.sendKey, handshakeResult.recvKey)
-                val sent = sessionCipher.encryptNext(plaintext)
+                val sent = sessionCipher.encryptNext(body)
                 val payload = writeCounter(sent.counter) + sent.ciphertext
                 FrameIo.write(output, Frame(FrameType.ENCRYPTED_MESSAGE, payload))
                 sessionCipher.wipe()
