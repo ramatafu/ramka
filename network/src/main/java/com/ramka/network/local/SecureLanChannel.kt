@@ -4,8 +4,6 @@ import com.ramka.crypto.keys.KeyManager
 import com.ramka.crypto.noise.IkHandshake
 import com.ramka.crypto.padding.FramePadding
 import com.ramka.crypto.ratchet.SessionCipher
-import com.ramka.network.protocol.Frame
-import com.ramka.network.protocol.FrameType
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
@@ -14,8 +12,6 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.DataInputStream
-import java.io.DataOutputStream
 import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.Socket
@@ -35,15 +31,32 @@ import java.net.SocketTimeoutException
  * сообщений (чтобы не делать рукопожатие на каждое сообщение) — оптимизация
  * следующего этапа, зафиксирована в DEVIATIONS.md, безопасности не касается.
  *
+ * Проводной формат (этап 2.5, шаг 3) описан в [FrameIo]: кадры рукопожатия без типа и длины
+ * (80/112/80 байт, роль определяется состоянием автомата), кадр данных без типа, с длиной
+ * шифртекста строго по корзинам [FramePadding]. Ответчик ограничивает рукопожатие общим
+ * дедлайном ([handshakeTimeoutMillis]) и простоем при чтении кадра данных
+ * ([dataIdleTimeoutMillis]); любая ошибка (мусор, таймаут, обрыв, провал AEAD или подписи)
+ * приводит к одинаковому закрытию сокета без ответа.
+ *
  * Неизвестные отправители (чей статический ключ не находится через [lookupSigningKey])
  * отклоняются до вычисления сессионных ключей — п. 3.8 спецификации.
  */
 class SecureLanChannel(
     private val keyManager: KeyManager,
     private val port: Int,
+    private val handshakeTimeoutMillis: Long = HANDSHAKE_TIMEOUT_MILLIS,
+    private val dataIdleTimeoutMillis: Int = DATA_IDLE_TIMEOUT_MILLIS,
     private val lookupSigningKey: suspend (remoteStaticX25519: ByteArray) -> ByteArray?
 ) {
     private var serverSocket: ServerSocket? = null
+
+    companion object {
+        /** Общий лимит на приём M1 и M3 (и ожидание проверки контакта между ними). */
+        const val HANDSHAKE_TIMEOUT_MILLIS = 10_000L
+
+        /** Простой при чтении кадра данных после рукопожатия (соединение одноразовое, отправитель шлёт сразу). */
+        const val DATA_IDLE_TIMEOUT_MILLIS = 30_000
+    }
 
     fun incomingMessages(scope: CoroutineScope): Flow<IncomingMessage> = callbackFlow {
         val server = ServerSocket(port).also { serverSocket = it }
@@ -67,35 +80,34 @@ class SecureLanChannel(
     }
 
     private suspend fun handleIncomingConnection(socket: Socket): IncomingMessage? = socket.use {
-        val input = DataInputStream(it.getInputStream())
-        val output = DataOutputStream(it.getOutputStream())
+        val input = it.getInputStream()
+        val output = it.getOutputStream()
+        val handshakeDeadline = System.nanoTime() + handshakeTimeoutMillis * 1_000_000L
 
-        val message1 = FrameIo.read(input)
-        require(message1.type == FrameType.HANDSHAKE_1) { "Ожидался HANDSHAKE_1" }
-        val responderSession = IkHandshake.startResponder(keyManager, message1.payload) ?: return null
+        // Состояние AWAIT_M1: ровно 80 байт, без типа и длины.
+        val message1 = FrameIo.readExact(it, input, FrameIo.MESSAGE1_SIZE, handshakeDeadline)
+        val responderSession = IkHandshake.startResponder(keyManager, message1) ?: return null
 
         // Неизвестный отправитель — отклоняем ДО завершения рукопожатия (п. 3.8).
         val remoteSigningKey = lookupSigningKey(responderSession.remoteStaticPublic) ?: return null
 
-        FrameIo.write(output, Frame(FrameType.HANDSHAKE_2, responderSession.buildMessage2(keyManager)))
+        FrameIo.writeHandshake(output, responderSession.buildMessage2(keyManager), FrameIo.MESSAGE2_SIZE)
 
-        val message3 = FrameIo.read(input)
-        require(message3.type == FrameType.HANDSHAKE_3) { "Ожидался HANDSHAKE_3" }
-        val handshakeResult = responderSession.consumeMessage3(message3.payload, remoteSigningKey, keyManager)
+        // Состояние AWAIT_M3: ровно 80 байт, тот же общий дедлайн.
+        val message3 = FrameIo.readExact(it, input, FrameIo.MESSAGE3_SIZE, handshakeDeadline)
+        val handshakeResult = responderSession.consumeMessage3(message3, remoteSigningKey, keyManager)
             ?: return null // подпись не сошлась — вероятная MITM-атака
 
         val sessionCipher = SessionCipher(handshakeResult.sendKey, handshakeResult.recvKey)
 
-        val encryptedFrame = FrameIo.read(input)
-        require(encryptedFrame.type == FrameType.ENCRYPTED_MESSAGE) { "Ожидалось зашифрованное сообщение" }
-        val counter = readCounter(encryptedFrame.payload)
-        val ciphertext = encryptedFrame.payload.copyOfRange(8, encryptedFrame.payload.size)
-        val padded = sessionCipher.decryptIfFresh(counter, ciphertext) ?: return null
+        // Состояние TRANSPORT: один кадр данных; недопустимая длина -> исключение -> закрытие.
+        it.soTimeout = dataIdleTimeoutMillis
+        val dataFrame = FrameIo.readData(it, input)
+        val padded = sessionCipher.decryptIfFresh(dataFrame.counter, dataFrame.ciphertext) ?: return null
 
         sessionCipher.wipe()
 
-        // Формат выравнивания нарушен (в том числе тело старого формата без выравнивания) —
-        // отбрасываем. Фиктивный пакет (этап 2.5, шаг 7) тоже молча отбрасывается.
+        // Формат выравнивания нарушен — отбрасываем. Фиктивный пакет (этап 2.5, шаг 7) тоже молча отбрасывается.
         val unpadded = FramePadding.unpad(padded) ?: return null
         if ((unpadded.flags and FramePadding.FLAG_COVER) != 0) return null
 
@@ -118,24 +130,23 @@ class SecureLanChannel(
             Socket().use { socket ->
                 socket.connect(InetSocketAddress(host, port), timeoutMillis)
                 socket.soTimeout = timeoutMillis
-                val input = DataInputStream(socket.getInputStream())
-                val output = DataOutputStream(socket.getOutputStream())
+                val input = socket.getInputStream()
+                val output = socket.getOutputStream()
 
                 val initiatorSession = IkHandshake.startInitiator(keyManager, remoteStaticX25519)
-                FrameIo.write(output, Frame(FrameType.HANDSHAKE_1, initiatorSession.message1))
+                FrameIo.writeHandshake(output, initiatorSession.message1, FrameIo.MESSAGE1_SIZE)
 
-                val message2 = FrameIo.read(input)
-                if (message2.type != FrameType.HANDSHAKE_2) return@withContext false
+                // Ожидается M2: ровно 112 байт (таймаут чтения — soTimeout выше).
+                val message2 = FrameIo.readExact(socket, input, FrameIo.MESSAGE2_SIZE)
                 val (mySignature, handshakeResult) = initiatorSession.consumeMessage2(
-                    message2.payload, remoteSigningPublicKey, keyManager
+                    message2, remoteSigningPublicKey, keyManager
                 ) ?: return@withContext false // подпись собеседника не сошлась — отменяем отправку
 
-                FrameIo.write(output, Frame(FrameType.HANDSHAKE_3, mySignature))
+                FrameIo.writeHandshake(output, mySignature, FrameIo.MESSAGE3_SIZE)
 
                 val sessionCipher = SessionCipher(handshakeResult.sendKey, handshakeResult.recvKey)
                 val sent = sessionCipher.encryptNext(body)
-                val payload = writeCounter(sent.counter) + sent.ciphertext
-                FrameIo.write(output, Frame(FrameType.ENCRYPTED_MESSAGE, payload))
+                FrameIo.writeData(output, sent.counter, sent.ciphertext)
                 sessionCipher.wipe()
                 true
             }
@@ -149,18 +160,6 @@ class SecureLanChannel(
 
     fun stop() {
         serverSocket?.close()
-    }
-
-    private fun readCounter(payload: ByteArray): Long {
-        var value = 0L
-        for (i in 0 until 8) value = (value shl 8) or (payload[i].toLong() and 0xFF)
-        return value
-    }
-
-    private fun writeCounter(counter: Long): ByteArray {
-        val out = ByteArray(8)
-        for (i in 0 until 8) out[7 - i] = ((counter shr (8 * i)) and 0xFF).toByte()
-        return out
     }
 }
 

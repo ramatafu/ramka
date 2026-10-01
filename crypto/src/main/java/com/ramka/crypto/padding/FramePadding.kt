@@ -44,13 +44,23 @@ object FramePadding {
     const val LARGE_STEP = 4096
 
     /**
-     * Верхняя граница размера результата. Кратна [LARGE_STEP] и оставляет запас под
-     * счётчик (8 байт), тег AEAD (16 байт) и байт типа до 8 МБ лимита кадра
-     * `FrameIo.MAX_FRAME_SIZE`.
+     * Верхняя граница размера результата. Кратна [LARGE_STEP]; вместе с тегом AEAD
+     * (16 байт) укладывается в 8 МБ — верхнюю границу поля длины кадра данных.
      */
     const val MAX_PADDED_SIZE = 8 * 1024 * 1024 - LARGE_STEP
 
     const val MAX_PAYLOAD_SIZE = MAX_PADDED_SIZE - HEADER_SIZE
+
+    /**
+     * Является ли [size] допустимым размером выровненного тела: одна из [BUCKETS]
+     * либо кратное [LARGE_STEP] выше последней корзины, не больше [MAX_PADDED_SIZE].
+     * Сетевой уровень проверяет по этому предикату поле длины кадра данных ДО чтения
+     * шифртекста и выделения памяти (ЭТАП 2.5, шаг 3).
+     */
+    fun isValidPaddedSize(size: Int): Boolean {
+        if (size in BUCKETS) return true
+        return size > BUCKETS.last() && size <= MAX_PADDED_SIZE && size % LARGE_STEP == 0
+    }
 
     /** Результат [unpad]. */
     class Unpadded(val flags: Int, val payload: ByteArray)
