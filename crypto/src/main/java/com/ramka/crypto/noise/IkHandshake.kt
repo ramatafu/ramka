@@ -24,25 +24,28 @@ import org.bouncycastle.crypto.params.X25519PublicKeyParameters
  * подтверждает, что собеседник владеет приватными ключами, соответствующими этим уже
  * известным публичным ключам, и вырабатывает свежий сессионный ключ с forward secrecy.
  *
- * Протокол (3 сообщения), этап 2.5, D-4a:
+ * Протокол (3 сообщения), этап 2.5, D-4a + D-4b:
  *   I -> R: e_i_pub || AEAD(k1, s_i_pub)                             (Message1, 80 байт)
- *   R -> I: e_r_pub || Sign_R(transcript)                            (Message2, 96 байт)
- *   I -> R: Sign_I(transcript)                                       (Message3, 64 байта)
+ *   R -> I: e_r_pub || AEAD(k2, Sign_R(transcript))                  (Message2, 112 байт)
+ *   I -> R: AEAD(k3, Sign_I(transcript))                             (Message3, 80 байт)
  *
- *   k1 = HKDF(es, salt = e_i_pub || s_r_pub, info = "ramka-ik-v2-m1")
- *   AEAD = ChaCha20-Poly1305, nonce = 12 нулевых байт (k1 одноразовый: свежий e_i на
- *          каждое соединение), aad = e_i_pub || s_r_pub
+ *   k1 = HKDF(es,      salt = e_i_pub || s_r_pub, info = "ramka-ik-v2-m1")
+ *   k2 = HKDF(es||ee,  salt = transcript,         info = "ramka-ik-v2-m2")
+ *   k3 = HKDF(es||ee,  salt = transcript,         info = "ramka-ik-v2-m3")
+ *   AEAD = ChaCha20-Poly1305, nonce = 12 нулевых байт (каждый из k1/k2/k3 одноразовый:
+ *          выведен из свежих эфемерных ключей и своего info), aad = e_i_pub || s_r_pub
+ *          для Message1 и transcript для Message2/3
  *   transcript = SHA256(label || s_i_pub || s_r_pub || e_i_pub || e_r_pub)
  *   root = HKDF(es || ee || se, salt=transcript, info="ramka-ik-root")
  *
- * Статический ключ инициатора s_i больше не передаётся открытым текстом (D-4a): его
- * видит только тот, кто может вычислить es, то есть владелец приватного ключа ответчика
- * (или самого e_i). Пассивный наблюдатель LAN не получает постоянного идентификатора
- * устройства. ОТКРЫТЫЙ ПУНКТ (D-4b): подписи в Message2/Message3 пока открыты и
- * проверяемы по публичным ключам-кандидатам — закрывается следующим шагом.
+ * D-4a: статический ключ инициатора не передаётся открытым текстом — его видит только тот,
+ * кто может вычислить es (владелец приватного ключа ответчика).
+ * D-4b: подписи тоже зашифрованы. Иначе наблюдатель, знающий публичные ключи кандидатов
+ * (X25519 и Ed25519), мог бы пересчитать transcript из открытых e_i/e_r и проверить подпись,
+ * подтвердив «A соединяется с B», не расшифровав ничего.
  *
- * Любая ошибка разбора или расшифровки Message1 даёт null (молчаливый отказ, без
- * различия причин — «не тот адресат», «порча», «неизвестная форма» неразличимы).
+ * Любая ошибка разбора или расшифровки даёт null (молчаливый отказ, без различия причин —
+ * «не тот адресат», «порча», «неизвестная форма», «подмена», «replay» неразличимы).
  */
 object IkHandshake {
 
@@ -51,9 +54,17 @@ object IkHandshake {
     const val SIGNATURE_SIZE = 64
     private const val STATIC_KEY_SIZE = 32
     private const val TAG_SIZE = 16
+    private const val INFO_MESSAGE2 = "ramka-ik-v2-m2"
+    private const val INFO_MESSAGE3 = "ramka-ik-v2-m3"
 
     /** Message1 = e_i_pub (32) || AEAD(s_i_pub) (32 + 16 тега) = 80 байт. */
     const val MESSAGE1_SIZE = EPHEMERAL_KEY_SIZE + STATIC_KEY_SIZE + TAG_SIZE
+
+    /** Message2 = e_r_pub (32) || AEAD(подпись) (64 + 16 тега) = 112 байт. */
+    const val MESSAGE2_SIZE = EPHEMERAL_KEY_SIZE + SIGNATURE_SIZE + TAG_SIZE
+
+    /** Message3 = AEAD(подпись) (64 + 16 тега) = 80 байт. */
+    const val MESSAGE3_SIZE = SIGNATURE_SIZE + TAG_SIZE
 
     /** Результат успешного рукопожатия: ключи для двух направлений. */
     data class Result(val sendKey: ByteArray, val recvKey: ByteArray) {
@@ -84,31 +95,48 @@ object IkHandshake {
             return ephemeralPublic + sealed
         }
 
-        /** Принимает Message2 от ответчика, проверяет подпись, возвращает Message3 для отправки и итоговые ключи. */
+        /**
+         * Принимает Message2: расшифровывает и проверяет подпись ответчика, возвращает Message3
+         * (зашифрованная подпись инициатора) и итоговые ключи. null — при любой ошибке.
+         */
         fun consumeMessage2(
             message2: ByteArray,
             remoteSigningPublicKey: ByteArray,
             keyManager: KeyManager
         ): Pair<ByteArray, Result>? {
-            if (message2.size != EPHEMERAL_KEY_SIZE + SIGNATURE_SIZE) return null
+            if (message2.size != MESSAGE2_SIZE) return null
             val remoteEphemeralPub = message2.copyOfRange(0, EPHEMERAL_KEY_SIZE)
-            val signature = message2.copyOfRange(EPHEMERAL_KEY_SIZE, message2.size)
+            val sealedSignature = message2.copyOfRange(EPHEMERAL_KEY_SIZE, message2.size)
 
             val transcript = computeTranscript(
                 localStaticPublic, remoteStaticPublic,
                 ephemeralPrivate.generatePublicKey().encoded, remoteEphemeralPub
             )
-            if (!Ed25519Verification.verify(remoteSigningPublicKey, transcript, signature)) {
-                return null // подпись не сошлась — вероятная MITM-атака, соединение отклоняется
-            }
 
             val es = dh(ephemeralPrivate, remoteStaticPublic)
-            val ee = dh(ephemeralPrivate, remoteEphemeralPub)
-            val se = dh(keyManager.loadX25519Private(), remoteEphemeralPub)
-            val result = deriveKeys(es, ee, se, transcript, isInitiator = true)
+            val ee = try {
+                dh(ephemeralPrivate, remoteEphemeralPub)
+            } catch (e: IllegalStateException) {
+                es.fill(0)
+                return null // low-order / некорректная эфемерная точка в Message2
+            }
+            val k2 = deriveSignatureKey(es, ee, transcript, INFO_MESSAGE2)
+            val k3 = deriveSignatureKey(es, ee, transcript, INFO_MESSAGE3)
+            val signature = aeadOpen(k2, transcript, sealedSignature)
+            k2.fill(0)
+            if (signature == null || signature.size != SIGNATURE_SIZE ||
+                !Ed25519Verification.verify(remoteSigningPublicKey, transcript, signature)
+            ) {
+                es.fill(0); ee.fill(0); k3.fill(0)
+                return null // не расшифровалось или подпись не сошлась — вероятная MITM-атака
+            }
 
-            val mySignature = keyManager.signWithIdentity(transcript)
-            return mySignature to result
+            val se = dh(keyManager.loadX25519Private(), remoteEphemeralPub)
+            val result = deriveKeys(es, ee, se, transcript, isInitiator = true) // обнуляет es/ee/se
+
+            val message3 = aeadSeal(k3, transcript, keyManager.signWithIdentity(transcript))
+            k3.fill(0)
+            return message3 to result
         }
     }
 
@@ -125,25 +153,39 @@ object IkHandshake {
         private val remoteEphemeralPublic: ByteArray,
         private val transcript: ByteArray
     ) {
-        /** Message2 для отправки инициатору. */
+        /** Message2 для отправки инициатору: e_r_pub || AEAD(k2, подпись). */
         fun buildMessage2(keyManager: KeyManager): ByteArray {
             val myEphemeralPub = ephemeralPrivate.generatePublicKey().encoded
-            val signature = keyManager.signWithIdentity(transcript)
-            return myEphemeralPub + signature
+            // es у ответчика = DH(s_r_priv, e_i_pub) — тот же секрет, что у инициатора DH(e_i_priv, s_r_pub).
+            val es = dh(keyManager.loadX25519Private(), remoteEphemeralPublic)
+            val ee = dh(ephemeralPrivate, remoteEphemeralPublic)
+            val k2 = deriveSignatureKey(es, ee, transcript, INFO_MESSAGE2)
+            es.fill(0); ee.fill(0)
+            val sealed = aeadSeal(k2, transcript, keyManager.signWithIdentity(transcript))
+            k2.fill(0)
+            return myEphemeralPub + sealed
         }
 
-        /** Проверяет Message3 (подпись инициатора) и, если всё верно, возвращает итоговые ключи. */
+        /** Расшифровывает и проверяет Message3 (подпись инициатора); если всё верно, возвращает итоговые ключи. */
         fun consumeMessage3(
             message3: ByteArray,
             remoteSigningPublicKey: ByteArray,
             keyManager: KeyManager
         ): Result? {
-            if (message3.size != SIGNATURE_SIZE) return null
-            if (!Ed25519Verification.verify(remoteSigningPublicKey, transcript, message3)) return null
+            if (message3.size != MESSAGE3_SIZE) return null
 
-            // es у ответчика = DH(s_r_priv, e_i_pub) — тот же секрет, что у инициатора DH(e_i_priv, s_r_pub).
             val es = dh(keyManager.loadX25519Private(), remoteEphemeralPublic)
             val ee = dh(ephemeralPrivate, remoteEphemeralPublic)
+            val k3 = deriveSignatureKey(es, ee, transcript, INFO_MESSAGE3)
+            val signature = aeadOpen(k3, transcript, message3)
+            k3.fill(0)
+            if (signature == null || signature.size != SIGNATURE_SIZE ||
+                !Ed25519Verification.verify(remoteSigningPublicKey, transcript, signature)
+            ) {
+                es.fill(0); ee.fill(0)
+                return null
+            }
+
             val se = dh(ephemeralPrivate, remoteStaticPublic)
             return deriveKeys(es, ee, se, transcript, isInitiator = false)
         }
@@ -198,7 +240,18 @@ object IkHandshake {
         return key
     }
 
-    /** ChaCha20-Poly1305 с нулевым nonce: допустимо только для ОДНОРАЗОВЫХ ключей (каждый k1 используется ровно раз). */
+    /** Ключ шифрования подписи в Message2/Message3: HKDF(es || ee), солью служит transcript, [info] различает направления. */
+    private fun deriveSignatureKey(es: ByteArray, ee: ByteArray, transcript: ByteArray, info: String): ByteArray {
+        val ikm = es + ee
+        val hkdf = HKDFBytesGenerator(SHA256Digest())
+        hkdf.init(HKDFParameters(ikm, transcript, info.toByteArray()))
+        ikm.fill(0)
+        val key = ByteArray(32)
+        hkdf.generateBytes(key, 0, 32)
+        return key
+    }
+
+    /** ChaCha20-Poly1305 с нулевым nonce: допустимо только для ОДНОРАЗОВЫХ ключей (k1, k2, k3: каждый используется ровно раз). */
     private fun aeadSeal(key: ByteArray, aad: ByteArray, plaintext: ByteArray): ByteArray {
         val cipher = ChaCha20Poly1305()
         cipher.init(true, AEADParameters(KeyParameter(key), TAG_SIZE * 8, ByteArray(12), aad))
@@ -219,7 +272,8 @@ object IkHandshake {
         null
     }
 
-    private fun computeTranscript(sInitiator: ByteArray, sResponder: ByteArray, eInitiator: ByteArray, eResponder: ByteArray): ByteArray {
+    /** internal, а не private: тест D-4b воспроизводит атаку «подтверждение по списку ключей» с настоящим transcript. */
+    internal fun computeTranscript(sInitiator: ByteArray, sResponder: ByteArray, eInitiator: ByteArray, eResponder: ByteArray): ByteArray {
         val digest = SHA256Digest()
         fun feed(b: ByteArray) = digest.update(b, 0, b.size)
         feed(LABEL.toByteArray())

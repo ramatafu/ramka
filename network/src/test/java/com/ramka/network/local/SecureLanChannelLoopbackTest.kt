@@ -119,20 +119,21 @@ class SecureLanChannelLoopbackTest {
         private val server = ServerSocket(0)
         val port: Int = server.localPort
         private val lock = Any()
-        private val recorded = ByteArrayOutputStream()
+        private val recorded = ByteArrayOutputStream()           // клиент -> сервер
+        private val recordedFromServer = ByteArrayOutputStream() // сервер -> клиент
 
         init {
             thread(isDaemon = true) {
                 while (!server.isClosed) {
                     val client = try { server.accept() } catch (e: Exception) { break }
                     val upstream = Socket(HOST, targetPort)
-                    pipe(client, upstream, record = true)
-                    pipe(upstream, client, record = false)
+                    pipe(client, upstream, recorded)
+                    pipe(upstream, client, recordedFromServer)
                 }
             }
         }
 
-        private fun pipe(from: Socket, to: Socket, record: Boolean) = thread(isDaemon = true) {
+        private fun pipe(from: Socket, to: Socket, sink: ByteArrayOutputStream) = thread(isDaemon = true) {
             try {
                 val buf = ByteArray(4096)
                 val input = from.getInputStream()
@@ -140,7 +141,7 @@ class SecureLanChannelLoopbackTest {
                 while (true) {
                     val n = input.read(buf)
                     if (n < 0) break
-                    if (record) synchronized(lock) { recorded.write(buf, 0, n) }
+                    synchronized(lock) { sink.write(buf, 0, n) }
                     output.write(buf, 0, n)
                     output.flush()
                 }
@@ -153,9 +154,16 @@ class SecureLanChannelLoopbackTest {
         /** Копия всего записанного потока «клиент -> сервер» без сброса. */
         fun snapshot(): ByteArray = synchronized(lock) { recorded.toByteArray() }
 
-        /** Длины кадров (поле длины, без самих 4 байт) в записанном потоке; запись сбрасывается. */
-        fun takeFrameLengths(): List<Int> {
-            val bytes = synchronized(lock) { recorded.toByteArray().also { recorded.reset() } }
+        /** Длины кадров клиента (поле длины, без самих 4 байт); запись сбрасывается. */
+        fun takeFrameLengths(): List<Int> = frameLengths(takeAndReset(recorded))
+
+        /** Длины кадров сервера (в handshake это Message2); запись сбрасывается. */
+        fun takeServerFrameLengths(): List<Int> = frameLengths(takeAndReset(recordedFromServer))
+
+        private fun takeAndReset(sink: ByteArrayOutputStream): ByteArray =
+            synchronized(lock) { sink.toByteArray().also { sink.reset() } }
+
+        private fun frameLengths(bytes: ByteArray): List<Int> {
             val din = DataInputStream(ByteArrayInputStream(bytes))
             val lengths = mutableListOf<Int>()
             while (din.available() > 0) {
@@ -201,6 +209,8 @@ class SecureLanChannelLoopbackTest {
                     val frames = proxy.takeFrameLengths()
                     assertEquals("M1, M3 и кадр данных", 3, frames.size)
                     assertEquals("M1: тип (1) + 80 байт", 1 + 80, frames[0])
+                    assertEquals("M3: тип (1) + 80 байт", 1 + 80, frames[1])
+                    assertEquals("M2: тип (1) + 112 байт", listOf(1 + 112), proxy.takeServerFrameLengths())
                     return frames[2]
                 }
 
@@ -239,6 +249,43 @@ class SecureLanChannelLoopbackTest {
                 }
                 assertTrue("записано ${wire.size} байт", wire.isNotEmpty())
                 assertEquals("s_i найден в потоке клиента", false, matches)
+            }
+        } finally {
+            proxy.close()
+        }
+    }
+
+    @Test
+    fun `recorded connection replayed to the receiver delivers nothing`() {
+        val receiver = newKeyManager()
+        val sender = newKeyManager()
+        val port = freePort()
+        val proxy = RecordingProxy(port)
+        try {
+            withReceiver(receiver, sender, port) { received ->
+                assertTrue(sendVia(sender, receiver.getOrCreateIdentity(), proxy.port, bytes(37)))
+                received.receiveWithin()
+                val captured = proxy.snapshot()
+                assertTrue(captured.isNotEmpty())
+
+                // Весь исходящий поток соединения (M1, M3, данные) повторяется как есть: Message1 валиден,
+                // но у ответчика новая эфемерная пара, поэтому старый Message3 не проходит.
+                try {
+                    Socket().use { socket ->
+                        socket.connect(InetSocketAddress(host, port), 3000)
+                        socket.getOutputStream().write(captured)
+                        socket.getOutputStream().flush()
+                        Thread.sleep(300)
+                    }
+                } catch (e: java.io.IOException) {
+                    // ответчик уже закрыл соединение — для теста это нормально
+                }
+                assertNull(withTimeoutOrNull(700) { received.receive() })
+
+                // Приёмник жив и принимает обычные сообщения.
+                val ok = bytes(12)
+                assertTrue(sendVia(sender, receiver.getOrCreateIdentity(), proxy.port, ok))
+                assertArrayEquals(ok, received.receiveWithin().plaintext)
             }
         } finally {
             proxy.close()
