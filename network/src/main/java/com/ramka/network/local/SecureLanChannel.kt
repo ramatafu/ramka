@@ -33,7 +33,7 @@ import java.net.SocketTimeoutException
  *
  * Проводной формат (этап 2.5, шаг 3) описан в [FrameIo]: кадры рукопожатия без типа и длины
  * (80/112/80 байт, роль определяется состоянием автомата), кадр данных без типа, с длиной
- * шифртекста строго по корзинам [FramePadding]. Ответчик ограничивает рукопожатие общим
+ * шифртекста строго по корзинам [FramePadding] и без счётчика (номер пакета неявный, всегда 0). Ответчик ограничивает рукопожатие общим
  * дедлайном ([handshakeTimeoutMillis]) и простоем при чтении кадра данных
  * ([dataIdleTimeoutMillis]); любая ошибка (мусор, таймаут, обрыв, провал AEAD или подписи)
  * приводит к одинаковому закрытию сокета без ответа.
@@ -102,8 +102,8 @@ class SecureLanChannel(
 
         // Состояние TRANSPORT: один кадр данных; недопустимая длина -> исключение -> закрытие.
         it.soTimeout = dataIdleTimeoutMillis
-        val dataFrame = FrameIo.readData(it, input)
-        val padded = sessionCipher.decryptIfFresh(dataFrame.counter, dataFrame.ciphertext) ?: return null
+        val ciphertext = FrameIo.readData(it, input)
+        val padded = sessionCipher.decryptIfFresh(FrameIo.IMPLICIT_COUNTER, ciphertext) ?: return null
 
         sessionCipher.wipe()
 
@@ -146,7 +146,10 @@ class SecureLanChannel(
 
                 val sessionCipher = SessionCipher(handshakeResult.sendKey, handshakeResult.recvKey)
                 val sent = sessionCipher.encryptNext(body)
-                FrameIo.writeData(output, sent.counter, sent.ciphertext)
+                // Номер на провод не идёт, получатель подставит IMPLICIT_COUNTER: если это не первый
+                // пакет сессии, nonce не совпадёт — лучше отменить отправку (исключение -> false).
+                check(sent.counter == FrameIo.IMPLICIT_COUNTER) { "Ожидался первый пакет сессии" }
+                FrameIo.writeData(output, sent.ciphertext)
                 sessionCipher.wipe()
                 true
             }

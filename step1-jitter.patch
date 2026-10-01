@@ -1,0 +1,849 @@
+diff -uNr a/app/src/main/java/com/ramka/app/di/AppModule.kt b/app/src/main/java/com/ramka/app/di/AppModule.kt
+--- a/app/src/main/java/com/ramka/app/di/AppModule.kt	2026-10-01 08:30:16.912494987 +0000
++++ b/app/src/main/java/com/ramka/app/di/AppModule.kt	2026-10-01 08:30:16.895429924 +0000
+@@ -13,7 +13,10 @@
+ import com.ramka.domain.repository.OutboxRepository
+ import com.ramka.domain.repository.TransportRepository
+ import com.ramka.domain.usecase.AttemptDeliveryUseCase
++import com.ramka.domain.usecase.DelayedAckSender
+ import com.ramka.domain.usecase.ProcessOutboxUseCase
++import com.ramka.domain.usecase.SendReadAckUseCase
++import com.ramka.domain.util.Jitter
+ import com.ramka.network.local.LanDiscoveryService
+ import com.ramka.network.local.SecureLanChannel
+ import com.ramka.storage.db.RamkaDatabase
+@@ -126,8 +129,9 @@
+         contactRepository: ContactRepository,
+         messageRepository: MessageRepository,
+         transportRepository: TransportRepository,
+-        activeChat: com.ramka.domain.util.ActiveChatTracker
+-    ): IncomingMessageProcessor = IncomingMessageProcessor(contactRepository, messageRepository, transportRepository, activeChat) {
++        activeChat: com.ramka.domain.util.ActiveChatTracker,
++        jitter: Jitter
++    ): IncomingMessageProcessor = IncomingMessageProcessor(contactRepository, messageRepository, transportRepository, activeChat, jitter) {
+         com.ramka.app.notifications.RamkaNotifications.showNewMessageNotification(ctx)
+     }
+ 
+@@ -141,8 +145,28 @@
+     fun provideProcessOutboxUseCase(
+         outboxRepository: OutboxRepository,
+         messageRepository: MessageRepository,
+-        attemptDelivery: AttemptDeliveryUseCase
+-    ): ProcessOutboxUseCase = ProcessOutboxUseCase(outboxRepository, messageRepository, attemptDelivery)
++        attemptDelivery: AttemptDeliveryUseCase,
++        jitter: Jitter
++    ): ProcessOutboxUseCase = ProcessOutboxUseCase(outboxRepository, messageRepository, attemptDelivery, jitter)
++
++    /** Единый источник джиттера (этап 2.5): границы — в PrivacyTimingConfig, по умолчанию ВКЛ. */
++    @Provides
++    @Singleton
++    fun provideJitter(): Jitter = Jitter()
++
++    /** Singleton: один Mutex на все вызовы, чтобы повторный показ чата не дублировал READ-ACK. */
++    @Provides
++    @Singleton
++    fun provideSendReadAckUseCase(
++        messageRepository: MessageRepository,
++        attemptDelivery: AttemptDeliveryUseCase,
++        jitter: Jitter,
++        appScope: CoroutineScope
++    ): SendReadAckUseCase = SendReadAckUseCase(
++        messageRepository,
++        appScope,
++        DelayedAckSender({ contactId, payload -> attemptDelivery(contactId, payload) }, jitter)::send
++    )
+ 
+     @Provides
+     @Singleton
+diff -uNr a/app/src/main/java/com/ramka/app/ui/chat/ChatViewModel.kt b/app/src/main/java/com/ramka/app/ui/chat/ChatViewModel.kt
+--- a/app/src/main/java/com/ramka/app/ui/chat/ChatViewModel.kt	2026-10-01 08:30:16.907915031 +0000
++++ b/app/src/main/java/com/ramka/app/ui/chat/ChatViewModel.kt	2026-10-01 08:30:16.890870565 +0000
+@@ -6,7 +6,6 @@
+ import androidx.lifecycle.SavedStateHandle
+ import androidx.lifecycle.ViewModel
+ import androidx.lifecycle.viewModelScope
+-import com.ramka.domain.model.AppMessage
+ import com.ramka.domain.model.Contact
+ import com.ramka.domain.model.Message
+ import com.ramka.domain.repository.ContactRepository
+@@ -14,6 +13,7 @@
+ import com.ramka.domain.repository.OutboxRepository
+ import com.ramka.domain.repository.TransportRepository
+ import com.ramka.domain.usecase.AttemptDeliveryUseCase
++import com.ramka.domain.usecase.SendReadAckUseCase
+ import com.ramka.domain.usecase.SendMessageUseCase
+ import dagger.hilt.android.lifecycle.HiltViewModel
+ import kotlinx.coroutines.flow.*
+@@ -27,7 +27,8 @@
+     private val messageRepository: MessageRepository,
+     private val outboxRepository: OutboxRepository,
+     private val transportRepository: TransportRepository,
+-    private val activeChat: com.ramka.domain.util.ActiveChatTracker
++    private val activeChat: com.ramka.domain.util.ActiveChatTracker,
++    private val sendReadAck: SendReadAckUseCase
+ ) : ViewModel() {
+ 
+     private val contactId: String = checkNotNull(savedStateHandle["contactId"])
+@@ -69,20 +70,9 @@
+         activeChat.onChatShown(contactId)
+         viewModelScope.launch { contactRepository.resetUnreadCount(contactId) }
+ 
+-        // READ-ACK (ЭТАП B.5, ревью п.4): батч одним сообщением со списком ID, только для
+-        // сообщений в статусе DELIVERED и выше (для входящих это всегда так по построению).
+-        viewModelScope.launch {
+-            val unacked = messageRepository.incomingWithoutReadAck(contactId)
+-            val eligible = unacked.filter {
+-                it.status == com.ramka.domain.model.MessageStatus.DELIVERED ||
+-                    it.status == com.ramka.domain.model.MessageStatus.READ
+-            }
+-            val remoteIds = eligible.mapNotNull { it.remoteMessageId }
+-            if (remoteIds.isNotEmpty()) {
+-                attemptDelivery(contactId, AppMessage.ReadAck(remoteIds).encode())
+-                eligible.forEach { messageRepository.markReadAckSent(it.localId) }
+-            }
+-        }
++        // READ-ACK (ЭТАП B.5, ревью п.4): батч одним сообщением со списком ID. Флаг readAckSent
++        // проставляется ДО отложенной (джиттер) отправки — см. SendReadAckUseCase.
++        viewModelScope.launch { sendReadAck(contactId) }
+     }
+ 
+     /**
+diff -uNr a/data/src/main/java/com/ramka/data/incoming/IncomingMessageProcessor.kt b/data/src/main/java/com/ramka/data/incoming/IncomingMessageProcessor.kt
+--- a/data/src/main/java/com/ramka/data/incoming/IncomingMessageProcessor.kt	2026-10-01 08:30:16.903389645 +0000
++++ b/data/src/main/java/com/ramka/data/incoming/IncomingMessageProcessor.kt	2026-10-01 08:30:16.886200819 +0000
+@@ -6,8 +6,10 @@
+ import com.ramka.domain.repository.MessageRepository
+ import com.ramka.domain.repository.TransportRepository
+ import com.ramka.domain.usecase.AttemptDeliveryUseCase
++import com.ramka.domain.usecase.DelayedAckSender
+ import com.ramka.domain.usecase.HandleIncomingTextUseCase
+ import com.ramka.domain.util.ActiveChatTracker
++import com.ramka.domain.util.Jitter
+ import kotlinx.coroutines.CoroutineScope
+ import kotlinx.coroutines.flow.first
+ import kotlinx.coroutines.flow.launchIn
+@@ -29,6 +31,8 @@
+     private val messageRepository: MessageRepository,
+     private val transportRepository: TransportRepository,
+     private val activeChat: ActiveChatTracker = ActiveChatTracker(),
++    /** Источник случайной задержки перед DELIVERED-ACK (этап 2.5, джиттер). */
++    ackJitter: Jitter = Jitter(),
+     /**
+      * Вызывается ПОСЛЕ сохранения НОВОГО (не дублирующего) входящего текстового
+      * сообщения — единственная точка интеграции с уведомлениями (ЭТАП B.7). На
+@@ -40,6 +44,7 @@
+     private val onIncomingTextSaved: suspend (Message) -> Unit = {}
+ ) {
+     private val attemptDelivery = AttemptDeliveryUseCase(contactRepository, transportRepository)
++    private val ackSender = DelayedAckSender({ contactId, payload -> attemptDelivery(contactId, payload) }, ackJitter)
+     private val handleIncomingText = HandleIncomingTextUseCase(messageRepository, contactRepository) { activeChat.isOpen(it) }
+ 
+     fun start(scope: CoroutineScope) {
+@@ -65,9 +70,11 @@
+         val isNew = handleIncomingText(contact.localId, text, System.currentTimeMillis()) { senderMessageId ->
+             // DELIVERED-ACK — best-effort, НЕ через Outbox, ВСЕГДА (в т.ч. на дубликат) и в
+             // отдельной корутине, чтобы сетевая попытка не тормозила приём следующих
+-            // пакетов (см. HandleIncomingTextUseCase и DEVIATIONS.md).
++            // пакетов (см. HandleIncomingTextUseCase и DEVIATIONS.md). Уходит не сразу, а после
++            // случайной задержки (джиттер, этап 2.5); за это время процесс могут убить —
++            // тогда у отправителя сообщение останется в статусе SENT без ✓.
+             scope.launch {
+-                attemptDelivery(contact.localId, AppMessage.DeliveredAck(senderMessageId).encode())
++                ackSender.send(contact.localId, AppMessage.DeliveredAck(senderMessageId).encode())
+             }
+         }
+ 
+diff -uNr a/domain/src/main/java/com/ramka/domain/usecase/DelayedAckSender.kt b/domain/src/main/java/com/ramka/domain/usecase/DelayedAckSender.kt
+--- a/domain/src/main/java/com/ramka/domain/usecase/DelayedAckSender.kt	1970-01-01 00:00:00.000000000 +0000
++++ b/domain/src/main/java/com/ramka/domain/usecase/DelayedAckSender.kt	2026-10-01 08:30:16.849111218 +0000
+@@ -0,0 +1,24 @@
++package com.ramka.domain.usecase
++
++import com.ramka.domain.util.Jitter
++import kotlinx.coroutines.delay
++
++/**
++ * Отправка ACK с предварительной случайной задержкой (этап 2.5, джиттер): сначала пауза
++ * [Jitter.ackDelayMillis], потом попытка доставки. Сама отправка — best-effort, как и раньше
++ * (результат не ретраится, ACK не идёт через Outbox).
++ *
++ * Функции доставки и паузы инжектируются: в приложении это `AttemptDeliveryUseCase` и
++ * `kotlinx.coroutines.delay`, в тестах — запись вызовов без реального ожидания.
++ */
++class DelayedAckSender(
++    private val deliver: suspend (contactId: String, payload: ByteArray) -> Boolean,
++    private val jitter: Jitter = Jitter(),
++    private val pause: suspend (millis: Long) -> Unit = { delay(it) }
++) {
++    suspend fun send(contactId: String, payload: ByteArray): Boolean {
++        val wait = jitter.ackDelayMillis()
++        if (wait > 0) pause(wait)
++        return deliver(contactId, payload)
++    }
++}
+diff -uNr a/domain/src/main/java/com/ramka/domain/usecase/ProcessOutboxUseCase.kt b/domain/src/main/java/com/ramka/domain/usecase/ProcessOutboxUseCase.kt
+--- a/domain/src/main/java/com/ramka/domain/usecase/ProcessOutboxUseCase.kt	2026-10-01 08:30:16.899582224 +0000
++++ b/domain/src/main/java/com/ramka/domain/usecase/ProcessOutboxUseCase.kt	2026-10-01 08:30:16.881476515 +0000
+@@ -5,6 +5,7 @@
+ import com.ramka.domain.model.MessageStatus
+ import com.ramka.domain.repository.MessageRepository
+ import com.ramka.domain.repository.OutboxRepository
++import com.ramka.domain.util.Jitter
+ import com.ramka.domain.util.RetryBackoff
+ 
+ /**
+@@ -22,7 +23,9 @@
+ class ProcessOutboxUseCase(
+     private val outboxRepository: OutboxRepository,
+     private val messageRepository: MessageRepository,
+-    private val attemptDelivery: AttemptDeliveryUseCase
++    private val attemptDelivery: AttemptDeliveryUseCase,
++    /** Джиттер ±20% на интервал повтора (этап 2.5); по умолчанию — боевой конфиг. */
++    private val jitter: Jitter = Jitter()
+ ) {
+     suspend fun processDue(nowEpochMillis: Long) {
+         val dueEntries = outboxRepository.due(nowEpochMillis)
+@@ -53,7 +56,7 @@
+                 outboxRepository.remove(entry.messageLocalId)
+             } else {
+                 val nextAttemptCount = entry.attemptCount + 1
+-                val delay = RetryBackoff.nextDelayMillis(nextAttemptCount)
++                val delay = jitter.applyBackoff(RetryBackoff.nextDelayMillis(nextAttemptCount))
+                 outboxRepository.recordFailedAttempt(
+                     entry.messageLocalId,
+                     nextAttemptCount,
+diff -uNr a/domain/src/main/java/com/ramka/domain/usecase/SendReadAckUseCase.kt b/domain/src/main/java/com/ramka/domain/usecase/SendReadAckUseCase.kt
+--- a/domain/src/main/java/com/ramka/domain/usecase/SendReadAckUseCase.kt	1970-01-01 00:00:00.000000000 +0000
++++ b/domain/src/main/java/com/ramka/domain/usecase/SendReadAckUseCase.kt	2026-10-01 08:30:16.853508531 +0000
+@@ -0,0 +1,53 @@
++package com.ramka.domain.usecase
++
++import com.ramka.domain.model.AppMessage
++import com.ramka.domain.model.MessageStatus
++import com.ramka.domain.repository.MessageRepository
++import kotlinx.coroutines.CoroutineScope
++import kotlinx.coroutines.NonCancellable
++import kotlinx.coroutines.launch
++import kotlinx.coroutines.sync.Mutex
++import kotlinx.coroutines.sync.withLock
++import kotlinx.coroutines.withContext
++
++/**
++ * READ-ACK при показе чата (ЭТАП B.5, ревью п.4; джиттер — этап 2.5).
++ *
++ * Порядок важен: флаг `readAckSent` проставляется ДО отложенной отправки. Тогда повторное
++ * открытие чата во время задержки не найдёт эти сообщения в `incomingWithoutReadAck` и не пошлёт
++ * дубль. Выбор сообщений и простановка флагов идут под [Mutex] и не отменяются
++ * ([NonCancellable]): два подряд вызова не увидят одни и те же сообщения, а отмена на полпути
++ * не оставит часть сообщений помеченными без ACK.
++ *
++ * Отложенная отправка запускается в [ackScope] (живёт столько же, сколько приложение), а не в
++ * скоупе вызывающего: если экран закроется во время задержки, ACK всё равно уйдёт, флаг-то уже стоит.
++ *
++ * Известное ограничение (как и до джиттера): если после проставления флага отправка не удалась
++ * (собеседник офлайн) или процесс убит во время задержки, ACK не повторяется.
++ */
++class SendReadAckUseCase(
++    private val messageRepository: MessageRepository,
++    private val ackScope: CoroutineScope,
++    private val sendAck: suspend (contactId: String, payload: ByteArray) -> Boolean
++) {
++    private val mutex = Mutex()
++
++    suspend operator fun invoke(contactId: String) {
++        val remoteIds = withContext(NonCancellable) {
++            mutex.withLock {
++                val eligible = messageRepository.incomingWithoutReadAck(contactId).filter {
++                    it.status == MessageStatus.DELIVERED || it.status == MessageStatus.READ
++                }
++                val ids = eligible.mapNotNull { it.remoteMessageId }
++                if (ids.isEmpty()) {
++                    null
++                } else {
++                    eligible.forEach { messageRepository.markReadAckSent(it.localId) }
++                    ids
++                }
++            }
++        } ?: return
++
++        ackScope.launch { sendAck(contactId, AppMessage.ReadAck(remoteIds).encode()) }
++    }
++}
+diff -uNr a/domain/src/main/java/com/ramka/domain/util/Jitter.kt b/domain/src/main/java/com/ramka/domain/util/Jitter.kt
+--- a/domain/src/main/java/com/ramka/domain/util/Jitter.kt	1970-01-01 00:00:00.000000000 +0000
++++ b/domain/src/main/java/com/ramka/domain/util/Jitter.kt	2026-10-01 08:30:16.844675766 +0000
+@@ -0,0 +1,38 @@
++package com.ramka.domain.util
++
++import java.security.SecureRandom
++
++/**
++ * Источник случайных задержек (этап 2.5). Границы и выключатель — в [PrivacyTimingConfig].
++ * Источник случайности инжектируется ([nextUnit] возвращает число из [0, 1)), поэтому тесты
++ * проверяют границы и распределение без реальной случайности и без реального ожидания.
++ */
++class Jitter(
++    private val config: PrivacyTimingConfig = PrivacyTimingConfig.DEFAULT,
++    private val nextUnit: () -> Double = defaultSource()
++) {
++    /** Случайная задержка перед отправкой ACK, миллисекунды в [min, max] (включительно); 0 при выключенном джиттере. */
++    fun ackDelayMillis(): Long {
++        if (!config.jitterEnabled) return 0L
++        val span = config.ackJitterMaxMillis - config.ackJitterMinMillis + 1
++        val offset = (unit() * span).toLong().coerceIn(0L, span - 1)
++        return config.ackJitterMinMillis + offset
++    }
++
++    /** Применяет к интервалу backoff случайный множитель в [1 − f, 1 + f]; без джиттера возвращает [baseMillis]. */
++    fun applyBackoff(baseMillis: Long): Long {
++        if (!config.jitterEnabled) return baseMillis
++        val f = config.backoffJitterFraction
++        val factor = (1.0 - f) + unit() * 2.0 * f
++        return Math.round(baseMillis * factor).coerceAtLeast(0L)
++    }
++
++    private fun unit(): Double = nextUnit().coerceIn(0.0, 1.0)
++
++    private companion object {
++        fun defaultSource(): () -> Double {
++            val random = SecureRandom()
++            return { random.nextDouble() }
++        }
++    }
++}
+diff -uNr a/domain/src/main/java/com/ramka/domain/util/PrivacyTimingConfig.kt b/domain/src/main/java/com/ramka/domain/util/PrivacyTimingConfig.kt
+--- a/domain/src/main/java/com/ramka/domain/util/PrivacyTimingConfig.kt	1970-01-01 00:00:00.000000000 +0000
++++ b/domain/src/main/java/com/ramka/domain/util/PrivacyTimingConfig.kt	2026-10-01 08:30:16.840088413 +0000
+@@ -0,0 +1,33 @@
++package com.ramka.domain.util
++
++/**
++ * Единый конфиг временной маскировки (этап 2.5, джиттер). Все константы джиттера живут здесь.
++ *
++ * Джиттер сглаживает временные паттерны, которые видит наблюдатель LAN: обратное соединение
++ * (ACK) сразу после сообщения и строго детерминированные интервалы повторов Outbox.
++ *
++ * @property jitterEnabled общий выключатель (по умолчанию ВКЛ). При `false` задержка ACK нулевая,
++ *   а backoff Outbox не искажается — поведение до этапа 2.5.
++ * @property ackJitterMinMillis нижняя граница случайной задержки перед DELIVERED-ACK/READ-ACK.
++ * @property ackJitterMaxMillis верхняя граница (включительно).
++ * @property backoffJitterFraction доля случайного отклонения backoff Outbox в обе стороны
++ *   (0.20 = ±20%, в том числе на потолке: 1 час -> 48–72 минуты).
++ */
++data class PrivacyTimingConfig(
++    val jitterEnabled: Boolean = true,
++    val ackJitterMinMillis: Long = 500L,
++    val ackJitterMaxMillis: Long = 5_000L,
++    val backoffJitterFraction: Double = 0.20
++) {
++    init {
++        require(ackJitterMinMillis >= 0) { "ackJitterMinMillis не может быть отрицательным" }
++        require(ackJitterMaxMillis >= ackJitterMinMillis) { "ackJitterMaxMillis < ackJitterMinMillis" }
++        require(backoffJitterFraction >= 0.0 && backoffJitterFraction < 1.0) {
++            "backoffJitterFraction должен быть в [0, 1)"
++        }
++    }
++
++    companion object {
++        val DEFAULT = PrivacyTimingConfig()
++    }
++}
+diff -uNr a/domain/src/test/java/com/ramka/domain/usecase/DelayedAckSenderTest.kt b/domain/src/test/java/com/ramka/domain/usecase/DelayedAckSenderTest.kt
+--- a/domain/src/test/java/com/ramka/domain/usecase/DelayedAckSenderTest.kt	1970-01-01 00:00:00.000000000 +0000
++++ b/domain/src/test/java/com/ramka/domain/usecase/DelayedAckSenderTest.kt	2026-10-01 08:30:16.867126724 +0000
+@@ -0,0 +1,62 @@
++package com.ramka.domain.usecase
++
++import com.ramka.domain.util.Jitter
++import com.ramka.domain.util.PrivacyTimingConfig
++import kotlinx.coroutines.runBlocking
++import org.junit.Assert.assertArrayEquals
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertTrue
++import org.junit.Test
++
++class DelayedAckSenderTest {
++
++    @Test
++    fun `pauses once for the jitter delay and only then delivers`() = runBlocking {
++        val events = mutableListOf<String>()
++        val sender = DelayedAckSender(
++            deliver = { contactId, _ -> events += "deliver:$contactId"; true },
++            jitter = Jitter(PrivacyTimingConfig.DEFAULT) { 0.5 },
++            pause = { events += "pause:$it" }
++        )
++
++        val result = sender.send("c1", byteArrayOf(1, 2))
++
++        assertTrue(result)
++        assertEquals(listOf("pause:2750", "deliver:c1"), events)
++    }
++
++    @Test
++    fun `delay is within the configured range with real randomness`() = runBlocking {
++        val pauses = mutableListOf<Long>()
++        val sender = DelayedAckSender({ _, _ -> true }, Jitter(), { pauses += it })
++
++        repeat(200) { sender.send("c", ByteArray(1)) }
++
++        assertTrue(pauses.all { it in 500L..5_000L })
++    }
++
++    @Test
++    fun `payload and result are passed through unchanged`() = runBlocking {
++        var seen: ByteArray? = null
++        val sender = DelayedAckSender({ _, payload -> seen = payload; false }, Jitter(), { })
++
++        val result = sender.send("c", byteArrayOf(9, 8, 7))
++
++        assertEquals(false, result)
++        assertArrayEquals(byteArrayOf(9, 8, 7), seen)
++    }
++
++    @Test
++    fun `disabled jitter delivers immediately without pausing`() = runBlocking {
++        var paused = false
++        val sender = DelayedAckSender(
++            { _, _ -> true },
++            Jitter(PrivacyTimingConfig(jitterEnabled = false)),
++            { paused = true }
++        )
++
++        sender.send("c", ByteArray(1))
++
++        assertEquals(false, paused)
++    }
++}
+diff -uNr a/domain/src/test/java/com/ramka/domain/usecase/ProcessOutboxUseCaseTest.kt b/domain/src/test/java/com/ramka/domain/usecase/ProcessOutboxUseCaseTest.kt
+--- a/domain/src/test/java/com/ramka/domain/usecase/ProcessOutboxUseCaseTest.kt	1970-01-01 00:00:00.000000000 +0000
++++ b/domain/src/test/java/com/ramka/domain/usecase/ProcessOutboxUseCaseTest.kt	2026-10-01 08:30:16.876813506 +0000
+@@ -0,0 +1,76 @@
++package com.ramka.domain.usecase
++
++import com.ramka.domain.model.Message
++import com.ramka.domain.model.MessageBody
++import com.ramka.domain.model.MessageDirection
++import com.ramka.domain.model.MessageStatus
++import com.ramka.domain.model.OutboxEntry
++import com.ramka.domain.util.Jitter
++import com.ramka.domain.util.PrivacyTimingConfig
++import com.ramka.domain.util.RetryBackoff
++import kotlinx.coroutines.runBlocking
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertTrue
++import org.junit.Test
++
++class ProcessOutboxUseCaseTest {
++
++    private val now = 1_000_000L
++
++    /** Одна запись Outbox с [attemptCount] прошлых попыток; контакта нет -> попытка всегда неудачна. */
++    private fun failedAttempt(attemptCount: Int, jitter: Jitter): StubOutboxRepository.Failure = runBlocking {
++        val messages = StubMessageRepository().also {
++            it.add(
++                Message("m1", "c1", MessageDirection.OUTGOING, MessageBody.Text("x"), MessageStatus.SENDING, 1L)
++            )
++        }
++        val outbox = StubOutboxRepository(listOf(OutboxEntry("m1", "c1", attemptCount, 0L, 0L)))
++        val attempt = AttemptDeliveryUseCase(StubContactRepository(), StubTransportRepository())
++
++        ProcessOutboxUseCase(outbox, messages, attempt, jitter).processDue(now)
++
++        outbox.failures.single()
++    }
++
++    @Test
++    fun `failed attempt schedules next try within plus minus 20 percent of backoff`() {
++        for (attemptCount in listOf(0, 1, 3, 6)) {
++            val base = RetryBackoff.nextDelayMillis(attemptCount + 1)
++            for (unit in listOf(0.0, 0.25, 0.5, 0.75, 0.999999)) {
++                val failure = failedAttempt(attemptCount, Jitter(PrivacyTimingConfig.DEFAULT) { unit })
++                val delay = failure.nextAttemptAtEpochMillis - now
++                assertEquals(attemptCount + 1, failure.attemptCount)
++                assertTrue("attempt=$attemptCount unit=$unit delay=$delay base=$base", delay >= base * 0.8 - 1 && delay <= base * 1.2 + 1)
++            }
++        }
++    }
++
++    @Test
++    fun `jitter extremes give exactly minus 20 and about plus 20 percent`() {
++        val base = RetryBackoff.nextDelayMillis(1) // 60 с
++        assertEquals(48_000L, failedAttempt(0, Jitter(PrivacyTimingConfig.DEFAULT) { 0.0 }).nextAttemptAtEpochMillis - now)
++        assertEquals(base, failedAttempt(0, Jitter(PrivacyTimingConfig.DEFAULT) { 0.5 }).nextAttemptAtEpochMillis - now)
++    }
++
++    @Test
++    fun `at the one hour cap the delay is between 48 and 72 minutes`() {
++        val low = failedAttempt(20, Jitter(PrivacyTimingConfig.DEFAULT) { 0.0 }).nextAttemptAtEpochMillis - now
++        val high = failedAttempt(20, Jitter(PrivacyTimingConfig.DEFAULT) { 0.999999 }).nextAttemptAtEpochMillis - now
++        assertEquals(48 * 60_000L, low)
++        assertTrue("high=$high", high in 71 * 60_000L..72 * 60_000L)
++    }
++
++    @Test
++    fun `real randomness gives different delays for identical attempts`() {
++        val jitter = Jitter()
++        val delays = List(50) { failedAttempt(2, jitter).nextAttemptAtEpochMillis }.toSet()
++        assertTrue("delays=${delays.size}", delays.size > 10)
++    }
++
++    @Test
++    fun `disabled jitter keeps the deterministic backoff`() {
++        val off = Jitter(PrivacyTimingConfig(jitterEnabled = false))
++        val failure = failedAttempt(2, off)
++        assertEquals(RetryBackoff.nextDelayMillis(3), failure.nextAttemptAtEpochMillis - now)
++    }
++}
+diff -uNr a/domain/src/test/java/com/ramka/domain/usecase/SendReadAckUseCaseTest.kt b/domain/src/test/java/com/ramka/domain/usecase/SendReadAckUseCaseTest.kt
+--- a/domain/src/test/java/com/ramka/domain/usecase/SendReadAckUseCaseTest.kt	1970-01-01 00:00:00.000000000 +0000
++++ b/domain/src/test/java/com/ramka/domain/usecase/SendReadAckUseCaseTest.kt	2026-10-01 08:30:16.872248849 +0000
+@@ -0,0 +1,173 @@
++package com.ramka.domain.usecase
++
++import com.ramka.domain.model.AppMessage
++import com.ramka.domain.model.Message
++import com.ramka.domain.model.MessageBody
++import com.ramka.domain.model.MessageDirection
++import com.ramka.domain.model.MessageStatus
++import kotlinx.coroutines.CompletableDeferred
++import kotlinx.coroutines.CoroutineScope
++import kotlinx.coroutines.Dispatchers
++import kotlinx.coroutines.SupervisorJob
++import kotlinx.coroutines.async
++import kotlinx.coroutines.awaitAll
++import kotlinx.coroutines.cancel
++import kotlinx.coroutines.delay
++import kotlinx.coroutines.launch
++import kotlinx.coroutines.runBlocking
++import kotlinx.coroutines.withTimeout
++import org.junit.After
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertFalse
++import org.junit.Assert.assertTrue
++import org.junit.Test
++import java.util.UUID
++import java.util.concurrent.CopyOnWriteArrayList
++import java.util.concurrent.atomic.AtomicInteger
++
++class SendReadAckUseCaseTest {
++
++    private val contactId = "contact-1"
++    private val ackScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
++
++    @After
++    fun tearDown() = ackScope.cancel()
++
++    private fun incoming(
++        status: MessageStatus = MessageStatus.DELIVERED,
++        contact: String = contactId,
++        remoteId: String? = UUID.randomUUID().toString()
++    ) = Message(
++        localId = UUID.randomUUID().toString(),
++        contactId = contact,
++        direction = MessageDirection.INCOMING,
++        body = MessageBody.Text("hi"),
++        status = status,
++        localCreatedAtEpochMillis = 1L,
++        remoteMessageId = remoteId
++    )
++
++    /** Фейковая отправка: запоминает вызовы и ждёт [gate] — это и есть «отложенная отправка». */
++    private class Sender(private val gate: CompletableDeferred<Unit>) {
++        val started = AtomicInteger(0)
++        val sent = CopyOnWriteArrayList<Pair<String, ByteArray>>()
++        suspend fun send(contactId: String, payload: ByteArray): Boolean {
++            started.incrementAndGet()
++            gate.await()
++            sent += contactId to payload
++            return true
++        }
++    }
++
++    private suspend fun awaitSent(sender: Sender, count: Int) = withTimeout(3_000) {
++        while (sender.sent.size < count) delay(10)
++    }
++
++    @Test
++    fun `flag is set before the delayed send happens`() = runBlocking {
++        val repo = StubMessageRepository()
++        val message = incoming().also(repo::add)
++        val gate = CompletableDeferred<Unit>()
++        val sender = Sender(gate)
++        val useCase = SendReadAckUseCase(repo, ackScope, sender::send)
++
++        useCase(contactId)
++
++        // Отправка ещё «в задержке» (gate закрыт) — флаг уже стоит.
++        assertTrue(repo.all().single { it.localId == message.localId }.readAckSent)
++        assertEquals(0, sender.sent.size)
++
++        gate.complete(Unit)
++        awaitSent(sender, 1)
++        val ack = AppMessage.decode(sender.sent.single().second)
++        assertEquals(AppMessage.ReadAck(listOf(message.remoteMessageId!!)), ack)
++    }
++
++    @Test
++    fun `reopening the chat during the delay does not send a duplicate`() = runBlocking {
++        val repo = StubMessageRepository()
++        repo.add(incoming())
++        val gate = CompletableDeferred<Unit>()
++        val sender = Sender(gate)
++        val useCase = SendReadAckUseCase(repo, ackScope, sender::send)
++
++        useCase(contactId)
++        useCase(contactId) // повторное открытие чата, пока первая отправка ждёт
++        useCase(contactId)
++        gate.complete(Unit)
++        awaitSent(sender, 1)
++        delay(200)
++
++        assertEquals("ровно одна отправка", 1, sender.started.get())
++        assertEquals(1, sender.sent.size)
++    }
++
++    @Test
++    fun `concurrent calls produce a single batch`() = runBlocking {
++        val repo = StubMessageRepository(readDelayMillis = 30) // расширяем окно гонки
++        repeat(3) { repo.add(incoming()) }
++        val gate = CompletableDeferred<Unit>().also { it.complete(Unit) }
++        val sender = Sender(gate)
++        val useCase = SendReadAckUseCase(repo, ackScope, sender::send)
++
++        List(6) { async(Dispatchers.Default) { useCase(contactId) } }.awaitAll()
++        awaitSent(sender, 1)
++        delay(300)
++
++        assertEquals(1, sender.started.get())
++        val ack = AppMessage.decode(sender.sent.single().second) as AppMessage.ReadAck
++        assertEquals("все три ID одним батчем", 3, ack.messageLocalIds.size)
++    }
++
++    @Test
++    fun `only delivered or read incoming messages are acknowledged`() = runBlocking {
++        val repo = StubMessageRepository()
++        val ok1 = incoming(MessageStatus.DELIVERED).also(repo::add)
++        val ok2 = incoming(MessageStatus.READ).also(repo::add)
++        val notReady = incoming(MessageStatus.SENT).also(repo::add)
++        val otherContact = incoming(contact = "other").also(repo::add)
++        val sender = Sender(CompletableDeferred<Unit>().also { it.complete(Unit) })
++
++        SendReadAckUseCase(repo, ackScope, sender::send)(contactId)
++        awaitSent(sender, 1)
++
++        val ack = AppMessage.decode(sender.sent.single().second) as AppMessage.ReadAck
++        assertEquals(listOf(ok1.remoteMessageId, ok2.remoteMessageId), ack.messageLocalIds)
++        val byId = repo.all().associateBy { it.localId }
++        assertTrue(byId.getValue(ok1.localId).readAckSent)
++        assertTrue(byId.getValue(ok2.localId).readAckSent)
++        assertFalse(byId.getValue(notReady.localId).readAckSent)
++        assertFalse(byId.getValue(otherContact.localId).readAckSent)
++    }
++
++    @Test
++    fun `nothing to acknowledge sends nothing and sets no flags`() = runBlocking {
++        val repo = StubMessageRepository()
++        repo.add(incoming(MessageStatus.SENT))
++        val sender = Sender(CompletableDeferred<Unit>().also { it.complete(Unit) })
++
++        SendReadAckUseCase(repo, ackScope, sender::send)(contactId)
++        delay(200)
++
++        assertEquals(0, sender.started.get())
++        assertTrue(repo.all().none { it.readAckSent })
++    }
++
++    @Test
++    fun `leaving the screen during the delay does not lose the ack`() = runBlocking {
++        val repo = StubMessageRepository()
++        repo.add(incoming())
++        val gate = CompletableDeferred<Unit>()
++        val sender = Sender(gate)
++        val useCase = SendReadAckUseCase(repo, ackScope, sender::send)
++
++        // «ViewModel scope»: вызов завершился, потом скоуп экрана отменили, пока ACK ещё ждёт.
++        val screenScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
++        screenScope.launch { useCase(contactId) }.join()
++        screenScope.cancel()
++        gate.complete(Unit)
++
++        awaitSent(sender, 1)
++        assertEquals(1, sender.sent.size)
++    }
++}
+diff -uNr a/domain/src/test/java/com/ramka/domain/usecase/TestRepositories.kt b/domain/src/test/java/com/ramka/domain/usecase/TestRepositories.kt
+--- a/domain/src/test/java/com/ramka/domain/usecase/TestRepositories.kt	1970-01-01 00:00:00.000000000 +0000
++++ b/domain/src/test/java/com/ramka/domain/usecase/TestRepositories.kt	2026-10-01 08:30:16.862401766 +0000
+@@ -0,0 +1,84 @@
++package com.ramka.domain.usecase
++
++import com.ramka.domain.model.Contact
++import com.ramka.domain.model.Message
++import com.ramka.domain.model.MessageDirection
++import com.ramka.domain.model.MessageStatus
++import com.ramka.domain.model.NetworkAddress
++import com.ramka.domain.model.OutboxEntry
++import com.ramka.domain.repository.ContactRepository
++import com.ramka.domain.repository.MessageRepository
++import com.ramka.domain.repository.OutboxRepository
++import com.ramka.domain.repository.TransportRepository
++import kotlinx.coroutines.delay
++import kotlinx.coroutines.flow.Flow
++import kotlinx.coroutines.flow.MutableStateFlow
++import kotlinx.coroutines.flow.emptyFlow
++import kotlinx.coroutines.flow.flowOf
++
++/** Минимальные потокобезопасные заглушки репозиториев для тестов джиттера (этап 2.5). */
++internal class StubMessageRepository(
++    /** Искусственная пауза в чтении «неотправленных READ-ACK»: расширяет окно гонки для теста Mutex. */
++    private val readDelayMillis: Long = 0
++) : MessageRepository {
++    private val store = mutableListOf<Message>()
++
++    fun add(message: Message) = synchronized(store) { store += message }
++    fun all(): List<Message> = synchronized(store) { store.toList() }
++
++    override fun observeMessages(contactId: String): Flow<List<Message>> =
++        MutableStateFlow(all().filter { it.contactId == contactId })
++    override suspend fun getMessage(localId: String): Message? = all().firstOrNull { it.localId == localId }
++    override suspend fun saveOutgoing(message: Message) { add(message) }
++    override suspend fun saveIncoming(message: Message) { add(message) }
++    override suspend fun updateStatus(localId: String, status: MessageStatus) = replace(localId) { it.copy(status = status) }
++    override suspend fun markReadAckSent(localId: String) = replace(localId) { it.copy(readAckSent = true) }
++    override suspend fun deleteMessage(localId: String) { synchronized(store) { store.removeAll { it.localId == localId } } }
++    override suspend fun pendingForContact(contactId: String): List<Message> = emptyList()
++    override suspend fun incomingWithoutReadAck(contactId: String): List<Message> {
++        val snapshot = all().filter {
++            it.contactId == contactId && it.direction == MessageDirection.INCOMING && !it.readAckSent
++        }
++        if (readDelayMillis > 0) delay(readDelayMillis)
++        return snapshot
++    }
++    override suspend fun findIncomingByRemoteId(contactId: String, remoteMessageId: String): Message? =
++        all().firstOrNull { it.contactId == contactId && it.remoteMessageId == remoteMessageId }
++
++    private fun replace(localId: String, change: (Message) -> Message) = synchronized(store) {
++        val i = store.indexOfFirst { it.localId == localId }
++        if (i >= 0) store[i] = change(store[i])
++    }
++}
++
++/** Контактов нет: `getContact` -> null, поэтому `AttemptDeliveryUseCase` возвращает false без сети. */
++internal class StubContactRepository : ContactRepository {
++    override fun observeContacts(): Flow<List<Contact>> = flowOf(emptyList())
++    override suspend fun getContact(localId: String): Contact? = null
++    override suspend fun addContact(contact: Contact) = Unit
++    override suspend fun updateAlias(localId: String, alias: String) = Unit
++    override suspend fun updateLastKnownAddress(localId: String, address: NetworkAddress) = Unit
++    override suspend fun markKeyChanged(localId: String, newPublicKey: ByteArray) = Unit
++    override suspend fun removeContact(localId: String) = Unit
++    override suspend fun incrementUnreadCount(localId: String) = Unit
++    override suspend fun resetUnreadCount(localId: String) = Unit
++}
++
++internal class StubTransportRepository : TransportRepository {
++    override suspend fun sendEncryptedPacket(contact: Contact, packet: ByteArray): Boolean = false
++    override fun incomingPackets(): Flow<Pair<ByteArray, ByteArray>> = emptyFlow()
++}
++
++internal class StubOutboxRepository(private val entries: List<OutboxEntry>) : OutboxRepository {
++    data class Failure(val messageLocalId: String, val attemptCount: Int, val nextAttemptAtEpochMillis: Long)
++
++    val failures = mutableListOf<Failure>()
++
++    override fun observePending(): Flow<List<OutboxEntry>> = MutableStateFlow(entries)
++    override suspend fun enqueue(entry: OutboxEntry) = Unit
++    override suspend fun due(nowEpochMillis: Long): List<OutboxEntry> = entries
++    override suspend fun recordFailedAttempt(messageLocalId: String, attemptCount: Int, nextAttemptAtEpochMillis: Long) {
++        failures += Failure(messageLocalId, attemptCount, nextAttemptAtEpochMillis)
++    }
++    override suspend fun remove(messageLocalId: String) = Unit
++}
+diff -uNr a/domain/src/test/java/com/ramka/domain/util/JitterTest.kt b/domain/src/test/java/com/ramka/domain/util/JitterTest.kt
+--- a/domain/src/test/java/com/ramka/domain/util/JitterTest.kt	1970-01-01 00:00:00.000000000 +0000
++++ b/domain/src/test/java/com/ramka/domain/util/JitterTest.kt	2026-10-01 08:30:16.857842909 +0000
+@@ -0,0 +1,84 @@
++package com.ramka.domain.util
++
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertTrue
++import org.junit.Test
++
++class JitterTest {
++
++    private val almostOne = Math.nextDown(1.0)
++
++    private fun jitter(unit: Double, config: PrivacyTimingConfig = PrivacyTimingConfig.DEFAULT) = Jitter(config) { unit }
++
++    @Test
++    fun `default config matches the agreed constants`() {
++        val c = PrivacyTimingConfig.DEFAULT
++        assertTrue("по умолчанию джиттер включён", c.jitterEnabled)
++        assertEquals(500L, c.ackJitterMinMillis)
++        assertEquals(5_000L, c.ackJitterMaxMillis)
++        assertEquals(0.20, c.backoffJitterFraction, 0.0)
++    }
++
++    @Test
++    fun `ack delay hits both ends of the range inclusive`() {
++        assertEquals(500L, jitter(0.0).ackDelayMillis())
++        assertEquals(5_000L, jitter(almostOne).ackDelayMillis())
++        assertEquals(2_750L, jitter(0.5).ackDelayMillis())
++    }
++
++    @Test
++    fun `ack delay with real randomness always stays within bounds and varies`() {
++        val jitter = Jitter()
++        val samples = List(5_000) { jitter.ackDelayMillis() }
++        assertTrue(samples.all { it in 500L..5_000L })
++        assertTrue("значения должны различаться", samples.toSet().size > 100)
++    }
++
++    @Test
++    fun `out of range random source is clamped`() {
++        assertEquals(500L, jitter(-3.0).ackDelayMillis())
++        assertEquals(5_000L, jitter(7.0).ackDelayMillis())
++    }
++
++    @Test
++    fun `backoff factor spans minus 20 to plus 20 percent`() {
++        assertEquals(48_000L, jitter(0.0).applyBackoff(60_000L))
++        assertEquals(60_000L, jitter(0.5).applyBackoff(60_000L))
++        val high = jitter(almostOne).applyBackoff(60_000L)
++        assertTrue("high=$high", high in 71_990L..72_000L)
++    }
++
++    @Test
++    fun `backoff jitter applies at the one hour cap too`() {
++        val hour = 3_600_000L
++        assertEquals(2_880_000L, jitter(0.0).applyBackoff(hour)) // 48 минут
++        val high = jitter(almostOne).applyBackoff(hour)
++        assertTrue("high=$high", high in 4_319_000L..4_320_000L) // 72 минуты
++    }
++
++    @Test
++    fun `backoff with real randomness stays within plus minus 20 percent`() {
++        val jitter = Jitter()
++        repeat(5_000) {
++            val result = jitter.applyBackoff(30_000L)
++            assertTrue("result=$result", result in 24_000L..36_000L)
++        }
++    }
++
++    @Test
++    fun `disabled jitter gives zero ack delay and untouched backoff`() {
++        val off = PrivacyTimingConfig(jitterEnabled = false)
++        assertEquals(0L, jitter(0.7, off).ackDelayMillis())
++        assertEquals(123_456L, jitter(0.7, off).applyBackoff(123_456L))
++    }
++
++    @Test(expected = IllegalArgumentException::class)
++    fun `config rejects max below min`() {
++        PrivacyTimingConfig(ackJitterMinMillis = 2_000, ackJitterMaxMillis = 1_000)
++    }
++
++    @Test(expected = IllegalArgumentException::class)
++    fun `config rejects fraction of one or more`() {
++        PrivacyTimingConfig(backoffJitterFraction = 1.0)
++    }
++}

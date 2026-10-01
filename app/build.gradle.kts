@@ -87,6 +87,10 @@ dependencies {
     // поднимать AGP и рисковать совместимостью остальных модулей ради одной задачи.
     implementation("androidx.work:work-runtime-ktx:2.9.1")
 
+    // Flow/StateFlow и корутины используются в app напрямую (LanPresenceCoordinator, RamkaApp); версия как в
+    // остальных модулях, раньше шла только транзитивно.
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
+
     // Unit-тесты (pure JVM, JUnit4) чистой логики: OemDetector, BackgroundDeliveryController.
     // Android SDK/Robolectric не нужны — тесты не трогают android.* классы.
     testImplementation("junit:junit:4.13.2")

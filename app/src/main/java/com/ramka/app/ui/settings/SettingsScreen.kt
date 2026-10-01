@@ -50,6 +50,16 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMo
                 enabled = viewModel.backgroundDelivery,
                 onCheckedChange = viewModel::onPersistentServiceChanged
             )
+            Spacer(Modifier.height(8.dp))
+            SettingSwitchRow(
+                title = "Автообнаружение в сети (mDNS)",
+                description = "Другие устройства ramka находят вас автоматически. Если выключить, вас " +
+                    "видно только по IP и порту из QR-приглашения, а доставка идёт по расписанию и " +
+                    "ручному обновлению.",
+                checked = viewModel.mdnsEnabled,
+                enabled = true,
+                onCheckedChange = viewModel::onMdnsChanged
+            )
             Spacer(Modifier.height(16.dp))
             TextButton(onClick = viewModel::openHintManually) {
                 Text("Как разрешить фоновую работу")

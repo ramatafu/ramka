@@ -1,0 +1,696 @@
+diff -uNr a/app/build.gradle.kts b/app/build.gradle.kts
+--- a/app/build.gradle.kts	2026-10-01 08:51:08.904607010 +0000
++++ b/app/build.gradle.kts	2026-10-01 08:51:08.874473525 +0000
+@@ -87,6 +87,10 @@
+     // поднимать AGP и рисковать совместимостью остальных модулей ради одной задачи.
+     implementation("androidx.work:work-runtime-ktx:2.9.1")
+ 
++    // Flow/StateFlow и корутины используются в app напрямую (LanPresenceCoordinator, RamkaApp); версия как в
++    // остальных модулях, раньше шла только транзитивно.
++    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
++
+     // Unit-тесты (pure JVM, JUnit4) чистой логики: OemDetector, BackgroundDeliveryController.
+     // Android SDK/Robolectric не нужны — тесты не трогают android.* классы.
+     testImplementation("junit:junit:4.13.2")
+diff -uNr a/app/src/main/java/com/ramka/app/RamkaApp.kt b/app/src/main/java/com/ramka/app/RamkaApp.kt
+--- a/app/src/main/java/com/ramka/app/RamkaApp.kt	2026-10-01 08:51:08.882274701 +0000
++++ b/app/src/main/java/com/ramka/app/RamkaApp.kt	2026-10-01 08:51:08.858603391 +0000
+@@ -2,15 +2,14 @@
+ 
+ import android.app.Application
+ import com.ramka.app.background.BackgroundDeliveryController
++import com.ramka.app.discovery.LanPresenceCoordinator
++import com.ramka.app.discovery.LanVisibilityController
+ import com.ramka.data.incoming.IncomingMessageProcessor
+ import com.ramka.domain.usecase.ProcessOutboxUseCase
+ import com.ramka.network.local.LanDiscoveryService
+ import dagger.hilt.android.HiltAndroidApp
+ import kotlinx.coroutines.CoroutineScope
+-import kotlinx.coroutines.flow.launchIn
+-import kotlinx.coroutines.flow.onEach
+ import kotlinx.coroutines.launch
+-import java.security.SecureRandom
+ import javax.inject.Inject
+ 
+ @HiltAndroidApp
+@@ -21,31 +20,32 @@
+     @Inject lateinit var processOutboxUseCase: ProcessOutboxUseCase
+     @Inject lateinit var appScope: CoroutineScope
+     @Inject lateinit var backgroundDeliveryController: BackgroundDeliveryController
++    @Inject lateinit var lanVisibilityController: LanVisibilityController
+ 
+     override fun onCreate() {
+         super.onCreate()
+ 
+         com.ramka.app.notifications.RamkaNotifications.ensureChannel(this)
+ 
+-        // Регистрация в локальной сети — вариант B из п. 3.6, дополнение к ручному вводу IP:port.
+-        // Имя экземпляра — случайное и эфемерное (генерируется заново при каждом запуске
+-        // процесса, нигде не сохраняется), а НЕ имя устройства/пользователя — чтобы mDNS-имя
+-        // само по себе не было идентифицирующим или отслеживаемым метаданным.
+-        val ephemeralInstanceName = "ramka-" + ByteArray(4)
+-            .also(SecureRandom()::nextBytes)
+-            .joinToString("") { "%02x".format(it) }
+-        lanDiscoveryService.registerService(port = 48765, instanceName = ephemeralInstanceName)
+-
+         // Единственная на всё приложение точка приёма и сохранения входящих сообщений.
+         incomingMessageProcessor.start(appScope)
+ 
+-        // ЭТАП B.2, триггер 1/3: любое обнаружение пира в LAN — повод немедленно
+-        // попробовать разгрести Outbox (не обязательно этот пир — сам факт "сеть
+-        // изменилась" достаточен, т.к. discoverPeers() не даёт нам identity пира,
+-        // только host:port; см. LanDiscoveryService.discoverPeers()).
+-        lanDiscoveryService.discoverPeers()
+-            .onEach { processOutboxUseCase.processDue(System.currentTimeMillis()) }
+-            .launchIn(appScope)
++        // mDNS (вариант B из п. 3.6, дополнение к ручному вводу IP:port) — только пока включён
++        // тумблер в настройках (этап 2.5, по умолчанию ВКЛ). Включено: сервис вещается под
++        // случайным эфемерным именем (новое при каждом включении, не имя устройства/пользователя)
++        // и ищутся другие экземпляры. Выключено: ни объявлений, ни запросов; приём входящих
++        // (TCP-слушатель), sweep и ручной коннект работают как раньше.
++        //
++        // ЭТАП B.2, триггер 1/3: любое обнаружение пира в LAN — повод немедленно попробовать
++        // разгрести Outbox (не обязательно этот пир — сам факт "сеть изменилась" достаточен,
++        // т.к. discoverPeers() не даёт нам identity пира, только host:port).
++        LanPresenceCoordinator(
++            enabled = lanVisibilityController.enabled,
++            register = { name -> lanDiscoveryService.registerService(port = 48765, instanceName = name) },
++            unregister = { lanDiscoveryService.unregisterService() },
++            discoverPeers = { lanDiscoveryService.discoverPeers() },
++            onPeerDiscovered = { processOutboxUseCase.processDue(System.currentTimeMillis()) }
++        ).start(appScope)
+ 
+         // ЭТАП B.2, триггер 2/3: периодический sweep не чаще раза в 15 минут — если включён
+         // тумблер «Фоновая доставка» (ЭТАП B.8; по умолчанию включён, выключен — отменяется).
+diff -uNr a/app/src/main/java/com/ramka/app/di/AppModule.kt b/app/src/main/java/com/ramka/app/di/AppModule.kt
+--- a/app/src/main/java/com/ramka/app/di/AppModule.kt	2026-10-01 08:51:08.886740881 +0000
++++ b/app/src/main/java/com/ramka/app/di/AppModule.kt	2026-10-01 08:51:08.861733572 +0000
+@@ -175,6 +175,12 @@
+ 
+     @Provides
+     @Singleton
++    fun provideLanVisibilityController(
++        prefs: com.ramka.app.preferences.AppPreferences
++    ) = com.ramka.app.discovery.LanVisibilityController(prefs)
++
++    @Provides
++    @Singleton
+     fun provideBackgroundDeliveryController(
+         @dagger.hilt.android.qualifiers.ApplicationContext ctx: Context,
+         prefs: com.ramka.app.preferences.AppPreferences
+diff -uNr a/app/src/main/java/com/ramka/app/discovery/LanPresenceCoordinator.kt b/app/src/main/java/com/ramka/app/discovery/LanPresenceCoordinator.kt
+--- a/app/src/main/java/com/ramka/app/discovery/LanPresenceCoordinator.kt	1970-01-01 00:00:00.000000000 +0000
++++ b/app/src/main/java/com/ramka/app/discovery/LanPresenceCoordinator.kt	2026-10-01 08:51:08.845052375 +0000
+@@ -0,0 +1,79 @@
++package com.ramka.app.discovery
++
++import kotlinx.coroutines.CancellationException
++import kotlinx.coroutines.CoroutineScope
++import kotlinx.coroutines.Job
++import kotlinx.coroutines.awaitCancellation
++import kotlinx.coroutines.flow.Flow
++import kotlinx.coroutines.flow.StateFlow
++import kotlinx.coroutines.flow.collect
++import kotlinx.coroutines.flow.collectLatest
++import kotlinx.coroutines.launch
++import java.security.SecureRandom
++
++/**
++ * Включает и выключает всё, что приложение делает в mDNS (этап 2.5), по флагу [enabled]:
++ *
++ * - ВКЛ: регистрирует сервис `_ramka._tcp.` под новым случайным именем и подписывается на
++ *   обнаружение других экземпляров; каждое найденное устройство — повод вызвать
++ *   [onPeerDiscovered] (разбор Outbox);
++ * - ВЫКЛ: подписка на обнаружение отменяется, регистрация снимается. mDNS-трафика приложение
++ *   больше не создаёт (ни объявлений, ни запросов).
++ *
++ * `collectLatest` отменяет блок предыдущего значения и дожидается его завершения, поэтому
++ * `unregister` всегда выполняется раньше следующего `register`, а быстрые переключения
++ * не оставляют двух регистраций одновременно. Ошибка обнаружения или обработчика пира не
++ * останавливает ни вещание, ни наблюдение за тумблером.
++ *
++ * Функции регистрации и обнаружения переданы лямбдами, чтобы класс не зависел от Android
++ * (в приложении это `LanDiscoveryService`).
++ */
++class LanPresenceCoordinator(
++    private val enabled: StateFlow<Boolean>,
++    private val register: (instanceName: String) -> Unit,
++    private val unregister: () -> Unit,
++    private val discoverPeers: () -> Flow<Any?>,
++    private val onPeerDiscovered: suspend () -> Unit,
++    private val newInstanceName: () -> String = ::randomInstanceName
++) {
++    fun start(scope: CoroutineScope): Job = scope.launch {
++        enabled.collectLatest { on ->
++            if (!on) return@collectLatest
++            try {
++                runCatchingNonCancellation { register(newInstanceName()) }
++                try {
++                    discoverPeers().collect {
++                        runCatchingNonCancellation { onPeerDiscovered() }
++                    }
++                } catch (e: CancellationException) {
++                    throw e
++                } catch (e: Exception) {
++                    // Поиск не стартовал или оборвался: вещание продолжается, как и раньше.
++                }
++                awaitCancellation() // держим регистрацию, пока тумблер не выключат
++            } finally {
++                unregister()
++            }
++        }
++    }
++
++    private inline fun runCatchingNonCancellation(block: () -> Unit) {
++        try {
++            block()
++        } catch (e: CancellationException) {
++            throw e
++        } catch (e: Exception) {
++            // не роняем наблюдение за тумблером
++        }
++    }
++
++    companion object {
++        /**
++         * Случайное эфемерное имя экземпляра: не имя устройства и не пользователя, нигде не
++         * сохраняется, при каждом включении новое.
++         */
++        fun randomInstanceName(): String = "ramka-" + ByteArray(4)
++            .also(SecureRandom()::nextBytes)
++            .joinToString("") { "%02x".format(it) }
++    }
++}
+diff -uNr a/app/src/main/java/com/ramka/app/discovery/LanVisibilityController.kt b/app/src/main/java/com/ramka/app/discovery/LanVisibilityController.kt
+--- a/app/src/main/java/com/ramka/app/discovery/LanVisibilityController.kt	1970-01-01 00:00:00.000000000 +0000
++++ b/app/src/main/java/com/ramka/app/discovery/LanVisibilityController.kt	2026-10-01 08:51:08.840781735 +0000
+@@ -0,0 +1,27 @@
++package com.ramka.app.discovery
++
++import kotlinx.coroutines.flow.MutableStateFlow
++import kotlinx.coroutines.flow.StateFlow
++import kotlinx.coroutines.flow.asStateFlow
++
++/** Хранилище флага mDNS. Реализация — обычные SharedPreferences ([com.ramka.app.preferences.AppPreferences]). */
++interface MdnsPrefs {
++    /** Вещать и искать сервис `_ramka._tcp.` через mDNS. По умолчанию ВКЛ. */
++    var mdnsEnabled: Boolean
++}
++
++/**
++ * Тумблер mDNS-видимости (этап 2.5). Единый источник правды для экрана настроек и для
++ * [LanPresenceCoordinator]: значение сохраняется в настройках и сразу эмитится подписчикам.
++ */
++class LanVisibilityController(private val prefs: MdnsPrefs) {
++    private val state = MutableStateFlow(prefs.mdnsEnabled)
++
++    val enabled: StateFlow<Boolean> = state.asStateFlow()
++
++    fun setEnabled(value: Boolean) {
++        if (state.value == value) return
++        prefs.mdnsEnabled = value
++        state.value = value
++    }
++}
+diff -uNr a/app/src/main/java/com/ramka/app/preferences/AppPreferences.kt b/app/src/main/java/com/ramka/app/preferences/AppPreferences.kt
+--- a/app/src/main/java/com/ramka/app/preferences/AppPreferences.kt	2026-10-01 08:51:08.891145595 +0000
++++ b/app/src/main/java/com/ramka/app/preferences/AppPreferences.kt	2026-10-01 08:51:08.864971877 +0000
+@@ -2,6 +2,7 @@
+ 
+ import android.content.Context
+ import com.ramka.app.background.BackgroundDeliveryPrefs
++import com.ramka.app.discovery.MdnsPrefs
+ 
+ /**
+  * Несекретные UI-флаги и настройки фоновой доставки. Намеренно обычный SharedPreferences,
+@@ -9,7 +10,7 @@
+  * ссылки; см. директиву v2) писан для криптографического материала, а не для булевых
+  * флагов, и смешивать их не стоит.
+  */
+-class AppPreferences(context: Context) : BackgroundDeliveryPrefs {
++class AppPreferences(context: Context) : BackgroundDeliveryPrefs, MdnsPrefs {
+     private val prefs = context.getSharedPreferences("ramka_app_prefs", Context.MODE_PRIVATE)
+ 
+     var hasAskedNotificationPermission: Boolean
+@@ -28,10 +29,15 @@
+         get() = prefs.getBoolean(KEY_BACKGROUND_HINT_SHOWN, false)
+         set(value) = prefs.edit().putBoolean(KEY_BACKGROUND_HINT_SHOWN, value).apply()
+ 
++    override var mdnsEnabled: Boolean
++        get() = prefs.getBoolean(KEY_MDNS, true) // по умолчанию ВКЛ
++        set(value) = prefs.edit().putBoolean(KEY_MDNS, value).apply()
++
+     companion object {
+         private const val KEY_ASKED_NOTIFICATIONS = "asked_notification_permission"
+         private const val KEY_BACKGROUND_DELIVERY = "background_delivery_enabled"
+         private const val KEY_PERSISTENT_SERVICE = "persistent_service_enabled"
+         private const val KEY_BACKGROUND_HINT_SHOWN = "background_hint_shown"
++        private const val KEY_MDNS = "mdns_enabled"
+     }
+ }
+diff -uNr a/app/src/main/java/com/ramka/app/ui/settings/SettingsScreen.kt b/app/src/main/java/com/ramka/app/ui/settings/SettingsScreen.kt
+--- a/app/src/main/java/com/ramka/app/ui/settings/SettingsScreen.kt	2026-10-01 08:51:08.900201098 +0000
++++ b/app/src/main/java/com/ramka/app/ui/settings/SettingsScreen.kt	2026-10-01 08:51:08.871114404 +0000
+@@ -50,6 +50,16 @@
+                 enabled = viewModel.backgroundDelivery,
+                 onCheckedChange = viewModel::onPersistentServiceChanged
+             )
++            Spacer(Modifier.height(8.dp))
++            SettingSwitchRow(
++                title = "Автообнаружение в сети (mDNS)",
++                description = "Другие устройства ramka находят вас автоматически. Если выключить, вас " +
++                    "видно только по IP и порту из QR-приглашения, а доставка идёт по расписанию и " +
++                    "ручному обновлению.",
++                checked = viewModel.mdnsEnabled,
++                enabled = true,
++                onCheckedChange = viewModel::onMdnsChanged
++            )
+             Spacer(Modifier.height(16.dp))
+             TextButton(onClick = viewModel::openHintManually) {
+                 Text("Как разрешить фоновую работу")
+diff -uNr a/app/src/main/java/com/ramka/app/ui/settings/SettingsViewModel.kt b/app/src/main/java/com/ramka/app/ui/settings/SettingsViewModel.kt
+--- a/app/src/main/java/com/ramka/app/ui/settings/SettingsViewModel.kt	2026-10-01 08:51:08.895676920 +0000
++++ b/app/src/main/java/com/ramka/app/ui/settings/SettingsViewModel.kt	2026-10-01 08:51:08.868162201 +0000
+@@ -9,6 +9,7 @@
+ import com.ramka.app.background.Oem
+ import com.ramka.app.background.OemDetector
+ import com.ramka.app.background.OemHintTexts
++import com.ramka.app.discovery.LanVisibilityController
+ import com.ramka.app.preferences.AppPreferences
+ import dagger.hilt.android.lifecycle.HiltViewModel
+ import javax.inject.Inject
+@@ -16,6 +17,7 @@
+ @HiltViewModel
+ class SettingsViewModel @Inject constructor(
+     private val controller: BackgroundDeliveryController,
++    private val lanVisibility: LanVisibilityController,
+     prefs: AppPreferences
+ ) : ViewModel() {
+ 
+@@ -26,6 +28,8 @@
+         private set
+     var persistentService by mutableStateOf(prefs.persistentServiceEnabled)
+         private set
++    var mdnsEnabled by mutableStateOf(lanVisibility.enabled.value)
++        private set
+     var showHint by mutableStateOf(false)
+         private set
+ 
+@@ -46,6 +50,11 @@
+         persistentService = enabled
+     }
+ 
++    fun onMdnsChanged(enabled: Boolean) {
++        lanVisibility.setEnabled(enabled)
++        mdnsEnabled = enabled
++    }
++
+     /** Ручное повторное открытие подсказки — флаг «показано» не трогает. */
+     fun openHintManually() { showHint = true }
+ 
+diff -uNr a/app/src/test/java/com/ramka/app/discovery/LanPresenceCoordinatorTest.kt b/app/src/test/java/com/ramka/app/discovery/LanPresenceCoordinatorTest.kt
+--- a/app/src/test/java/com/ramka/app/discovery/LanPresenceCoordinatorTest.kt	1970-01-01 00:00:00.000000000 +0000
++++ b/app/src/test/java/com/ramka/app/discovery/LanPresenceCoordinatorTest.kt	2026-10-01 08:51:08.851803843 +0000
+@@ -0,0 +1,216 @@
++package com.ramka.app.discovery
++
++import kotlinx.coroutines.CoroutineScope
++import kotlinx.coroutines.Dispatchers
++import kotlinx.coroutines.SupervisorJob
++import kotlinx.coroutines.cancel
++import kotlinx.coroutines.delay
++import kotlinx.coroutines.flow.Flow
++import kotlinx.coroutines.flow.MutableSharedFlow
++import kotlinx.coroutines.flow.MutableStateFlow
++import kotlinx.coroutines.flow.flow
++import kotlinx.coroutines.runBlocking
++import kotlinx.coroutines.withTimeout
++import org.junit.After
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertFalse
++import org.junit.Assert.assertTrue
++import org.junit.Test
++import java.util.concurrent.CopyOnWriteArrayList
++import java.util.concurrent.atomic.AtomicInteger
++
++class LanPresenceCoordinatorTest {
++
++    private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
++
++    @After
++    fun tearDown() = scope.cancel()
++
++    /** Фейковый NSD: пишет события в общий журнал и умеет «находить» пиров. */
++    private class Env(initiallyEnabled: Boolean) {
++        val enabled = MutableStateFlow(initiallyEnabled)
++        val events = CopyOnWriteArrayList<String>()
++        val peers = MutableSharedFlow<Int>(extraBufferCapacity = 16)
++        val discoveryActive = AtomicInteger(0) // сколько подписок на поиск живо сейчас
++        val processed = AtomicInteger(0)
++        private val names = AtomicInteger(0)
++
++        var discoveryFlow: () -> Flow<Any?> = {
++            flow {
++                discoveryActive.incrementAndGet()
++                events += "discovery:start"
++                try {
++                    peers.collect { emit(it) }
++                } finally {
++                    discoveryActive.decrementAndGet()
++                    events += "discovery:stop"
++                }
++            }
++        }
++        var onPeer: suspend () -> Unit = { processed.incrementAndGet() }
++
++        fun coordinator() = LanPresenceCoordinator(
++            enabled = enabled,
++            register = { events += "register:$it" },
++            unregister = { events += "unregister" },
++            discoverPeers = { discoveryFlow() },
++            onPeerDiscovered = { onPeer() },
++            newInstanceName = { "n${names.incrementAndGet()}" }
++        )
++    }
++
++    private suspend fun eventually(message: String = "условие не выполнено за 3 с", check: () -> Boolean) {
++        try {
++            withTimeout(3_000) { while (!check()) delay(10) }
++        } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
++            throw AssertionError(message)
++        }
++    }
++
++    private suspend fun Env.emitPeer() {
++        // подписка на SharedFlow может оформиться чуть позже старта: ждём, пока поиск реально активен
++        eventually { discoveryActive.get() > 0 }
++        peers.emit(1)
++    }
++
++    @Test
++    fun `enabled at start registers once and starts discovery`() = runBlocking {
++        val env = Env(initiallyEnabled = true)
++        env.coordinator().start(scope)
++
++        eventually { env.discoveryActive.get() == 1 }
++
++        assertEquals(listOf("register:n1", "discovery:start"), env.events.toList())
++    }
++
++    @Test
++    fun `disabled at start does nothing at all`() = runBlocking {
++        val env = Env(initiallyEnabled = false)
++        env.coordinator().start(scope)
++        delay(300)
++
++        assertTrue("ни регистрации, ни поиска: ${env.events}", env.events.isEmpty())
++    }
++
++    @Test
++    fun `switching off stops discovery and unregisters`() = runBlocking {
++        val env = Env(initiallyEnabled = true)
++        env.coordinator().start(scope)
++        eventually { env.discoveryActive.get() == 1 }
++
++        env.enabled.value = false
++        eventually { env.events.contains("unregister") }
++
++        assertEquals(0, env.discoveryActive.get())
++        assertEquals(listOf("register:n1", "discovery:start", "discovery:stop", "unregister"), env.events.toList())
++    }
++
++    @Test
++    fun `switching back on registers again under a new name and restarts discovery`() = runBlocking {
++        val env = Env(initiallyEnabled = true)
++        env.coordinator().start(scope)
++        eventually { env.discoveryActive.get() == 1 }
++
++        env.enabled.value = false
++        eventually { env.events.contains("unregister") }
++        env.enabled.value = true
++        eventually { env.discoveryActive.get() == 1 }
++
++        assertEquals(
++            listOf(
++                "register:n1", "discovery:start", "discovery:stop", "unregister",
++                "register:n2", "discovery:start"
++            ),
++            env.events.toList()
++        )
++    }
++
++    @Test
++    fun `discovered peer triggers outbox processing only while enabled`() = runBlocking {
++        val env = Env(initiallyEnabled = true)
++        env.coordinator().start(scope)
++
++        env.emitPeer()
++        eventually { env.processed.get() == 1 }
++
++        env.enabled.value = false
++        eventually { env.discoveryActive.get() == 0 }
++        env.peers.emit(2) // пира «нашли», но подписки на поиск уже нет
++        delay(300)
++
++        assertEquals(1, env.processed.get())
++    }
++
++    @Test
++    fun `rapid toggling never leaves two registrations alive`() = runBlocking {
++        val env = Env(initiallyEnabled = true)
++        env.coordinator().start(scope)
++        eventually { env.discoveryActive.get() == 1 }
++
++        repeat(10) {
++            env.enabled.value = false
++            env.enabled.value = true
++        }
++        env.enabled.value = true
++        delay(500)
++
++        var active = 0
++        for (event in env.events) {
++            if (event.startsWith("register:")) active++
++            if (event == "unregister") active--
++            assertTrue("регистраций одновременно: $active, события=${env.events}", active in 0..1)
++        }
++        assertEquals("после включения регистрация ровно одна", 1, active)
++        assertEquals(1, env.discoveryActive.get())
++    }
++
++    @Test
++    fun `discovery failure keeps advertising and the toggle still works`() = runBlocking {
++        val env = Env(initiallyEnabled = true)
++        env.discoveryFlow = { flow { throw IllegalStateException("NSD недоступен") } }
++        env.coordinator().start(scope)
++        delay(300)
++
++        assertEquals("поиск упал, вещание не снято", listOf("register:n1"), env.events.toList())
++
++        env.enabled.value = false
++        eventually { env.events.contains("unregister") }
++        assertEquals(listOf("register:n1", "unregister"), env.events.toList())
++    }
++
++    @Test
++    fun `discovery that completes by itself keeps advertising`() = runBlocking {
++        val env = Env(initiallyEnabled = true)
++        env.discoveryFlow = { flow { env.events += "discovery:done" } }
++        env.coordinator().start(scope)
++        delay(300)
++
++        assertFalse("unregister не должен вызываться: ${env.events}", env.events.contains("unregister"))
++        assertTrue(env.events.contains("register:n1"))
++    }
++
++    @Test
++    fun `failing peer handler does not break discovery or the toggle`() = runBlocking {
++        val env = Env(initiallyEnabled = true)
++        val calls = AtomicInteger(0)
++        env.onPeer = {
++            if (calls.incrementAndGet() == 1) throw IllegalStateException("сбой Outbox")
++            env.processed.incrementAndGet()
++        }
++        env.coordinator().start(scope)
++
++        env.emitPeer()
++        env.emitPeer()
++        eventually { env.processed.get() == 1 } // вторая обработка прошла, первая упала молча
++
++        env.enabled.value = false
++        eventually { env.events.contains("unregister") }
++    }
++
++    @Test
++    fun `random instance name is ephemeral and not a device name`() {
++        val names = List(50) { LanPresenceCoordinator.randomInstanceName() }
++        assertTrue(names.all { Regex("ramka-[0-9a-f]{8}").matches(it) })
++        assertTrue("имена должны различаться", names.toSet().size > 40)
++    }
++}
+diff -uNr a/app/src/test/java/com/ramka/app/discovery/LanVisibilityControllerTest.kt b/app/src/test/java/com/ramka/app/discovery/LanVisibilityControllerTest.kt
+--- a/app/src/test/java/com/ramka/app/discovery/LanVisibilityControllerTest.kt	1970-01-01 00:00:00.000000000 +0000
++++ b/app/src/test/java/com/ramka/app/discovery/LanVisibilityControllerTest.kt	2026-10-01 08:51:08.848788895 +0000
+@@ -0,0 +1,66 @@
++package com.ramka.app.discovery
++
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertFalse
++import org.junit.Assert.assertTrue
++import org.junit.Test
++
++class LanVisibilityControllerTest {
++
++    private class FakePrefs(override var mdnsEnabled: Boolean = true) : MdnsPrefs // как в AppPreferences: по умолчанию ВКЛ
++
++    /** Фейк, считающий именно записи в хранилище (через setter интерфейса). */
++    private class CountingPrefs(initial: Boolean = true) : MdnsPrefs {
++        var writes = 0
++        private var value = initial
++        override var mdnsEnabled: Boolean
++            get() = value
++            set(v) { writes++; value = v }
++    }
++
++    @Test
++    fun `enabled by default`() {
++        assertTrue(LanVisibilityController(FakePrefs()).enabled.value)
++    }
++
++    @Test
++    fun `initial value comes from stored preference`() {
++        assertFalse(LanVisibilityController(FakePrefs(mdnsEnabled = false)).enabled.value)
++    }
++
++    @Test
++    fun `setEnabled persists and updates the flow value`() {
++        val prefs = CountingPrefs()
++        val controller = LanVisibilityController(prefs)
++
++        controller.setEnabled(false)
++
++        assertFalse(prefs.mdnsEnabled)
++        assertFalse(controller.enabled.value)
++
++        controller.setEnabled(true)
++
++        assertTrue(prefs.mdnsEnabled)
++        assertTrue(controller.enabled.value)
++        assertEquals(2, prefs.writes)
++    }
++
++    @Test
++    fun `setting the same value does not write again`() {
++        val prefs = CountingPrefs()
++        val controller = LanVisibilityController(prefs)
++
++        controller.setEnabled(true)
++        controller.setEnabled(true)
++
++        assertEquals(0, prefs.writes)
++    }
++
++    @Test
++    fun `new controller restores the persisted choice`() {
++        val prefs = CountingPrefs()
++        LanVisibilityController(prefs).setEnabled(false)
++
++        assertFalse(LanVisibilityController(prefs).enabled.value)
++    }
++}
+diff -uNr a/network/src/main/java/com/ramka/network/local/LanDiscoveryService.kt b/network/src/main/java/com/ramka/network/local/LanDiscoveryService.kt
+--- a/network/src/main/java/com/ramka/network/local/LanDiscoveryService.kt	2026-10-01 08:51:08.878288607 +0000
++++ b/network/src/main/java/com/ramka/network/local/LanDiscoveryService.kt	2026-10-01 08:51:08.854887661 +0000
+@@ -11,6 +11,9 @@
+  * Регистрация и обнаружение сервиса ramka в локальной сети через NSD (mDNS),
+  * без запроса разрешений на геолокацию (см. запрет 5.2 — ACCESS_*_LOCATION запрещены).
+  *
++ * Вещание и поиск включаются и выключаются тумблером в настройках (этап 2.5) через
++ * `LanPresenceCoordinator`: [registerService]/[unregisterService] и подписка на [discoverPeers].
++ *
+  * Согласно п. 3.6, вариант A (ручной ввод IP:port из QR) — приоритетный способ
+  * обнаружения; NSD — опциональное дополнение (вариант B), не обязательное для
+  * MVP этапа 1, если начнёт требовать лишние разрешения на конкретных версиях Android.
+@@ -19,18 +22,78 @@
+ 
+     private val nsdManager = context.getSystemService(Context.NSD_SERVICE) as NsdManager
+ 
++    private val lock = Any()
++    private var registration: NsdManager.RegistrationListener? = null
++    private var registered = false
++    private var unregisterWhenRegistered = false
++
++    /**
++     * Вещает сервис в локальной сети. Идемпотентно: пока регистрация активна или ещё ожидается,
++     * повторный вызов ничего не создаёт (и отменяет отложенное снятие, если оно было запрошено).
++     */
+     fun registerService(port: Int, instanceName: String) {
+         val serviceInfo = NsdServiceInfo().apply {
+             serviceName = instanceName
+             serviceType = SERVICE_TYPE
+             setPort(port)
+         }
+-        nsdManager.registerService(serviceInfo, NsdManager.PROTOCOL_DNS_SD, object : NsdManager.RegistrationListener {
+-            override fun onServiceRegistered(info: NsdServiceInfo) = Unit
+-            override fun onRegistrationFailed(info: NsdServiceInfo, errorCode: Int) = Unit
++        val listener = object : NsdManager.RegistrationListener {
++            override fun onServiceRegistered(info: NsdServiceInfo) {
++                val unregisterNow = synchronized(lock) {
++                    if (registration !== this) return@synchronized false
++                    registered = true
++                    if (unregisterWhenRegistered) {
++                        // Тумблер выключили, пока регистрация ещё была в пути.
++                        unregisterWhenRegistered = false
++                        registration = null
++                        registered = false
++                        true
++                    } else false
++                }
++                if (unregisterNow) runCatching { nsdManager.unregisterService(this) }
++            }
++
++            override fun onRegistrationFailed(info: NsdServiceInfo, errorCode: Int) {
++                synchronized(lock) {
++                    if (registration !== this) return
++                    registration = null
++                    registered = false
++                    unregisterWhenRegistered = false
++                }
++            }
++
+             override fun onServiceUnregistered(info: NsdServiceInfo) = Unit
+             override fun onUnregistrationFailed(info: NsdServiceInfo, errorCode: Int) = Unit
+-        })
++        }
++        synchronized(lock) {
++            if (registration != null) {
++                unregisterWhenRegistered = false
++                return
++            }
++            registration = listener
++            registered = false
++            unregisterWhenRegistered = false
++        }
++        try {
++            nsdManager.registerService(serviceInfo, NsdManager.PROTOCOL_DNS_SD, listener)
++        } catch (e: Exception) {
++            synchronized(lock) { if (registration === listener) registration = null }
++        }
++    }
++
++    /** Снимает вещание. Безопасно вызывать, если сервис не зарегистрирован или регистрация ещё в пути. */
++    fun unregisterService() {
++        val listener = synchronized(lock) {
++            val current = registration ?: return
++            if (!registered) {
++                unregisterWhenRegistered = true // снимем в onServiceRegistered
++                return
++            }
++            registration = null
++            registered = false
++            current
++        }
++        runCatching { nsdManager.unregisterService(listener) }
+     }
+ 
+     /** Поток найденных экземпляров сервиса ramka в локальной сети. */

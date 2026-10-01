@@ -17,13 +17,17 @@ import java.net.SocketTimeoutException
  *   M2 (ответчик -> инициатор): 112 байт, как есть
  *   M3 (инициатор -> ответчик):  80 байт, как есть
  *   кадр данных (инициатор -> ответчик):
- *       [length: 4 байта big-endian][counter: 8 байт][ciphertext: length байт]
+ *       [length: 4 байта big-endian][ciphertext: length байт]
  *
  * У кадров рукопожатия нет ни байта типа, ни поля длины: роль кадра определяется только
  * его позицией в рукопожатии (конечный автомат в [SecureLanChannel]), а размер фиксирован.
  * У кадра данных нет байта типа; `length` — длина шифртекста (выровненное тело + тег AEAD)
  * и обязана быть `корзина FramePadding + 16`, иначе соединение закрывается до чтения тела.
- * Поле `counter` не входит в `length`.
+ *
+ * Счётчика на проводе нет: одно соединение несёт ровно одно сообщение на свежих ключах, поэтому
+ * номер пакета всегда [IMPLICIT_COUNTER] и обе стороны подставляют его сами (он же nonce AEAD).
+ * Это согласовано с D-3/D-6: отправитель проверяет, что `SessionCipher` выдал именно этот номер,
+ * иначе отправка отменяется, а не уходит с повторным nonce.
  */
 internal object FrameIo {
     const val MESSAGE1_SIZE = IkHandshake.MESSAGE1_SIZE // 80
@@ -31,13 +35,13 @@ internal object FrameIo {
     const val MESSAGE3_SIZE = IkHandshake.MESSAGE3_SIZE // 80
 
     const val LENGTH_FIELD_SIZE = 4
-    const val COUNTER_SIZE = 8
     const val AEAD_TAG_SIZE = 16
+
+    /** Номер единственного пакета соединения; на провод не попадает (см. заголовок файла). */
+    const val IMPLICIT_COUNTER = 0L
 
     /** Значение [readExact] для «без общего дедлайна»: действует только текущий `soTimeout` сокета. */
     const val NO_DEADLINE = Long.MIN_VALUE
-
-    class DataFrame(val counter: Long, val ciphertext: ByteArray)
 
     /** Допустимое значение поля `length` кадра данных. */
     fun isValidCiphertextLength(length: Int): Boolean =
@@ -50,15 +54,12 @@ internal object FrameIo {
         output.flush()
     }
 
-    /** Пишет кадр данных; одним `write`, чтобы поля не уходили отдельными сегментами. */
-    fun writeData(output: OutputStream, counter: Long, ciphertext: ByteArray) {
+    /** Пишет кадр данных `[length][ciphertext]` одним `write`, чтобы поля не уходили отдельными сегментами. */
+    fun writeData(output: OutputStream, ciphertext: ByteArray) {
         require(isValidCiphertextLength(ciphertext.size)) { "Недопустимый размер шифртекста: ${ciphertext.size}" }
-        val frame = ByteArray(LENGTH_FIELD_SIZE + COUNTER_SIZE + ciphertext.size)
+        val frame = ByteArray(LENGTH_FIELD_SIZE + ciphertext.size)
         writeInt(frame, 0, ciphertext.size)
-        for (i in 0 until COUNTER_SIZE) {
-            frame[LENGTH_FIELD_SIZE + COUNTER_SIZE - 1 - i] = ((counter shr (8 * i)) and 0xFF).toByte()
-        }
-        System.arraycopy(ciphertext, 0, frame, LENGTH_FIELD_SIZE + COUNTER_SIZE, ciphertext.size)
+        System.arraycopy(ciphertext, 0, frame, LENGTH_FIELD_SIZE, ciphertext.size)
         output.write(frame)
         output.flush()
     }
@@ -86,17 +87,15 @@ internal object FrameIo {
     }
 
     /**
-     * Читает кадр данных. Недопустимая длина -> [IllegalArgumentException] ДО выделения памяти
-     * под шифртекст; вызывающий закрывает соединение. Таймаут чтения — текущий `soTimeout` сокета.
+     * Читает кадр данных и возвращает шифртекст. Недопустимая длина -> [IllegalArgumentException]
+     * ДО выделения памяти под шифртекст; вызывающий закрывает соединение. Таймаут чтения — текущий
+     * `soTimeout` сокета.
      */
-    fun readData(socket: Socket, input: InputStream): DataFrame {
+    fun readData(socket: Socket, input: InputStream): ByteArray {
         val header = readExact(socket, input, LENGTH_FIELD_SIZE)
         val length = readInt(header, 0)
         require(isValidCiphertextLength(length)) { "Недопустимая длина кадра данных: $length" }
-        val counterBytes = readExact(socket, input, COUNTER_SIZE)
-        var counter = 0L
-        for (i in 0 until COUNTER_SIZE) counter = (counter shl 8) or (counterBytes[i].toLong() and 0xFF)
-        return DataFrame(counter, readExact(socket, input, length))
+        return readExact(socket, input, length)
     }
 
     private fun writeInt(target: ByteArray, offset: Int, value: Int) {

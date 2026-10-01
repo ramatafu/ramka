@@ -9,6 +9,7 @@ import com.ramka.app.background.BackgroundDeliveryController
 import com.ramka.app.background.Oem
 import com.ramka.app.background.OemDetector
 import com.ramka.app.background.OemHintTexts
+import com.ramka.app.discovery.LanVisibilityController
 import com.ramka.app.preferences.AppPreferences
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -16,6 +17,7 @@ import javax.inject.Inject
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val controller: BackgroundDeliveryController,
+    private val lanVisibility: LanVisibilityController,
     prefs: AppPreferences
 ) : ViewModel() {
 
@@ -25,6 +27,8 @@ class SettingsViewModel @Inject constructor(
     var backgroundDelivery by mutableStateOf(prefs.backgroundDeliveryEnabled)
         private set
     var persistentService by mutableStateOf(prefs.persistentServiceEnabled)
+        private set
+    var mdnsEnabled by mutableStateOf(lanVisibility.enabled.value)
         private set
     var showHint by mutableStateOf(false)
         private set
@@ -44,6 +48,11 @@ class SettingsViewModel @Inject constructor(
     fun onPersistentServiceChanged(enabled: Boolean) {
         controller.setPersistentService(enabled)
         persistentService = enabled
+    }
+
+    fun onMdnsChanged(enabled: Boolean) {
+        lanVisibility.setEnabled(enabled)
+        mdnsEnabled = enabled
     }
 
     /** Ручное повторное открытие подсказки — флаг «показано» не трогает. */

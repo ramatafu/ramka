@@ -5,6 +5,7 @@ import com.ramka.domain.model.MessageBody
 import com.ramka.domain.model.MessageStatus
 import com.ramka.domain.repository.MessageRepository
 import com.ramka.domain.repository.OutboxRepository
+import com.ramka.domain.util.Jitter
 import com.ramka.domain.util.RetryBackoff
 
 /**
@@ -22,7 +23,9 @@ import com.ramka.domain.util.RetryBackoff
 class ProcessOutboxUseCase(
     private val outboxRepository: OutboxRepository,
     private val messageRepository: MessageRepository,
-    private val attemptDelivery: AttemptDeliveryUseCase
+    private val attemptDelivery: AttemptDeliveryUseCase,
+    /** Джиттер ±20% на интервал повтора (этап 2.5); по умолчанию — боевой конфиг. */
+    private val jitter: Jitter = Jitter()
 ) {
     suspend fun processDue(nowEpochMillis: Long) {
         val dueEntries = outboxRepository.due(nowEpochMillis)
@@ -53,7 +56,7 @@ class ProcessOutboxUseCase(
                 outboxRepository.remove(entry.messageLocalId)
             } else {
                 val nextAttemptCount = entry.attemptCount + 1
-                val delay = RetryBackoff.nextDelayMillis(nextAttemptCount)
+                val delay = jitter.applyBackoff(RetryBackoff.nextDelayMillis(nextAttemptCount))
                 outboxRepository.recordFailedAttempt(
                     entry.messageLocalId,
                     nextAttemptCount,

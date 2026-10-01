@@ -37,6 +37,7 @@ import kotlin.concurrent.thread
  * Шаг 3: кадры рукопожатия идут без типа и длины (80/112/80 байт), кадр данных — без типа и с
  * длиной шифртекста строго по корзинам FramePadding; молчащие и медленные соединения закрываются
  * по таймауту; мусор закрывает соединение и ничего не доставляет.
+ * Шаг 3б: в кадре данных нет и счётчика — `[length:4][ciphertext]`, номер пакета неявный (0).
  */
 class SecureLanChannelLoopbackTest {
 
@@ -46,7 +47,6 @@ class SecureLanChannelLoopbackTest {
     private val m2 = IkHandshake.MESSAGE2_SIZE
     private val m3 = IkHandshake.MESSAGE3_SIZE
     private val tag = 16
-    private val counterSize = 8
 
     private fun newKeyManager() = KeyManager(TestKeyValueStore())
 
@@ -128,10 +128,9 @@ class SecureLanChannelLoopbackTest {
         return SessionCipher(result.sendKey, result.recvKey)
     }
 
-    /** Пишет кадр данных с произвольным заявленным [declaredLength] (в том числе неверным). */
-    private fun writeDataFrame(socket: Socket, declaredLength: Int, counter: ByteArray, ciphertext: ByteArray) {
-        val frame = ByteBuffer.allocate(4 + counter.size + ciphertext.size)
-            .putInt(declaredLength).put(counter).put(ciphertext).array()
+    /** Пишет кадр данных `[length][тело]` с произвольным заявленным [declaredLength] (в том числе неверным). */
+    private fun writeDataFrame(socket: Socket, declaredLength: Int, body: ByteArray) {
+        val frame = ByteBuffer.allocate(4 + body.size).putInt(declaredLength).put(body).array()
         socket.getOutputStream().write(frame)
         socket.getOutputStream().flush()
     }
@@ -141,7 +140,7 @@ class SecureLanChannelLoopbackTest {
         connect(port).use { socket ->
             val cipher = handshake(socket, sender, receiver) ?: return@use false
             val sent = cipher.encryptNext(body)
-            writeDataFrame(socket, sent.ciphertext.size, ByteArray(counterSize), sent.ciphertext)
+            writeDataFrame(socket, sent.ciphertext.size, sent.ciphertext)
             true
         }
 
@@ -234,7 +233,7 @@ class SecureLanChannelLoopbackTest {
     }
 
     @Test
-    fun `handshake frames have no type or length and data frame length is bucket plus tag`() {
+    fun `handshake frames have no type or length and data frame is length plus ciphertext only`() {
         val receiver = newKeyManager()
         val sender = newKeyManager()
         val port = freePort()
@@ -260,8 +259,8 @@ class SecureLanChannelLoopbackTest {
                     val declaredLength = ByteBuffer.wrap(client, m1 + m3, 4).int
                     assertEquals("length = корзина + тег AEAD", bucket + tag, declaredLength)
                     assertEquals(
-                        "поток клиента = M1(80) + M3(80) + length(4) + counter(8) + шифртекст",
-                        m1 + m3 + 4 + counterSize + declaredLength,
+                        "поток клиента = M1(80) + M3(80) + length(4) + шифртекст, без счётчика",
+                        m1 + m3 + 4 + declaredLength,
                         client.size
                     )
                 }
@@ -458,7 +457,7 @@ class SecureLanChannelLoopbackTest {
                     val cipher = handshake(socket, sender, receiver.getOrCreateIdentity())
                     assertTrue("handshake, declared=$declared", cipher != null)
                     // Реальное тело короткое: сервер должен отвергнуть уже по полю длины.
-                    writeDataFrame(socket, declared, ByteArray(counterSize), ByteArray(64))
+                    writeDataFrame(socket, declared, ByteArray(64))
                     val elapsed = awaitClosed(socket, 2500)
                     assertTrue("declared=$declared закрыто сразу, а не по таймауту ($elapsed мс)", elapsed < 2000)
                 }
@@ -481,7 +480,7 @@ class SecureLanChannelLoopbackTest {
                 val cipher = handshake(socket, sender, receiver.getOrCreateIdentity())!!
                 val sent = cipher.encryptNext(FramePadding.pad(bytes(10)))
                 sent.ciphertext[3] = (sent.ciphertext[3].toInt() xor 0x01).toByte()
-                writeDataFrame(socket, sent.ciphertext.size, ByteArray(counterSize), sent.ciphertext)
+                writeDataFrame(socket, sent.ciphertext.size, sent.ciphertext)
                 awaitClosed(socket, 2500)
             }
             received.assertNothingWithin()
@@ -542,6 +541,64 @@ class SecureLanChannelLoopbackTest {
             // Размер корзины верный, но хвост ненулевой: длина допустима, отвергает unpad().
             val dirtyTail = FramePadding.pad(bytes(10)).also { it[it.size - 1] = 1 }
             assertTrue(sendRawBody(sender, receiver.getOrCreateIdentity(), port, dirtyTail))
+            received.assertNothingWithin()
+        }
+    }
+
+    @Test
+    fun `data frame carries no counter and decrypts with implicit counter zero`() {
+        val receiver = newKeyManager()
+        val sender = newKeyManager()
+        val port = freePort()
+        withReceiver(receiver, sender, port) { received ->
+            // Вручную собранный кадр [length][ciphertext] (первый пакет сессии, номер 0) принимается.
+            val plaintext = bytes(40)
+            connect(port).use { socket ->
+                val cipher = handshake(socket, sender, receiver.getOrCreateIdentity())!!
+                val sent = cipher.encryptNext(FramePadding.pad(plaintext))
+                assertEquals("первый пакет сессии имеет номер 0", 0L, sent.counter)
+                writeDataFrame(socket, sent.ciphertext.size, sent.ciphertext)
+            }
+            assertArrayEquals(plaintext, received.receiveWithin().plaintext)
+        }
+    }
+
+    @Test
+    fun `old format data frame with 8 byte counter is dropped`() {
+        val receiver = newKeyManager()
+        val sender = newKeyManager()
+        val port = freePort()
+        withReceiver(receiver, sender, port) { received ->
+            connect(port).use { socket ->
+                val cipher = handshake(socket, sender, receiver.getOrCreateIdentity())!!
+                val sent = cipher.encryptNext(FramePadding.pad(bytes(10)))
+                // Прежний формат: [length][counter:8][ciphertext]. Приёмник читает length байт, начиная
+                // со счётчика, получает сдвинутый шифртекст — AEAD не проходит, соединение закрывается.
+                writeDataFrame(socket, sent.ciphertext.size, ByteArray(8) + sent.ciphertext)
+                awaitClosed(socket, 2500)
+            }
+            received.assertNothingWithin()
+
+            val ok = bytes(13)
+            assertTrue(sendVia(sender, receiver.getOrCreateIdentity(), port, ok))
+            assertArrayEquals(ok, received.receiveWithin().plaintext)
+        }
+    }
+
+    @Test
+    fun `data frame encrypted with non zero counter is dropped`() {
+        val receiver = newKeyManager()
+        val sender = newKeyManager()
+        val port = freePort()
+        withReceiver(receiver, sender, port) { received ->
+            connect(port).use { socket ->
+                val cipher = handshake(socket, sender, receiver.getOrCreateIdentity())!!
+                cipher.encryptNext(bytes(1))                                   // счётчик 0 «сожжён»
+                val second = cipher.encryptNext(FramePadding.pad(bytes(10)))   // счётчик 1: nonce не тот
+                assertEquals(1L, second.counter)
+                writeDataFrame(socket, second.ciphertext.size, second.ciphertext)
+                awaitClosed(socket, 2500)
+            }
             received.assertNothingWithin()
         }
     }

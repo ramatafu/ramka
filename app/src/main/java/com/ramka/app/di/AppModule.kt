@@ -13,7 +13,10 @@ import com.ramka.domain.repository.MessageRepository
 import com.ramka.domain.repository.OutboxRepository
 import com.ramka.domain.repository.TransportRepository
 import com.ramka.domain.usecase.AttemptDeliveryUseCase
+import com.ramka.domain.usecase.DelayedAckSender
 import com.ramka.domain.usecase.ProcessOutboxUseCase
+import com.ramka.domain.usecase.SendReadAckUseCase
+import com.ramka.domain.util.Jitter
 import com.ramka.network.local.LanDiscoveryService
 import com.ramka.network.local.SecureLanChannel
 import com.ramka.storage.db.RamkaDatabase
@@ -126,8 +129,9 @@ object AppModule {
         contactRepository: ContactRepository,
         messageRepository: MessageRepository,
         transportRepository: TransportRepository,
-        activeChat: com.ramka.domain.util.ActiveChatTracker
-    ): IncomingMessageProcessor = IncomingMessageProcessor(contactRepository, messageRepository, transportRepository, activeChat) {
+        activeChat: com.ramka.domain.util.ActiveChatTracker,
+        jitter: Jitter
+    ): IncomingMessageProcessor = IncomingMessageProcessor(contactRepository, messageRepository, transportRepository, activeChat, jitter) {
         com.ramka.app.notifications.RamkaNotifications.showNewMessageNotification(ctx)
     }
 
@@ -141,13 +145,39 @@ object AppModule {
     fun provideProcessOutboxUseCase(
         outboxRepository: OutboxRepository,
         messageRepository: MessageRepository,
-        attemptDelivery: AttemptDeliveryUseCase
-    ): ProcessOutboxUseCase = ProcessOutboxUseCase(outboxRepository, messageRepository, attemptDelivery)
+        attemptDelivery: AttemptDeliveryUseCase,
+        jitter: Jitter
+    ): ProcessOutboxUseCase = ProcessOutboxUseCase(outboxRepository, messageRepository, attemptDelivery, jitter)
+
+    /** Единый источник джиттера (этап 2.5): границы — в PrivacyTimingConfig, по умолчанию ВКЛ. */
+    @Provides
+    @Singleton
+    fun provideJitter(): Jitter = Jitter()
+
+    /** Singleton: один Mutex на все вызовы, чтобы повторный показ чата не дублировал READ-ACK. */
+    @Provides
+    @Singleton
+    fun provideSendReadAckUseCase(
+        messageRepository: MessageRepository,
+        attemptDelivery: AttemptDeliveryUseCase,
+        jitter: Jitter,
+        appScope: CoroutineScope
+    ): SendReadAckUseCase = SendReadAckUseCase(
+        messageRepository,
+        appScope,
+        DelayedAckSender({ contactId, payload -> attemptDelivery(contactId, payload) }, jitter)::send
+    )
 
     @Provides
     @Singleton
     fun provideAppPreferences(@dagger.hilt.android.qualifiers.ApplicationContext ctx: Context) =
         com.ramka.app.preferences.AppPreferences(ctx)
+
+    @Provides
+    @Singleton
+    fun provideLanVisibilityController(
+        prefs: com.ramka.app.preferences.AppPreferences
+    ) = com.ramka.app.discovery.LanVisibilityController(prefs)
 
     @Provides
     @Singleton
