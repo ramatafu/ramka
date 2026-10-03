@@ -3,8 +3,11 @@ package com.ramka.domain.relay
 import kotlinx.coroutines.flow.StateFlow
 
 /**
- * Настройки домашнего релея (Этап 3). Релей общий для всех контактов и задаётся в настройках
+ * Настройки ОДНОГО домашнего релея (Этап 3). Релей общий для всех контактов и задаётся в настройках
  * приложения; в QR-приглашение он не попадает.
+ *
+ * Переходный тип: на шагах 1–2 пула релеёв на него опирается старый экран, а с шага 3 его заменяют
+ * [RelayPool] и [RelayEntry].
  */
 data class RelayConfig(
     val enabled: Boolean = false,
@@ -16,13 +19,7 @@ data class RelayConfig(
     val issue: RelayConfigIssue?
         get() {
             val a = address ?: return RelayConfigIssue.NO_ADDRESS
-            if (token.isEmpty()) return RelayConfigIssue.NO_TOKEN
-            if (token.toByteArray(Charsets.UTF_8).size !in TOKEN_MIN_BYTES..TOKEN_MAX_BYTES) {
-                return RelayConfigIssue.BAD_TOKEN_LENGTH
-            }
-            // §1: для IP-литерала без пина проверить сертификат нечем.
-            if (a.isIpLiteral && pinSha256 == null) return RelayConfigIssue.PIN_REQUIRED_FOR_IP
-            return null
+            return relayCredentialsIssue(a, token, pinSha256)
         }
 
     /** Релей по этим настройкам независимо от переключателя (для проверки подключения). */

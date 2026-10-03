@@ -97,7 +97,7 @@ class RelayFormControllerTest {
         env.controller.onEnabledChanged(true)
         assertTrue(env.state.enabled)
         assertFalse(env.state.active)
-        assertEquals("", env.prefs.relayAddress) // некорректное не сохранено
+        assertNull(env.settings.config.value.address) // некорректное не сохранено
         assertNull(env.settings.config.value.activeEndpoint)
 
         env.controller.save()
@@ -177,7 +177,7 @@ class RelayFormControllerTest {
         env.controller.onAddressChanged("bad host")
         env.controller.save()
         assertNotNull(env.state.errors)
-        assertEquals("old.example.com:1", env.prefs.relayAddress)
+        assertEquals(RelayAddress("old.example.com", 1), env.settings.config.value.address)
     }
 
     @Test
@@ -197,7 +197,6 @@ class RelayFormControllerTest {
         assertEquals(RelayCheckUi.Ok, env.state.check)
         assertEquals(RelayEndpoint(RelayAddress("relay.example.com", 4000), token, pin), env.checker.calls.single())
         assertNull(env.settings.config.value.address) // ничего не сохранено
-        assertEquals("", env.prefs.relayAddress)
     }
 
     @Test

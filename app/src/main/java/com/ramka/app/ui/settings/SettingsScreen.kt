@@ -30,7 +30,11 @@ import com.ramka.domain.relay.RelayPinError
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewModel()) {
+fun SettingsScreen(
+    onBack: () -> Unit,
+    onOpenRelayGuide: () -> Unit,
+    viewModel: SettingsViewModel = hiltViewModel()
+) {
     val context = LocalContext.current
 
     Scaffold(
@@ -73,7 +77,7 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMo
                 onCheckedChange = viewModel::onMdnsChanged
             )
             Spacer(Modifier.height(24.dp))
-            RelaySection(viewModel)
+            RelaySection(viewModel, onOpenRelayGuide)
             Spacer(Modifier.height(16.dp))
             TextButton(onClick = viewModel::openHintManually) {
                 Text("Как разрешить фоновую работу")
@@ -120,7 +124,7 @@ private fun SettingSwitchRow(
  * Relay общий для всех контактов и в QR-приглашение не попадает: оба собеседника вводят один и тот же.
  */
 @Composable
-private fun RelaySection(viewModel: SettingsViewModel) {
+private fun RelaySection(viewModel: SettingsViewModel, onOpenRelayGuide: () -> Unit) {
     val form by viewModel.relayForm.collectAsState()
     val lastFailure by viewModel.relayLastFailure.collectAsState()
     val errors = form.errors
@@ -135,7 +139,9 @@ private fun RelaySection(viewModel: SettingsViewModel) {
             enabled = true,
             onCheckedChange = viewModel::onRelayEnabledChanged
         )
-        Spacer(Modifier.height(8.dp))
+        // Доступна и при выключенном релее: инструкция нужна как раз тем, кто ещё не настроил сервер.
+        TextButton(onClick = onOpenRelayGuide) { Text("Как настроить relay-сервер") }
+        Spacer(Modifier.height(4.dp))
         OutlinedTextField(
             value = form.address,
             onValueChange = viewModel::onRelayAddressChanged,
