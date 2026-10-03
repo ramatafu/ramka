@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.ramka.domain.usecase.DelayedAckSenderTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-10-01T08:47:50.037Z" hostname="DESKTOP-EIGI3GP" time="0.087">
+  <properties/>
+  <testcase name="delay is within the configured range with real randomness" classname="com.ramka.domain.usecase.DelayedAckSenderTest" time="0.073"/>
+  <testcase name="payload and result are passed through unchanged" classname="com.ramka.domain.usecase.DelayedAckSenderTest" time="0.004"/>
+  <testcase name="pauses once for the jitter delay and only then delivers" classname="com.ramka.domain.usecase.DelayedAckSenderTest" time="0.006"/>
+  <testcase name="disabled jitter delivers immediately without pausing" classname="com.ramka.domain.usecase.DelayedAckSenderTest" time="0.002"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

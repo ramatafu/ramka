@@ -5,20 +5,26 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.ramka.app.background.BackgroundDeliveryController
 import com.ramka.app.background.Oem
 import com.ramka.app.background.OemDetector
 import com.ramka.app.background.OemHintTexts
 import com.ramka.app.discovery.LanVisibilityController
 import com.ramka.app.preferences.AppPreferences
+import com.ramka.app.relay.RelayFormController
+import com.ramka.domain.relay.SingleRelayProvider
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val controller: BackgroundDeliveryController,
     private val lanVisibility: LanVisibilityController,
-    prefs: AppPreferences
+    prefs: AppPreferences,
+    private val relayController: RelayFormController,
+    relayProvider: SingleRelayProvider
 ) : ViewModel() {
 
     val oem: Oem = OemDetector.detect(Build.MANUFACTURER, Build.FINGERPRINT)
@@ -32,6 +38,23 @@ class SettingsViewModel @Inject constructor(
         private set
     var showHint by mutableStateOf(false)
         private set
+
+    // ---- Домашний relay (этап 3): вся логика в RelayFormController, здесь только проброс ----
+
+    /** Состояние формы relay (переключатель, поля, ошибки, результат проверки). */
+    val relayForm = relayController.state
+
+    /** Последняя ошибка при обращении к relay (null — исправен или обращений ещё не было). */
+    val relayLastFailure = relayProvider.lastFailure
+
+    fun onRelayEnabledChanged(enabled: Boolean) = relayController.onEnabledChanged(enabled)
+    fun onRelayAddressChanged(value: String) = relayController.onAddressChanged(value)
+    fun onRelayTokenChanged(value: String) = relayController.onTokenChanged(value)
+    fun onRelayPinChanged(value: String) = relayController.onPinChanged(value)
+    fun onRelaySave() = relayController.save()
+    fun onRelayCheck() {
+        viewModelScope.launch { relayController.check() }
+    }
 
     init {
         // Значение по умолчанию у главного тумблера — ВКЛ, поэтому «первое включение»

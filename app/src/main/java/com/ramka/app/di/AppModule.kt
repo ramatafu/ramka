@@ -1,13 +1,22 @@
 package com.ramka.app.di
 
 import android.content.Context
+import android.util.Log
+import com.ramka.app.relay.AndroidLocalNetworkDetector
+import com.ramka.app.relay.LocalNetworkDetector
+import com.ramka.app.relay.RelayFormController
+import com.ramka.app.relay.RelaySettings
 import com.ramka.crypto.keys.KeyManager
 import com.ramka.crypto.securestorage.SecureKeyStore
 import com.ramka.data.incoming.IncomingMessageProcessor
+import com.ramka.data.repository.CompositeTransportRepository
 import com.ramka.data.repository.ContactRepositoryImpl
 import com.ramka.data.repository.LanTransportRepository
 import com.ramka.data.repository.MessageRepositoryImpl
 import com.ramka.data.repository.OutboxRepositoryImpl
+import com.ramka.data.repository.RelayTransportRepository
+import com.ramka.domain.relay.RelayChecker
+import com.ramka.domain.relay.SingleRelayProvider
 import com.ramka.domain.repository.ContactRepository
 import com.ramka.domain.repository.MessageRepository
 import com.ramka.domain.repository.OutboxRepository
@@ -19,11 +28,15 @@ import com.ramka.domain.usecase.SendReadAckUseCase
 import com.ramka.domain.util.Jitter
 import com.ramka.network.local.LanDiscoveryService
 import com.ramka.network.local.SecureLanChannel
+import com.ramka.network.relay.KeyManagerRelayIdentity
+import com.ramka.network.relay.RelayClient
+import com.ramka.network.relay.TlsRelayConnector
 import com.ramka.storage.db.RamkaDatabase
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
@@ -94,7 +107,13 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideAppScope(): CoroutineScope = CoroutineScope(SupervisorJob())
+    fun provideAppScope(): CoroutineScope = CoroutineScope(
+        SupervisorJob() + CoroutineExceptionHandler { _, e ->
+            // Страховочная сеть: необработанное исключение в фоновой корутине (приём, ACK, Outbox)
+            // не должно убивать приложение. Пишем в журнал (без содержимого сообщений), чтобы причина не терялась.
+            Log.e("ramka", "Необработанное исключение в appScope", e)
+        }
+    )
 
     @Provides
     @Singleton
@@ -115,12 +134,72 @@ object AppModule {
             ?.signingPublicKey
     }
 
+    /** LAN-транспорт — без изменений; наружу он отдаётся только через [CompositeTransportRepository]. */
+    @Provides
+    @Singleton
+    fun provideLanTransportRepository(
+        secureLanChannel: SecureLanChannel,
+        appScope: CoroutineScope
+    ): LanTransportRepository = LanTransportRepository(secureLanChannel, appScope)
+
+    // ---- Домашний relay (этап 3) ----
+
+    /** Настройки relay: адрес/пин — SharedPreferences, токен — SecureKeyStore. */
+    @Provides
+    @Singleton
+    fun provideRelaySettings(
+        prefs: com.ramka.app.preferences.AppPreferences,
+        secureKeyStore: SecureKeyStore
+    ) = RelaySettings(prefs, secureKeyStore)
+
+    /** Сейчас — один relay из настроек; список серверов с failover = другая реализация RelayProvider. */
+    @Provides
+    @Singleton
+    fun provideRelayProvider(settings: RelaySettings) = SingleRelayProvider(settings)
+
+    @Provides
+    @Singleton
+    fun provideRelayClient(keyManager: KeyManager): RelayClient =
+        RelayClient(KeyManagerRelayIdentity(keyManager), TlsRelayConnector())
+
+    @Provides
+    fun provideRelayChecker(client: RelayClient): RelayChecker = client
+
+    @Provides
+    fun provideRelayFormController(settings: RelaySettings, checker: RelayChecker) =
+        RelayFormController(settings, checker)
+
+    @Provides
+    @Singleton
+    fun provideRelayTransportRepository(
+        secureLanChannel: SecureLanChannel,
+        relayClient: RelayClient,
+        relayProvider: SingleRelayProvider
+    ) = RelayTransportRepository(secureLanChannel, relayClient, relayProvider)
+
+    @Provides
+    @Singleton
+    fun provideLocalNetworkDetector(
+        @dagger.hilt.android.qualifiers.ApplicationContext ctx: Context
+    ): LocalNetworkDetector = AndroidLocalNetworkDetector(ctx)
+
+    /**
+     * Единственный TransportRepository для остального приложения (Outbox, ACK, приём):
+     * LAN и relay выбираются внутри. Пока relay выключен, поведение как до этапа 3.
+     */
     @Provides
     @Singleton
     fun provideTransportRepository(
-        secureLanChannel: SecureLanChannel,
-        appScope: CoroutineScope
-    ): TransportRepository = LanTransportRepository(secureLanChannel, appScope)
+        lan: LanTransportRepository,
+        relay: RelayTransportRepository,
+        relaySettings: RelaySettings,
+        localNetwork: LocalNetworkDetector
+    ): TransportRepository = CompositeTransportRepository(
+        lan = lan,
+        relay = relay,
+        relayEnabled = { relaySettings.config.value.activeEndpoint != null },
+        onLocalNetwork = localNetwork::isOnLocalNetwork
+    )
 
     @Provides
     @Singleton

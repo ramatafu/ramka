@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.ramka.domain.usecase.SendReadAckUseCaseTest" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-10-01T08:47:50.202Z" hostname="DESKTOP-EIGI3GP" time="1.108">
+  <properties/>
+  <testcase name="concurrent calls produce a single batch" classname="com.ramka.domain.usecase.SendReadAckUseCaseTest" time="0.585"/>
+  <testcase name="leaving the screen during the delay does not lose the ack" classname="com.ramka.domain.usecase.SendReadAckUseCaseTest" time="0.03"/>
+  <testcase name="flag is set before the delayed send happens" classname="com.ramka.domain.usecase.SendReadAckUseCaseTest" time="0.014"/>
+  <testcase name="reopening the chat during the delay does not send a duplicate" classname="com.ramka.domain.usecase.SendReadAckUseCaseTest" time="0.229"/>
+  <testcase name="only delivered or read incoming messages are acknowledged" classname="com.ramka.domain.usecase.SendReadAckUseCaseTest" time="0.033"/>
+  <testcase name="nothing to acknowledge sends nothing and sets no flags" classname="com.ramka.domain.usecase.SendReadAckUseCaseTest" time="0.216"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

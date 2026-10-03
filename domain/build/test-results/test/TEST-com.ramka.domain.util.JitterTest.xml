@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.ramka.domain.util.JitterTest" tests="10" skipped="0" failures="0" errors="0" timestamp="2026-10-01T08:47:51.322Z" hostname="DESKTOP-EIGI3GP" time="0.069">
+  <properties/>
+  <testcase name="backoff factor spans minus 20 to plus 20 percent" classname="com.ramka.domain.util.JitterTest" time="0.003"/>
+  <testcase name="config rejects fraction of one or more" classname="com.ramka.domain.util.JitterTest" time="0.0"/>
+  <testcase name="config rejects max below min" classname="com.ramka.domain.util.JitterTest" time="0.001"/>
+  <testcase name="backoff with real randomness stays within plus minus 20 percent" classname="com.ramka.domain.util.JitterTest" time="0.047"/>
+  <testcase name="ack delay with real randomness always stays within bounds and varies" classname="com.ramka.domain.util.JitterTest" time="0.017"/>
+  <testcase name="ack delay hits both ends of the range inclusive" classname="com.ramka.domain.util.JitterTest" time="0.0"/>
+  <testcase name="out of range random source is clamped" classname="com.ramka.domain.util.JitterTest" time="0.0"/>
+  <testcase name="backoff jitter applies at the one hour cap too" classname="com.ramka.domain.util.JitterTest" time="0.001"/>
+  <testcase name="disabled jitter gives zero ack delay and untouched backoff" classname="com.ramka.domain.util.JitterTest" time="0.0"/>
+  <testcase name="default config matches the agreed constants" classname="com.ramka.domain.util.JitterTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

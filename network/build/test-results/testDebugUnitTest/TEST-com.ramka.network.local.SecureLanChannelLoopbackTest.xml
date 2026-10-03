@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.ramka.network.local.SecureLanChannelLoopbackTest" tests="20" skipped="0" failures="0" errors="0" timestamp="2026-10-01T08:26:22.098Z" hostname="DESKTOP-EIGI3GP" time="12.229">
+  <properties/>
+  <testcase name="slow byte-by-byte Message1 is cut by the total handshake deadline" classname="com.ramka.network.local.SecureLanChannelLoopbackTest" time="0.942"/>
+  <testcase name="data frame with corrupted ciphertext of valid length is dropped" classname="com.ramka.network.local.SecureLanChannelLoopbackTest" time="0.805"/>
+  <testcase name="body without padding is dropped and receiver keeps working" classname="com.ramka.network.local.SecureLanChannelLoopbackTest" time="1.495"/>
+  <testcase name="frame sizes are fixed 80 112 80" classname="com.ramka.network.local.SecureLanChannelLoopbackTest" time="0.0"/>
+  <testcase name="non canonical padding is dropped" classname="com.ramka.network.local.SecureLanChannelLoopbackTest" time="1.47"/>
+  <testcase name="old format data frame with 8 byte counter is dropped" classname="com.ramka.network.local.SecureLanChannelLoopbackTest" time="0.766"/>
+  <testcase name="valid ciphertext length predicate matches FramePadding buckets" classname="com.ramka.network.local.SecureLanChannelLoopbackTest" time="0.0"/>
+  <testcase name="oversized payload is rejected before connecting" classname="com.ramka.network.local.SecureLanChannelLoopbackTest" time="0.006"/>
+  <testcase name="handshake frames have no type or length and data frame is length plus ciphertext only" classname="com.ramka.network.local.SecureLanChannelLoopbackTest" time="0.112"/>
+  <testcase name="initiator static key never appears on the wire" classname="com.ramka.network.local.SecureLanChannelLoopbackTest" time="0.059"/>
+  <testcase name="valid handshake followed by silence is closed by data idle timeout" classname="com.ramka.network.local.SecureLanChannelLoopbackTest" time="0.749"/>
+  <testcase name="recorded connection replayed to the receiver delivers nothing" classname="com.ramka.network.local.SecureLanChannelLoopbackTest" time="1.093"/>
+  <testcase name="data frame encrypted with non zero counter is dropped" classname="com.ramka.network.local.SecureLanChannelLoopbackTest" time="0.748"/>
+  <testcase name="garbage instead of Message1 closes the connection and delivers nothing" classname="com.ramka.network.local.SecureLanChannelLoopbackTest" time="0.782"/>
+  <testcase name="silent incoming connection is closed by handshake timeout" classname="com.ramka.network.local.SecureLanChannelLoopbackTest" time="0.57"/>
+  <testcase name="messages of different sizes arrive unchanged through padding" classname="com.ramka.network.local.SecureLanChannelLoopbackTest" time="0.165"/>
+  <testcase name="data frame with length outside buckets closes the connection" classname="com.ramka.network.local.SecureLanChannelLoopbackTest" time="0.906"/>
+  <testcase name="data frame carries no counter and decrypts with implicit counter zero" classname="com.ramka.network.local.SecureLanChannelLoopbackTest" time="0.038"/>
+  <testcase name="cover flagged body is dropped silently" classname="com.ramka.network.local.SecureLanChannelLoopbackTest" time="0.761"/>
+  <testcase name="truncated Message1 followed by silence is closed by handshake timeout" classname="com.ramka.network.local.SecureLanChannelLoopbackTest" time="0.758"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.ramka.crypto.keys.KeyManagerTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-10-01T03:58:42.747Z" hostname="DESKTOP-EIGI3GP" time="0.061">
+  <properties/>
+  <testcase name="signWithIdentity produces signatures verifiable after several repeated key loads" classname="com.ramka.crypto.keys.KeyManagerTest" time="0.047"/>
+  <testcase name="getOrCreateIdentity is idempotent — repeated calls return identical public keys" classname="com.ramka.crypto.keys.KeyManagerTest" time="0.002"/>
+  <testcase name="control — the pre-fix reference-returning store lets repeated identity loads diverge" classname="com.ramka.crypto.keys.KeyManagerTest" time="0.012"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

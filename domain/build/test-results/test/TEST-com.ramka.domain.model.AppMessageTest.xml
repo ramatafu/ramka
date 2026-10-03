@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.ramka.domain.model.AppMessageTest" tests="12" skipped="0" failures="0" errors="0" timestamp="2026-10-01T08:47:49.965Z" hostname="DESKTOP-EIGI3GP" time="0.068">
+  <properties/>
+  <testcase name="read ack with a single id round-trips" classname="com.ramka.domain.model.AppMessageTest" time="0.06"/>
+  <testcase name="unknown tag decodes to null" classname="com.ramka.domain.model.AppMessageTest" time="0.0"/>
+  <testcase name="read ack with length not multiple of uuid decodes to null" classname="com.ramka.domain.model.AppMessageTest" time="0.0"/>
+  <testcase name="read ack with no ids decodes to null" classname="com.ramka.domain.model.AppMessageTest" time="0.001"/>
+  <testcase name="read ack batch round-trips preserving order" classname="com.ramka.domain.model.AppMessageTest" time="0.0"/>
+  <testcase name="text with empty body round-trips" classname="com.ramka.domain.model.AppMessageTest" time="0.0"/>
+  <testcase name="empty bytes decode to null" classname="com.ramka.domain.model.AppMessageTest" time="0.0"/>
+  <testcase name="ack types are distinguished by tag" classname="com.ramka.domain.model.AppMessageTest" time="0.0"/>
+  <testcase name="truncated text envelope decodes to null" classname="com.ramka.domain.model.AppMessageTest" time="0.0"/>
+  <testcase name="delivered ack with wrong id length decodes to null" classname="com.ramka.domain.model.AppMessageTest" time="0.0"/>
+  <testcase name="text round-trips with messageId and unicode body" classname="com.ramka.domain.model.AppMessageTest" time="0.0"/>
+  <testcase name="delivered ack round-trips and carries only the id" classname="com.ramka.domain.model.AppMessageTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

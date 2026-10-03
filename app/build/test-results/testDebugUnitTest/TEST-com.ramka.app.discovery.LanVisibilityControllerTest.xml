@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.ramka.app.discovery.LanVisibilityControllerTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-10-01T08:57:37.479Z" hostname="DESKTOP-EIGI3GP" time="0.005">
+  <properties/>
+  <testcase name="setEnabled persists and updates the flow value" classname="com.ramka.app.discovery.LanVisibilityControllerTest" time="0.003"/>
+  <testcase name="enabled by default" classname="com.ramka.app.discovery.LanVisibilityControllerTest" time="0.001"/>
+  <testcase name="new controller restores the persisted choice" classname="com.ramka.app.discovery.LanVisibilityControllerTest" time="0.0"/>
+  <testcase name="setting the same value does not write again" classname="com.ramka.app.discovery.LanVisibilityControllerTest" time="0.001"/>
+  <testcase name="initial value comes from stored preference" classname="com.ramka.app.discovery.LanVisibilityControllerTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

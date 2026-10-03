@@ -1,0 +1,459 @@
+diff --git a/app/src/main/java/com/ramka/app/di/AppModule.kt b/app/src/main/java/com/ramka/app/di/AppModule.kt
+--- a/app/src/main/java/com/ramka/app/di/AppModule.kt	2026-10-03 01:18:34.162105033 +0000
++++ b/app/src/main/java/com/ramka/app/di/AppModule.kt	2026-10-03 01:18:34.166441522 +0000
+@@ -1,6 +1,7 @@
+ package com.ramka.app.di
+ 
+ import android.content.Context
++import android.util.Log
+ import com.ramka.app.relay.AndroidLocalNetworkDetector
+ import com.ramka.app.relay.LocalNetworkDetector
+ import com.ramka.app.relay.RelayFormController
+@@ -35,6 +36,7 @@
+ import dagger.Provides
+ import dagger.hilt.InstallIn
+ import dagger.hilt.components.SingletonComponent
++import kotlinx.coroutines.CoroutineExceptionHandler
+ import kotlinx.coroutines.CoroutineScope
+ import kotlinx.coroutines.SupervisorJob
+ import kotlinx.coroutines.flow.first
+@@ -105,7 +107,13 @@
+ 
+     @Provides
+     @Singleton
+-    fun provideAppScope(): CoroutineScope = CoroutineScope(SupervisorJob())
++    fun provideAppScope(): CoroutineScope = CoroutineScope(
++        SupervisorJob() + CoroutineExceptionHandler { _, e ->
++            // Страховочная сеть: необработанное исключение в фоновой корутине (приём, ACK, Outbox)
++            // не должно убивать приложение. Пишем в журнал (без содержимого сообщений), чтобы причина не терялась.
++            Log.e("ramka", "Необработанное исключение в appScope", e)
++        }
++    )
+ 
+     @Provides
+     @Singleton
+diff --git a/app/src/main/java/com/ramka/app/relay/RelayFormController.kt b/app/src/main/java/com/ramka/app/relay/RelayFormController.kt
+--- a/app/src/main/java/com/ramka/app/relay/RelayFormController.kt	2026-10-03 01:18:34.177872710 +0000
++++ b/app/src/main/java/com/ramka/app/relay/RelayFormController.kt	2026-10-03 01:18:34.178892958 +0000
+@@ -24,6 +24,8 @@
+  * Состояние формы настроек релея.
+  * @property enabled значение переключателя (уже сохранено в [RelaySettings]).
+  * @property dirty поля изменены и ещё не сохранены.
++ * @property active сохранённые настройки полны и релей включён: приложение РЕАЛЬНО подключается к серверу.
++ *   Включённый, но ещё не настроенный релей (`enabled && !active`) ничего не делает: ждёт адрес и токен.
+  * @property errors ошибки полей после попытки сохранить/проверить; null — ошибок нет.
+  */
+ data class RelayFormState(
+@@ -33,17 +35,21 @@
+     val pin: String,
+     val dirty: Boolean = false,
+     val errors: RelayDraftErrors? = null,
+-    val check: RelayCheckUi = RelayCheckUi.Idle
++    val check: RelayCheckUi = RelayCheckUi.Idle,
++    val active: Boolean = false
+ )
+ 
+ /**
+  * Логика экрана настроек релея без Android-зависимостей (тестируется pure-JVM).
+  *
+- * - Включить релей можно только при корректных полях: ввод проверяется и сохраняется одним действием,
+- *   при ошибке переключатель остаётся выключенным, а ошибки показываются у полей.
+- * - Выключить можно всегда; поля не стираются.
+- * - «Проверить подключение» работает с тем, что введено сейчас (без сохранения): сначала проверка
+- *   ввода, затем TLS (пин/CA), токен и протокол через [RelayChecker].
++ * Ползунок «Домашний relay» — главный выключатель:
++ * - ВЫКЛЮЧЕН: поля и кнопки на экране неактивны, подключений нет (ни приём, ни отправка, ни проверка),
++ *   результат проверки скрыт; введённые значения не стираются. [check] в этом состоянии ничего не делает.
++ * - ВКЛЮЧЁН: поля редактируются. Включение не требует готовых полей (иначе их негде было бы ввести):
++ *   пока адрес и токен не сохранены корректно ([RelayFormState.active] == false), подключений нет.
++ *   Если на момент включения в форме уже лежит корректный несохранённый ввод, он сохраняется сразу.
++ * - «Проверить подключение» (только при включённом релее) работает с тем, что введено сейчас, без
++ *   сохранения: проверка ввода, затем TLS (пин/CA), токен и протокол через [RelayChecker].
+  */
+ class RelayFormController(
+     private val settings: RelaySettings,
+@@ -60,15 +66,17 @@
+     fun onEnabledChanged(enabled: Boolean) {
+         if (!enabled) {
+             settings.setEnabled(false)
+-            form.update { it.copy(enabled = false) }
++            form.update { it.copy(enabled = false, errors = null, check = RelayCheckUi.Idle, active = false) }
+             return
+         }
+-        when (val result = validate(enabled = true)) {
+-            is RelayDraftResult.Valid -> {
+-                settings.save(result.config)
+-                form.update { it.copy(enabled = true, dirty = false, errors = null) }
+-            }
+-            is RelayDraftResult.Invalid -> form.update { it.copy(enabled = false, errors = result.errors) }
++        // Корректный несохранённый ввод сохраняем вместе с включением; иначе только включаем.
++        val pending = if (form.value.dirty) validate(enabled = true) else null
++        if (pending is RelayDraftResult.Valid) {
++            settings.save(pending.config)
++            form.update { it.copy(enabled = true, dirty = false, errors = null, active = isActive()) }
++        } else {
++            settings.setEnabled(true)
++            form.update { it.copy(enabled = true, active = isActive()) }
+         }
+     }
+ 
+@@ -84,7 +92,8 @@
+                         token = result.config.token,
+                         pin = result.config.pinSha256.orEmpty(),
+                         dirty = false,
+-                        errors = null
++                        errors = null,
++                        active = isActive()
+                     )
+                 }
+             }
+@@ -92,8 +101,9 @@
+         }
+     }
+ 
+-    /** Проверяет подключение с введёнными значениями, ничего не сохраняя. */
++    /** Проверяет подключение с введёнными значениями, ничего не сохраняя. Только при включённом релее. */
+     suspend fun check() {
++        if (!form.value.enabled) return // релей выключен — к серверу не обращаемся
+         val result = validate(enabled = form.value.enabled)
+         val endpoint = (result as? RelayDraftResult.Valid)?.config?.endpointOrNull
+         if (endpoint == null) {
+@@ -103,7 +113,8 @@
+         form.update { it.copy(errors = null, check = RelayCheckUi.Checking) }
+         val outcome = checker.check(endpoint)
+         form.update {
+-            it.copy(
++            // Пока шла проверка, ползунок могли выключить: тогда результат не показываем.
++            if (!it.enabled) it else it.copy(
+                 check = when (outcome) {
+                     RelayCheckResult.Ok -> RelayCheckUi.Ok
+                     is RelayCheckResult.Failed -> RelayCheckUi.Failed(outcome.failure)
+@@ -112,6 +123,8 @@
+         }
+     }
+ 
++    private fun isActive(): Boolean = settings.config.value.activeEndpoint != null
++
+     private fun validate(enabled: Boolean): RelayDraftResult {
+         val f = form.value
+         return RelayConfigValidator.validate(RelayConfigDraft(f.address, f.token, f.pin), enabled)
+@@ -127,7 +140,8 @@
+             enabled = c.enabled,
+             address = c.address?.format().orEmpty(),
+             token = c.token,
+-            pin = c.pinSha256.orEmpty()
++            pin = c.pinSha256.orEmpty(),
++            active = c.activeEndpoint != null
+         )
+     }
+ }
+diff --git a/app/src/main/java/com/ramka/app/ui/settings/SettingsScreen.kt b/app/src/main/java/com/ramka/app/ui/settings/SettingsScreen.kt
+--- a/app/src/main/java/com/ramka/app/ui/settings/SettingsScreen.kt	2026-10-03 01:18:34.242105031 +0000
++++ b/app/src/main/java/com/ramka/app/ui/settings/SettingsScreen.kt	2026-10-03 01:18:34.246845349 +0000
+@@ -143,6 +143,7 @@
+             label = { Text("Адрес relay (host:port)") },
+             placeholder = { Text("relay.example.com:48766") },
+             singleLine = true,
++            enabled = form.enabled,
+             isError = errors?.address != null,
+             supportingText = { errors?.address?.let { Text(addressErrorText(it)) } },
+             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri)
+@@ -155,6 +156,7 @@
+             label = { Text("Токен доступа") },
+             singleLine = true,
+             visualTransformation = PasswordVisualTransformation(),
++            enabled = form.enabled,
+             isError = errors?.token != null,
+             supportingText = { errors?.token?.let { Text(tokenErrorText(it)) } },
+             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
+@@ -171,49 +173,66 @@
+                         ?: "64 hex-символа из журнала сервера. Для домена с сертификатом Let's Encrypt можно оставить пустым."
+                 )
+             },
++            enabled = form.enabled,
+             isError = errors?.pin != null,
+             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii)
+         )
+         Spacer(Modifier.height(8.dp))
+         Row(verticalAlignment = Alignment.CenterVertically) {
+-            Button(onClick = viewModel::onRelaySave, enabled = form.dirty) { Text("Сохранить") }
++            Button(onClick = viewModel::onRelaySave, enabled = form.enabled && form.dirty) { Text("Сохранить") }
+             Spacer(Modifier.width(8.dp))
+             OutlinedButton(
+                 onClick = viewModel::onRelayCheck,
+-                enabled = form.check != RelayCheckUi.Checking
++                enabled = form.enabled && form.check != RelayCheckUi.Checking
+             ) { Text("Проверить подключение") }
+         }
+         Spacer(Modifier.height(8.dp))
+-        when (val check = form.check) {
+-            RelayCheckUi.Idle -> {
+-                val failure = lastFailure
+-                if (form.enabled && failure != null) {
+-                    Text(
+-                        "Последняя ошибка: ${failureText(failure)}",
+-                        style = MaterialTheme.typography.bodyMedium,
+-                        color = MaterialTheme.colorScheme.error
+-                    )
+-                }
+-            }
+-            RelayCheckUi.Checking -> Row(verticalAlignment = Alignment.CenterVertically) {
+-                CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+-                Spacer(Modifier.width(8.dp))
+-                Text("Проверяем подключение…", style = MaterialTheme.typography.bodyMedium)
+-            }
+-            RelayCheckUi.Ok -> Text(
+-                "Подключение работает: сертификат, токен и протокол в порядке.",
++        when {
++            // Ползунок выключен: поля и кнопки неактивны, подключений нет, старый результат не показываем.
++            !form.enabled -> Text(
++                "Релей отключён",
+                 style = MaterialTheme.typography.bodyMedium,
+-                color = MaterialTheme.colorScheme.primary
++                color = MaterialTheme.colorScheme.onSurfaceVariant
+             )
+-            is RelayCheckUi.Failed -> Text(
+-                failureText(check.failure),
++            form.check != RelayCheckUi.Idle -> RelayCheckStatus(form.check)
++            form.active -> lastFailure?.let {
++                Text(
++                    "Последняя ошибка: ${failureText(it)}",
++                    style = MaterialTheme.typography.bodyMedium,
++                    color = MaterialTheme.colorScheme.error
++                )
++            }
++            else -> Text(
++                "Укажите адрес и токен и нажмите «Сохранить»: подключение начнётся после этого.",
+                 style = MaterialTheme.typography.bodyMedium,
+-                color = MaterialTheme.colorScheme.error
++                color = MaterialTheme.colorScheme.onSurfaceVariant
+             )
+         }
+     }
+ }
+ 
++@Composable
++private fun RelayCheckStatus(check: RelayCheckUi) {
++    when (check) {
++        RelayCheckUi.Idle -> Unit
++        RelayCheckUi.Checking -> Row(verticalAlignment = Alignment.CenterVertically) {
++            CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
++            Spacer(Modifier.width(8.dp))
++            Text("Проверяем подключение…", style = MaterialTheme.typography.bodyMedium)
++        }
++        RelayCheckUi.Ok -> Text(
++            "Подключение работает: сертификат, токен и протокол в порядке.",
++            style = MaterialTheme.typography.bodyMedium,
++            color = MaterialTheme.colorScheme.primary
++        )
++        is RelayCheckUi.Failed -> Text(
++            failureText(check.failure),
++            style = MaterialTheme.typography.bodyMedium,
++            color = MaterialTheme.colorScheme.error
++        )
++    }
++}
++
+ private fun addressErrorText(error: RelayAddressError): String = when (error) {
+     RelayAddressError.EMPTY -> "Введите адрес relay"
+     RelayAddressError.FORBIDDEN_CHARACTERS -> "Только host или host:port, без https://, пути и пробелов"
+diff --git a/data/src/main/java/com/ramka/data/incoming/IncomingMessageProcessor.kt b/data/src/main/java/com/ramka/data/incoming/IncomingMessageProcessor.kt
+--- a/data/src/main/java/com/ramka/data/incoming/IncomingMessageProcessor.kt	2026-10-03 01:18:34.171703863 +0000
++++ b/data/src/main/java/com/ramka/data/incoming/IncomingMessageProcessor.kt	2026-10-03 01:18:34.172825172 +0000
+@@ -1,6 +1,7 @@
+ package com.ramka.data.incoming
+ 
+ import android.util.Base64
++import android.util.Log
+ import com.ramka.domain.model.*
+ import com.ramka.domain.repository.ContactRepository
+ import com.ramka.domain.repository.MessageRepository
+@@ -10,6 +11,7 @@
+ import com.ramka.domain.usecase.HandleIncomingTextUseCase
+ import com.ramka.domain.util.ActiveChatTracker
+ import com.ramka.domain.util.Jitter
++import kotlinx.coroutines.CancellationException
+ import kotlinx.coroutines.CoroutineScope
+ import kotlinx.coroutines.flow.first
+ import kotlinx.coroutines.flow.launchIn
+@@ -49,7 +51,17 @@
+ 
+     fun start(scope: CoroutineScope) {
+         transportRepository.incomingPackets()
+-            .onEach { (senderPublicKey, plaintext) -> handle(scope, senderPublicKey, plaintext) }
++            .onEach { (senderPublicKey, plaintext) ->
++                // Ошибка обработки одного пакета не должна ни убивать приложение (uncaught в launchIn),
++                // ни останавливать приём всех последующих пакетов.
++                try {
++                    handle(scope, senderPublicKey, plaintext)
++                } catch (e: CancellationException) {
++                    throw e
++                } catch (e: Exception) {
++                    Log.w("ramka", "Не удалось обработать входящий пакет: ${e.javaClass.simpleName}")
++                }
++            }
+             .launchIn(scope)
+     }
+ 
+diff --git a/data/src/main/java/com/ramka/data/repository/CompositeTransportRepository.kt b/data/src/main/java/com/ramka/data/repository/CompositeTransportRepository.kt
+--- a/data/src/main/java/com/ramka/data/repository/CompositeTransportRepository.kt	2026-10-03 01:18:33.670342972 +0000
++++ b/data/src/main/java/com/ramka/data/repository/CompositeTransportRepository.kt	2026-10-03 01:18:33.671380850 +0000
+@@ -3,6 +3,7 @@
+ import com.ramka.domain.model.Contact
+ import com.ramka.domain.model.NetworkAddress
+ import com.ramka.domain.repository.TransportRepository
++import kotlinx.coroutines.CancellationException
+ import kotlinx.coroutines.flow.Flow
+ import kotlinx.coroutines.flow.merge
+ 
+@@ -35,15 +36,25 @@
+     override suspend fun sendEncryptedPacket(contact: Contact, packet: ByteArray): Boolean {
+         val hasLanAddress = contact.lastKnownAddress is NetworkAddress.Lan
+         if (!relayEnabled()) {
+-            return hasLanAddress && lan.sendEncryptedPacket(contact, packet)
++            return hasLanAddress && lan.trySend(contact, packet)
+         }
+         return if (hasLanAddress && onLocalNetwork()) {
+-            lan.sendEncryptedPacket(contact, packet) || relay.sendEncryptedPacket(contact, packet)
++            lan.trySend(contact, packet) || relay.trySend(contact, packet)
+         } else {
+-            relay.sendEncryptedPacket(contact, packet) || (hasLanAddress && lan.sendEncryptedPacket(contact, packet))
++            relay.trySend(contact, packet) || (hasLanAddress && lan.trySend(contact, packet))
+         }
+     }
+ 
++    /** Транспорт не должен бросать исключений; если всё же бросил — это «не вышло», а не падение приложения. */
++    private suspend fun TransportRepository.trySend(contact: Contact, packet: ByteArray): Boolean =
++        try {
++            sendEncryptedPacket(contact, packet)
++        } catch (e: CancellationException) {
++            throw e
++        } catch (e: Exception) {
++            false
++        }
++
+     override fun incomingPackets(): Flow<Pair<ByteArray, ByteArray>> =
+         merge(lan.incomingPackets(), relay.incomingPackets())
+ }
+diff --git a/data/src/main/java/com/ramka/data/repository/RelayTransportRepository.kt b/data/src/main/java/com/ramka/data/repository/RelayTransportRepository.kt
+--- a/data/src/main/java/com/ramka/data/repository/RelayTransportRepository.kt	2026-10-03 01:18:33.662105045 +0000
++++ b/data/src/main/java/com/ramka/data/repository/RelayTransportRepository.kt	2026-10-03 01:18:33.664487717 +0000
+@@ -9,6 +9,7 @@
+ import com.ramka.network.relay.RelayConnectResult
+ import com.ramka.network.relay.RelayConnectionState
+ import com.ramka.network.relay.RelayTunnelClient
++import kotlinx.coroutines.CancellationException
+ import kotlinx.coroutines.Dispatchers
+ import kotlinx.coroutines.ExperimentalCoroutinesApi
+ import kotlinx.coroutines.flow.Flow
+@@ -16,6 +17,7 @@
+ import kotlinx.coroutines.flow.collect
+ import kotlinx.coroutines.flow.flatMapLatest
+ import kotlinx.coroutines.launch
++import java.net.Socket
+ 
+ /**
+  * Транспорт через домашний релей (этап 3, RELAY_PROTOCOL.md).
+@@ -34,14 +36,25 @@
+ ) : TransportRepository {
+ 
+     override suspend fun sendEncryptedPacket(contact: Contact, packet: ByteArray): Boolean {
++        // Контракт TransportRepository: отправка НЕ бросает исключений, `false` = «не вышло, сообщение
++        // останется в Outbox». Вызывающие (SendMessageUseCase в viewModelScope, DelayedAckSender в
++        // appScope) исключений не ждут, а любое необработанное исключение там завершает процесс.
++        return try {
++            sendViaRelays(contact, packet)
++        } catch (e: CancellationException) {
++            throw e
++        } catch (e: Exception) {
++            false
++        }
++    }
++
++    private suspend fun sendViaRelays(contact: Contact, packet: ByteArray): Boolean {
+         for (endpoint in provider.relaysFor(contact)) {
+             when (val result = client.connectTo(endpoint, contact.signingPublicKey)) {
+                 is RelayConnectResult.Connected -> {
+                     provider.report(endpoint, null)
+                     // Рукопожатие и отправка — как в LAN; итог (в т.ч. «подпись собеседника не сошлась») окончателен.
+-                    return result.socket.use {
+-                        tunnels.sendMessageOver(it, contact.publicKey, contact.signingPublicKey, packet)
+-                    }
++                    return sendOverTunnel(result.socket, contact, packet)
+                 }
+                 is RelayConnectResult.Failed -> {
+                     // «Получателя нет в сети» — это не поломка релея; со списком релеев пробуем следующий.
+@@ -53,6 +66,26 @@
+     }
+ 
+     /**
++     * Отправка по «трубе» и закрытие сокета. Закрытие НЕ может менять результат и бросать исключение:
++     * к этому моменту релей и получатель уже могли закрыть соединение, и `close()` TLS-сокета
++     * (отправка close_notify в закрытое соединение) способен бросить IOException — именно в момент
++     * успешной доставки. С `socket.use { }` такое исключение вылетало наружу, мимо результата `true`.
++     */
++    private suspend fun sendOverTunnel(socket: Socket, contact: Contact, packet: ByteArray): Boolean =
++        try {
++            tunnels.sendMessageOver(socket, contact.publicKey, contact.signingPublicKey, packet)
++        } finally {
++            closeQuietly(socket)
++        }
++
++    private fun closeQuietly(socket: Socket) {
++        try {
++            socket.close()
++        } catch (_: Exception) {
++        }
++    }
++
++    /**
+      * Входящие через релей: пока релей включён и настроен, держится регистрация, на каждую «трубу»
+      * проводится рукопожатие в отдельной корутине (медленный отправитель не задерживает остальных).
+      * Смена или выключение релея в настройках пересоздаёт подписку.
+diff --git a/network/src/main/java/com/ramka/network/relay/RelayClient.kt b/network/src/main/java/com/ramka/network/relay/RelayClient.kt
+--- a/network/src/main/java/com/ramka/network/relay/RelayClient.kt	2026-10-03 01:18:33.730105043 +0000
++++ b/network/src/main/java/com/ramka/network/relay/RelayClient.kt	2026-10-03 01:18:33.735380414 +0000
+@@ -130,6 +130,10 @@
+                 RelayConnectResult.Failed(RelayFailure.UNREACHABLE)
+             } catch (e: IllegalArgumentException) {
+                 RelayConnectResult.Failed(RelayFailure.PROTOCOL)
++            } catch (e: CancellationException) {
++                throw e
++            } catch (e: Exception) {
++                RelayConnectResult.Failed(RelayFailure.INTERNAL)
+             }
+         }
+ 
+@@ -165,6 +169,10 @@
+             RelayCheckResult.Failed(RelayFailure.UNREACHABLE)
+         } catch (e: IllegalArgumentException) {
+             RelayCheckResult.Failed(RelayFailure.PROTOCOL)
++        } catch (e: CancellationException) {
++            throw e
++        } catch (e: Exception) {
++            RelayCheckResult.Failed(RelayFailure.INTERNAL)
+         }
+     }
+ 
+@@ -227,6 +235,10 @@
+             RelayFailure.UNREACHABLE
+         } catch (e: IllegalArgumentException) {
+             RelayFailure.PROTOCOL
++        } catch (e: CancellationException) {
++            throw e
++        } catch (e: Exception) {
++            RelayFailure.INTERNAL // неожиданная ошибка не должна обрывать цикл регистрации (и тем более приложение)
+         }
+     }
+ 
+@@ -311,6 +323,10 @@
+                 null
+             } catch (e: IllegalArgumentException) {
+                 null
++            } catch (e: CancellationException) {
++                throw e
++            } catch (e: Exception) {
++                null
+             }
+         }
+ 

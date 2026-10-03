@@ -1,6 +1,7 @@
 package com.ramka.data.incoming
 
 import android.util.Base64
+import android.util.Log
 import com.ramka.domain.model.*
 import com.ramka.domain.repository.ContactRepository
 import com.ramka.domain.repository.MessageRepository
@@ -10,6 +11,7 @@ import com.ramka.domain.usecase.DelayedAckSender
 import com.ramka.domain.usecase.HandleIncomingTextUseCase
 import com.ramka.domain.util.ActiveChatTracker
 import com.ramka.domain.util.Jitter
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
@@ -49,7 +51,17 @@ class IncomingMessageProcessor(
 
     fun start(scope: CoroutineScope) {
         transportRepository.incomingPackets()
-            .onEach { (senderPublicKey, plaintext) -> handle(scope, senderPublicKey, plaintext) }
+            .onEach { (senderPublicKey, plaintext) ->
+                // Ошибка обработки одного пакета не должна ни убивать приложение (uncaught в launchIn),
+                // ни останавливать приём всех последующих пакетов.
+                try {
+                    handle(scope, senderPublicKey, plaintext)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Log.w("ramka", "Не удалось обработать входящий пакет: ${e.javaClass.simpleName}")
+                }
+            }
             .launchIn(scope)
     }
 

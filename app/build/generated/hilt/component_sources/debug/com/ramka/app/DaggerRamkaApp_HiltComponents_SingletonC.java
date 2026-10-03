@@ -1,0 +1,893 @@
+package com.ramka.app;
+
+import android.app.Activity;
+import android.app.Service;
+import android.view.View;
+import androidx.fragment.app.Fragment;
+import androidx.lifecycle.SavedStateHandle;
+import androidx.lifecycle.ViewModel;
+import com.ramka.app.background.BackgroundDeliveryController;
+import com.ramka.app.di.AppModule_ProvideActiveChatTrackerFactory;
+import com.ramka.app.di.AppModule_ProvideAppPreferencesFactory;
+import com.ramka.app.di.AppModule_ProvideAppScopeFactory;
+import com.ramka.app.di.AppModule_ProvideAttemptDeliveryUseCaseFactory;
+import com.ramka.app.di.AppModule_ProvideBackgroundDeliveryControllerFactory;
+import com.ramka.app.di.AppModule_ProvideContactDaoFactory;
+import com.ramka.app.di.AppModule_ProvideContactRepositoryFactory;
+import com.ramka.app.di.AppModule_ProvideDatabaseFactory;
+import com.ramka.app.di.AppModule_ProvideIncomingMessageProcessorFactory;
+import com.ramka.app.di.AppModule_ProvideJitterFactory;
+import com.ramka.app.di.AppModule_ProvideKeyManagerFactory;
+import com.ramka.app.di.AppModule_ProvideLanDiscoveryServiceFactory;
+import com.ramka.app.di.AppModule_ProvideLanTransportRepositoryFactory;
+import com.ramka.app.di.AppModule_ProvideLanVisibilityControllerFactory;
+import com.ramka.app.di.AppModule_ProvideLocalNetworkDetectorFactory;
+import com.ramka.app.di.AppModule_ProvideMessageDaoFactory;
+import com.ramka.app.di.AppModule_ProvideMessageRepositoryFactory;
+import com.ramka.app.di.AppModule_ProvideOutboxDaoFactory;
+import com.ramka.app.di.AppModule_ProvideOutboxRepositoryFactory;
+import com.ramka.app.di.AppModule_ProvideProcessOutboxUseCaseFactory;
+import com.ramka.app.di.AppModule_ProvideRelayCheckerFactory;
+import com.ramka.app.di.AppModule_ProvideRelayClientFactory;
+import com.ramka.app.di.AppModule_ProvideRelayFormControllerFactory;
+import com.ramka.app.di.AppModule_ProvideRelayProviderFactory;
+import com.ramka.app.di.AppModule_ProvideRelaySettingsFactory;
+import com.ramka.app.di.AppModule_ProvideRelayTransportRepositoryFactory;
+import com.ramka.app.di.AppModule_ProvideSecureKeyStoreFactory;
+import com.ramka.app.di.AppModule_ProvideSecureLanChannelFactory;
+import com.ramka.app.di.AppModule_ProvideSendReadAckUseCaseFactory;
+import com.ramka.app.di.AppModule_ProvideTransportRepositoryFactory;
+import com.ramka.app.discovery.LanVisibilityController;
+import com.ramka.app.preferences.AppPreferences;
+import com.ramka.app.relay.LocalNetworkDetector;
+import com.ramka.app.relay.RelayFormController;
+import com.ramka.app.relay.RelaySettings;
+import com.ramka.app.ui.chat.ChatViewModel;
+import com.ramka.app.ui.chat.ChatViewModel_HiltModules;
+import com.ramka.app.ui.contacts.ContactsViewModel;
+import com.ramka.app.ui.contacts.ContactsViewModel_HiltModules;
+import com.ramka.app.ui.qr.QrViewModel;
+import com.ramka.app.ui.qr.QrViewModel_HiltModules;
+import com.ramka.app.ui.settings.SettingsViewModel;
+import com.ramka.app.ui.settings.SettingsViewModel_HiltModules;
+import com.ramka.crypto.keys.KeyManager;
+import com.ramka.crypto.securestorage.SecureKeyStore;
+import com.ramka.data.incoming.IncomingMessageProcessor;
+import com.ramka.data.repository.LanTransportRepository;
+import com.ramka.data.repository.RelayTransportRepository;
+import com.ramka.domain.relay.RelayChecker;
+import com.ramka.domain.relay.SingleRelayProvider;
+import com.ramka.domain.repository.ContactRepository;
+import com.ramka.domain.repository.MessageRepository;
+import com.ramka.domain.repository.OutboxRepository;
+import com.ramka.domain.repository.TransportRepository;
+import com.ramka.domain.usecase.AttemptDeliveryUseCase;
+import com.ramka.domain.usecase.ProcessOutboxUseCase;
+import com.ramka.domain.usecase.SendReadAckUseCase;
+import com.ramka.domain.util.ActiveChatTracker;
+import com.ramka.domain.util.Jitter;
+import com.ramka.network.local.LanDiscoveryService;
+import com.ramka.network.local.SecureLanChannel;
+import com.ramka.network.relay.RelayClient;
+import com.ramka.storage.db.ContactDao;
+import com.ramka.storage.db.MessageDao;
+import com.ramka.storage.db.OutboxDao;
+import com.ramka.storage.db.RamkaDatabase;
+import dagger.hilt.android.ActivityRetainedLifecycle;
+import dagger.hilt.android.ViewModelLifecycle;
+import dagger.hilt.android.internal.builders.ActivityComponentBuilder;
+import dagger.hilt.android.internal.builders.ActivityRetainedComponentBuilder;
+import dagger.hilt.android.internal.builders.FragmentComponentBuilder;
+import dagger.hilt.android.internal.builders.ServiceComponentBuilder;
+import dagger.hilt.android.internal.builders.ViewComponentBuilder;
+import dagger.hilt.android.internal.builders.ViewModelComponentBuilder;
+import dagger.hilt.android.internal.builders.ViewWithFragmentComponentBuilder;
+import dagger.hilt.android.internal.lifecycle.DefaultViewModelFactories;
+import dagger.hilt.android.internal.lifecycle.DefaultViewModelFactories_InternalFactoryFactory_Factory;
+import dagger.hilt.android.internal.managers.ActivityRetainedComponentManager_LifecycleModule_ProvideActivityRetainedLifecycleFactory;
+import dagger.hilt.android.internal.managers.SavedStateHandleHolder;
+import dagger.hilt.android.internal.modules.ApplicationContextModule;
+import dagger.hilt.android.internal.modules.ApplicationContextModule_ProvideContextFactory;
+import dagger.internal.DaggerGenerated;
+import dagger.internal.DoubleCheck;
+import dagger.internal.IdentifierNameString;
+import dagger.internal.KeepFieldType;
+import dagger.internal.LazyClassKeyMap;
+import dagger.internal.MapBuilder;
+import dagger.internal.Preconditions;
+import dagger.internal.Provider;
+import java.util.Collections;
+import java.util.Map;
+import java.util.Set;
+import javax.annotation.processing.Generated;
+import kotlinx.coroutines.CoroutineScope;
+
+@DaggerGenerated
+@Generated(
+    value = "dagger.internal.codegen.ComponentProcessor",
+    comments = "https://dagger.dev"
+)
+@SuppressWarnings({
+    "unchecked",
+    "rawtypes",
+    "KotlinInternal",
+    "KotlinInternalInJava",
+    "cast"
+})
+public final class DaggerRamkaApp_HiltComponents_SingletonC {
+  private DaggerRamkaApp_HiltComponents_SingletonC() {
+  }
+
+  public static Builder builder() {
+    return new Builder();
+  }
+
+  public static final class Builder {
+    private ApplicationContextModule applicationContextModule;
+
+    private Builder() {
+    }
+
+    public Builder applicationContextModule(ApplicationContextModule applicationContextModule) {
+      this.applicationContextModule = Preconditions.checkNotNull(applicationContextModule);
+      return this;
+    }
+
+    public RamkaApp_HiltComponents.SingletonC build() {
+      Preconditions.checkBuilderRequirement(applicationContextModule, ApplicationContextModule.class);
+      return new SingletonCImpl(applicationContextModule);
+    }
+  }
+
+  private static final class ActivityRetainedCBuilder implements RamkaApp_HiltComponents.ActivityRetainedC.Builder {
+    private final SingletonCImpl singletonCImpl;
+
+    private SavedStateHandleHolder savedStateHandleHolder;
+
+    private ActivityRetainedCBuilder(SingletonCImpl singletonCImpl) {
+      this.singletonCImpl = singletonCImpl;
+    }
+
+    @Override
+    public ActivityRetainedCBuilder savedStateHandleHolder(
+        SavedStateHandleHolder savedStateHandleHolder) {
+      this.savedStateHandleHolder = Preconditions.checkNotNull(savedStateHandleHolder);
+      return this;
+    }
+
+    @Override
+    public RamkaApp_HiltComponents.ActivityRetainedC build() {
+      Preconditions.checkBuilderRequirement(savedStateHandleHolder, SavedStateHandleHolder.class);
+      return new ActivityRetainedCImpl(singletonCImpl, savedStateHandleHolder);
+    }
+  }
+
+  private static final class ActivityCBuilder implements RamkaApp_HiltComponents.ActivityC.Builder {
+    private final SingletonCImpl singletonCImpl;
+
+    private final ActivityRetainedCImpl activityRetainedCImpl;
+
+    private Activity activity;
+
+    private ActivityCBuilder(SingletonCImpl singletonCImpl,
+        ActivityRetainedCImpl activityRetainedCImpl) {
+      this.singletonCImpl = singletonCImpl;
+      this.activityRetainedCImpl = activityRetainedCImpl;
+    }
+
+    @Override
+    public ActivityCBuilder activity(Activity activity) {
+      this.activity = Preconditions.checkNotNull(activity);
+      return this;
+    }
+
+    @Override
+    public RamkaApp_HiltComponents.ActivityC build() {
+      Preconditions.checkBuilderRequirement(activity, Activity.class);
+      return new ActivityCImpl(singletonCImpl, activityRetainedCImpl, activity);
+    }
+  }
+
+  private static final class FragmentCBuilder implements RamkaApp_HiltComponents.FragmentC.Builder {
+    private final SingletonCImpl singletonCImpl;
+
+    private final ActivityRetainedCImpl activityRetainedCImpl;
+
+    private final ActivityCImpl activityCImpl;
+
+    private Fragment fragment;
+
+    private FragmentCBuilder(SingletonCImpl singletonCImpl,
+        ActivityRetainedCImpl activityRetainedCImpl, ActivityCImpl activityCImpl) {
+      this.singletonCImpl = singletonCImpl;
+      this.activityRetainedCImpl = activityRetainedCImpl;
+      this.activityCImpl = activityCImpl;
+    }
+
+    @Override
+    public FragmentCBuilder fragment(Fragment fragment) {
+      this.fragment = Preconditions.checkNotNull(fragment);
+      return this;
+    }
+
+    @Override
+    public RamkaApp_HiltComponents.FragmentC build() {
+      Preconditions.checkBuilderRequirement(fragment, Fragment.class);
+      return new FragmentCImpl(singletonCImpl, activityRetainedCImpl, activityCImpl, fragment);
+    }
+  }
+
+  private static final class ViewWithFragmentCBuilder implements RamkaApp_HiltComponents.ViewWithFragmentC.Builder {
+    private final SingletonCImpl singletonCImpl;
+
+    private final ActivityRetainedCImpl activityRetainedCImpl;
+
+    private final ActivityCImpl activityCImpl;
+
+    private final FragmentCImpl fragmentCImpl;
+
+    private View view;
+
+    private ViewWithFragmentCBuilder(SingletonCImpl singletonCImpl,
+        ActivityRetainedCImpl activityRetainedCImpl, ActivityCImpl activityCImpl,
+        FragmentCImpl fragmentCImpl) {
+      this.singletonCImpl = singletonCImpl;
+      this.activityRetainedCImpl = activityRetainedCImpl;
+      this.activityCImpl = activityCImpl;
+      this.fragmentCImpl = fragmentCImpl;
+    }
+
+    @Override
+    public ViewWithFragmentCBuilder view(View view) {
+      this.view = Preconditions.checkNotNull(view);
+      return this;
+    }
+
+    @Override
+    public RamkaApp_HiltComponents.ViewWithFragmentC build() {
+      Preconditions.checkBuilderRequirement(view, View.class);
+      return new ViewWithFragmentCImpl(singletonCImpl, activityRetainedCImpl, activityCImpl, fragmentCImpl, view);
+    }
+  }
+
+  private static final class ViewCBuilder implements RamkaApp_HiltComponents.ViewC.Builder {
+    private final SingletonCImpl singletonCImpl;
+
+    private final ActivityRetainedCImpl activityRetainedCImpl;
+
+    private final ActivityCImpl activityCImpl;
+
+    private View view;
+
+    private ViewCBuilder(SingletonCImpl singletonCImpl, ActivityRetainedCImpl activityRetainedCImpl,
+        ActivityCImpl activityCImpl) {
+      this.singletonCImpl = singletonCImpl;
+      this.activityRetainedCImpl = activityRetainedCImpl;
+      this.activityCImpl = activityCImpl;
+    }
+
+    @Override
+    public ViewCBuilder view(View view) {
+      this.view = Preconditions.checkNotNull(view);
+      return this;
+    }
+
+    @Override
+    public RamkaApp_HiltComponents.ViewC build() {
+      Preconditions.checkBuilderRequirement(view, View.class);
+      return new ViewCImpl(singletonCImpl, activityRetainedCImpl, activityCImpl, view);
+    }
+  }
+
+  private static final class ViewModelCBuilder implements RamkaApp_HiltComponents.ViewModelC.Builder {
+    private final SingletonCImpl singletonCImpl;
+
+    private final ActivityRetainedCImpl activityRetainedCImpl;
+
+    private SavedStateHandle savedStateHandle;
+
+    private ViewModelLifecycle viewModelLifecycle;
+
+    private ViewModelCBuilder(SingletonCImpl singletonCImpl,
+        ActivityRetainedCImpl activityRetainedCImpl) {
+      this.singletonCImpl = singletonCImpl;
+      this.activityRetainedCImpl = activityRetainedCImpl;
+    }
+
+    @Override
+    public ViewModelCBuilder savedStateHandle(SavedStateHandle handle) {
+      this.savedStateHandle = Preconditions.checkNotNull(handle);
+      return this;
+    }
+
+    @Override
+    public ViewModelCBuilder viewModelLifecycle(ViewModelLifecycle viewModelLifecycle) {
+      this.viewModelLifecycle = Preconditions.checkNotNull(viewModelLifecycle);
+      return this;
+    }
+
+    @Override
+    public RamkaApp_HiltComponents.ViewModelC build() {
+      Preconditions.checkBuilderRequirement(savedStateHandle, SavedStateHandle.class);
+      Preconditions.checkBuilderRequirement(viewModelLifecycle, ViewModelLifecycle.class);
+      return new ViewModelCImpl(singletonCImpl, activityRetainedCImpl, savedStateHandle, viewModelLifecycle);
+    }
+  }
+
+  private static final class ServiceCBuilder implements RamkaApp_HiltComponents.ServiceC.Builder {
+    private final SingletonCImpl singletonCImpl;
+
+    private Service service;
+
+    private ServiceCBuilder(SingletonCImpl singletonCImpl) {
+      this.singletonCImpl = singletonCImpl;
+    }
+
+    @Override
+    public ServiceCBuilder service(Service service) {
+      this.service = Preconditions.checkNotNull(service);
+      return this;
+    }
+
+    @Override
+    public RamkaApp_HiltComponents.ServiceC build() {
+      Preconditions.checkBuilderRequirement(service, Service.class);
+      return new ServiceCImpl(singletonCImpl, service);
+    }
+  }
+
+  private static final class ViewWithFragmentCImpl extends RamkaApp_HiltComponents.ViewWithFragmentC {
+    private final SingletonCImpl singletonCImpl;
+
+    private final ActivityRetainedCImpl activityRetainedCImpl;
+
+    private final ActivityCImpl activityCImpl;
+
+    private final FragmentCImpl fragmentCImpl;
+
+    private final ViewWithFragmentCImpl viewWithFragmentCImpl = this;
+
+    private ViewWithFragmentCImpl(SingletonCImpl singletonCImpl,
+        ActivityRetainedCImpl activityRetainedCImpl, ActivityCImpl activityCImpl,
+        FragmentCImpl fragmentCImpl, View viewParam) {
+      this.singletonCImpl = singletonCImpl;
+      this.activityRetainedCImpl = activityRetainedCImpl;
+      this.activityCImpl = activityCImpl;
+      this.fragmentCImpl = fragmentCImpl;
+
+
+    }
+  }
+
+  private static final class FragmentCImpl extends RamkaApp_HiltComponents.FragmentC {
+    private final SingletonCImpl singletonCImpl;
+
+    private final ActivityRetainedCImpl activityRetainedCImpl;
+
+    private final ActivityCImpl activityCImpl;
+
+    private final FragmentCImpl fragmentCImpl = this;
+
+    private FragmentCImpl(SingletonCImpl singletonCImpl,
+        ActivityRetainedCImpl activityRetainedCImpl, ActivityCImpl activityCImpl,
+        Fragment fragmentParam) {
+      this.singletonCImpl = singletonCImpl;
+      this.activityRetainedCImpl = activityRetainedCImpl;
+      this.activityCImpl = activityCImpl;
+
+
+    }
+
+    @Override
+    public DefaultViewModelFactories.InternalFactoryFactory getHiltInternalFactoryFactory() {
+      return activityCImpl.getHiltInternalFactoryFactory();
+    }
+
+    @Override
+    public ViewWithFragmentComponentBuilder viewWithFragmentComponentBuilder() {
+      return new ViewWithFragmentCBuilder(singletonCImpl, activityRetainedCImpl, activityCImpl, fragmentCImpl);
+    }
+  }
+
+  private static final class ViewCImpl extends RamkaApp_HiltComponents.ViewC {
+    private final SingletonCImpl singletonCImpl;
+
+    private final ActivityRetainedCImpl activityRetainedCImpl;
+
+    private final ActivityCImpl activityCImpl;
+
+    private final ViewCImpl viewCImpl = this;
+
+    private ViewCImpl(SingletonCImpl singletonCImpl, ActivityRetainedCImpl activityRetainedCImpl,
+        ActivityCImpl activityCImpl, View viewParam) {
+      this.singletonCImpl = singletonCImpl;
+      this.activityRetainedCImpl = activityRetainedCImpl;
+      this.activityCImpl = activityCImpl;
+
+
+    }
+  }
+
+  private static final class ActivityCImpl extends RamkaApp_HiltComponents.ActivityC {
+    private final SingletonCImpl singletonCImpl;
+
+    private final ActivityRetainedCImpl activityRetainedCImpl;
+
+    private final ActivityCImpl activityCImpl = this;
+
+    private ActivityCImpl(SingletonCImpl singletonCImpl,
+        ActivityRetainedCImpl activityRetainedCImpl, Activity activityParam) {
+      this.singletonCImpl = singletonCImpl;
+      this.activityRetainedCImpl = activityRetainedCImpl;
+
+
+    }
+
+    @Override
+    public void injectMainActivity(MainActivity arg0) {
+      injectMainActivity2(arg0);
+    }
+
+    @Override
+    public DefaultViewModelFactories.InternalFactoryFactory getHiltInternalFactoryFactory() {
+      return DefaultViewModelFactories_InternalFactoryFactory_Factory.newInstance(getViewModelKeys(), new ViewModelCBuilder(singletonCImpl, activityRetainedCImpl));
+    }
+
+    @Override
+    public Map<Class<?>, Boolean> getViewModelKeys() {
+      return LazyClassKeyMap.<Boolean>of(MapBuilder.<String, Boolean>newMapBuilder(4).put(LazyClassKeyProvider.com_ramka_app_ui_chat_ChatViewModel, ChatViewModel_HiltModules.KeyModule.provide()).put(LazyClassKeyProvider.com_ramka_app_ui_contacts_ContactsViewModel, ContactsViewModel_HiltModules.KeyModule.provide()).put(LazyClassKeyProvider.com_ramka_app_ui_qr_QrViewModel, QrViewModel_HiltModules.KeyModule.provide()).put(LazyClassKeyProvider.com_ramka_app_ui_settings_SettingsViewModel, SettingsViewModel_HiltModules.KeyModule.provide()).build());
+    }
+
+    @Override
+    public ViewModelComponentBuilder getViewModelComponentBuilder() {
+      return new ViewModelCBuilder(singletonCImpl, activityRetainedCImpl);
+    }
+
+    @Override
+    public FragmentComponentBuilder fragmentComponentBuilder() {
+      return new FragmentCBuilder(singletonCImpl, activityRetainedCImpl, activityCImpl);
+    }
+
+    @Override
+    public ViewComponentBuilder viewComponentBuilder() {
+      return new ViewCBuilder(singletonCImpl, activityRetainedCImpl, activityCImpl);
+    }
+
+    private MainActivity injectMainActivity2(MainActivity instance) {
+      MainActivity_MembersInjector.injectBackgroundDeliveryController(instance, singletonCImpl.provideBackgroundDeliveryControllerProvider.get());
+      return instance;
+    }
+
+    @IdentifierNameString
+    private static final class LazyClassKeyProvider {
+      static String com_ramka_app_ui_settings_SettingsViewModel = "com.ramka.app.ui.settings.SettingsViewModel";
+
+      static String com_ramka_app_ui_chat_ChatViewModel = "com.ramka.app.ui.chat.ChatViewModel";
+
+      static String com_ramka_app_ui_contacts_ContactsViewModel = "com.ramka.app.ui.contacts.ContactsViewModel";
+
+      static String com_ramka_app_ui_qr_QrViewModel = "com.ramka.app.ui.qr.QrViewModel";
+
+      @KeepFieldType
+      SettingsViewModel com_ramka_app_ui_settings_SettingsViewModel2;
+
+      @KeepFieldType
+      ChatViewModel com_ramka_app_ui_chat_ChatViewModel2;
+
+      @KeepFieldType
+      ContactsViewModel com_ramka_app_ui_contacts_ContactsViewModel2;
+
+      @KeepFieldType
+      QrViewModel com_ramka_app_ui_qr_QrViewModel2;
+    }
+  }
+
+  private static final class ViewModelCImpl extends RamkaApp_HiltComponents.ViewModelC {
+    private final SavedStateHandle savedStateHandle;
+
+    private final SingletonCImpl singletonCImpl;
+
+    private final ActivityRetainedCImpl activityRetainedCImpl;
+
+    private final ViewModelCImpl viewModelCImpl = this;
+
+    private Provider<ChatViewModel> chatViewModelProvider;
+
+    private Provider<ContactsViewModel> contactsViewModelProvider;
+
+    private Provider<QrViewModel> qrViewModelProvider;
+
+    private Provider<SettingsViewModel> settingsViewModelProvider;
+
+    private ViewModelCImpl(SingletonCImpl singletonCImpl,
+        ActivityRetainedCImpl activityRetainedCImpl, SavedStateHandle savedStateHandleParam,
+        ViewModelLifecycle viewModelLifecycleParam) {
+      this.singletonCImpl = singletonCImpl;
+      this.activityRetainedCImpl = activityRetainedCImpl;
+      this.savedStateHandle = savedStateHandleParam;
+      initialize(savedStateHandleParam, viewModelLifecycleParam);
+
+    }
+
+    @SuppressWarnings("unchecked")
+    private void initialize(final SavedStateHandle savedStateHandleParam,
+        final ViewModelLifecycle viewModelLifecycleParam) {
+      this.chatViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 0);
+      this.contactsViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 1);
+      this.qrViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 2);
+      this.settingsViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 3);
+    }
+
+    @Override
+    public Map<Class<?>, javax.inject.Provider<ViewModel>> getHiltViewModelMap() {
+      return LazyClassKeyMap.<javax.inject.Provider<ViewModel>>of(MapBuilder.<String, javax.inject.Provider<ViewModel>>newMapBuilder(4).put(LazyClassKeyProvider.com_ramka_app_ui_chat_ChatViewModel, ((Provider) chatViewModelProvider)).put(LazyClassKeyProvider.com_ramka_app_ui_contacts_ContactsViewModel, ((Provider) contactsViewModelProvider)).put(LazyClassKeyProvider.com_ramka_app_ui_qr_QrViewModel, ((Provider) qrViewModelProvider)).put(LazyClassKeyProvider.com_ramka_app_ui_settings_SettingsViewModel, ((Provider) settingsViewModelProvider)).build());
+    }
+
+    @Override
+    public Map<Class<?>, Object> getHiltViewModelAssistedMap() {
+      return Collections.<Class<?>, Object>emptyMap();
+    }
+
+    @IdentifierNameString
+    private static final class LazyClassKeyProvider {
+      static String com_ramka_app_ui_chat_ChatViewModel = "com.ramka.app.ui.chat.ChatViewModel";
+
+      static String com_ramka_app_ui_contacts_ContactsViewModel = "com.ramka.app.ui.contacts.ContactsViewModel";
+
+      static String com_ramka_app_ui_qr_QrViewModel = "com.ramka.app.ui.qr.QrViewModel";
+
+      static String com_ramka_app_ui_settings_SettingsViewModel = "com.ramka.app.ui.settings.SettingsViewModel";
+
+      @KeepFieldType
+      ChatViewModel com_ramka_app_ui_chat_ChatViewModel2;
+
+      @KeepFieldType
+      ContactsViewModel com_ramka_app_ui_contacts_ContactsViewModel2;
+
+      @KeepFieldType
+      QrViewModel com_ramka_app_ui_qr_QrViewModel2;
+
+      @KeepFieldType
+      SettingsViewModel com_ramka_app_ui_settings_SettingsViewModel2;
+    }
+
+    private static final class SwitchingProvider<T> implements Provider<T> {
+      private final SingletonCImpl singletonCImpl;
+
+      private final ActivityRetainedCImpl activityRetainedCImpl;
+
+      private final ViewModelCImpl viewModelCImpl;
+
+      private final int id;
+
+      SwitchingProvider(SingletonCImpl singletonCImpl, ActivityRetainedCImpl activityRetainedCImpl,
+          ViewModelCImpl viewModelCImpl, int id) {
+        this.singletonCImpl = singletonCImpl;
+        this.activityRetainedCImpl = activityRetainedCImpl;
+        this.viewModelCImpl = viewModelCImpl;
+        this.id = id;
+      }
+
+      @SuppressWarnings("unchecked")
+      @Override
+      public T get() {
+        switch (id) {
+          case 0: // com.ramka.app.ui.chat.ChatViewModel 
+          return (T) new ChatViewModel(viewModelCImpl.savedStateHandle, singletonCImpl.provideContactRepositoryProvider.get(), singletonCImpl.provideMessageRepositoryProvider.get(), singletonCImpl.provideOutboxRepositoryProvider.get(), singletonCImpl.provideTransportRepositoryProvider.get(), singletonCImpl.provideActiveChatTrackerProvider.get(), singletonCImpl.provideSendReadAckUseCaseProvider.get());
+
+          case 1: // com.ramka.app.ui.contacts.ContactsViewModel 
+          return (T) new ContactsViewModel(singletonCImpl.provideContactRepositoryProvider.get(), singletonCImpl.processOutboxUseCase(), singletonCImpl.provideAppPreferencesProvider.get());
+
+          case 2: // com.ramka.app.ui.qr.QrViewModel 
+          return (T) new QrViewModel(singletonCImpl.provideKeyManagerProvider.get(), singletonCImpl.provideContactRepositoryProvider.get());
+
+          case 3: // com.ramka.app.ui.settings.SettingsViewModel 
+          return (T) new SettingsViewModel(singletonCImpl.provideBackgroundDeliveryControllerProvider.get(), singletonCImpl.provideLanVisibilityControllerProvider.get(), singletonCImpl.provideAppPreferencesProvider.get(), singletonCImpl.relayFormController(), singletonCImpl.provideRelayProvider.get());
+
+          default: throw new AssertionError(id);
+        }
+      }
+    }
+  }
+
+  private static final class ActivityRetainedCImpl extends RamkaApp_HiltComponents.ActivityRetainedC {
+    private final SingletonCImpl singletonCImpl;
+
+    private final ActivityRetainedCImpl activityRetainedCImpl = this;
+
+    private Provider<ActivityRetainedLifecycle> provideActivityRetainedLifecycleProvider;
+
+    private ActivityRetainedCImpl(SingletonCImpl singletonCImpl,
+        SavedStateHandleHolder savedStateHandleHolderParam) {
+      this.singletonCImpl = singletonCImpl;
+
+      initialize(savedStateHandleHolderParam);
+
+    }
+
+    @SuppressWarnings("unchecked")
+    private void initialize(final SavedStateHandleHolder savedStateHandleHolderParam) {
+      this.provideActivityRetainedLifecycleProvider = DoubleCheck.provider(new SwitchingProvider<ActivityRetainedLifecycle>(singletonCImpl, activityRetainedCImpl, 0));
+    }
+
+    @Override
+    public ActivityComponentBuilder activityComponentBuilder() {
+      return new ActivityCBuilder(singletonCImpl, activityRetainedCImpl);
+    }
+
+    @Override
+    public ActivityRetainedLifecycle getActivityRetainedLifecycle() {
+      return provideActivityRetainedLifecycleProvider.get();
+    }
+
+    private static final class SwitchingProvider<T> implements Provider<T> {
+      private final SingletonCImpl singletonCImpl;
+
+      private final ActivityRetainedCImpl activityRetainedCImpl;
+
+      private final int id;
+
+      SwitchingProvider(SingletonCImpl singletonCImpl, ActivityRetainedCImpl activityRetainedCImpl,
+          int id) {
+        this.singletonCImpl = singletonCImpl;
+        this.activityRetainedCImpl = activityRetainedCImpl;
+        this.id = id;
+      }
+
+      @SuppressWarnings("unchecked")
+      @Override
+      public T get() {
+        switch (id) {
+          case 0: // dagger.hilt.android.ActivityRetainedLifecycle 
+          return (T) ActivityRetainedComponentManager_LifecycleModule_ProvideActivityRetainedLifecycleFactory.provideActivityRetainedLifecycle();
+
+          default: throw new AssertionError(id);
+        }
+      }
+    }
+  }
+
+  private static final class ServiceCImpl extends RamkaApp_HiltComponents.ServiceC {
+    private final SingletonCImpl singletonCImpl;
+
+    private final ServiceCImpl serviceCImpl = this;
+
+    private ServiceCImpl(SingletonCImpl singletonCImpl, Service serviceParam) {
+      this.singletonCImpl = singletonCImpl;
+
+
+    }
+  }
+
+  private static final class SingletonCImpl extends RamkaApp_HiltComponents.SingletonC {
+    private final ApplicationContextModule applicationContextModule;
+
+    private final SingletonCImpl singletonCImpl = this;
+
+    private Provider<LanDiscoveryService> provideLanDiscoveryServiceProvider;
+
+    private Provider<SecureKeyStore> provideSecureKeyStoreProvider;
+
+    private Provider<RamkaDatabase> provideDatabaseProvider;
+
+    private Provider<ContactRepository> provideContactRepositoryProvider;
+
+    private Provider<MessageRepository> provideMessageRepositoryProvider;
+
+    private Provider<KeyManager> provideKeyManagerProvider;
+
+    private Provider<SecureLanChannel> provideSecureLanChannelProvider;
+
+    private Provider<CoroutineScope> provideAppScopeProvider;
+
+    private Provider<LanTransportRepository> provideLanTransportRepositoryProvider;
+
+    private Provider<RelayClient> provideRelayClientProvider;
+
+    private Provider<AppPreferences> provideAppPreferencesProvider;
+
+    private Provider<RelaySettings> provideRelaySettingsProvider;
+
+    private Provider<SingleRelayProvider> provideRelayProvider;
+
+    private Provider<RelayTransportRepository> provideRelayTransportRepositoryProvider;
+
+    private Provider<LocalNetworkDetector> provideLocalNetworkDetectorProvider;
+
+    private Provider<TransportRepository> provideTransportRepositoryProvider;
+
+    private Provider<ActiveChatTracker> provideActiveChatTrackerProvider;
+
+    private Provider<Jitter> provideJitterProvider;
+
+    private Provider<IncomingMessageProcessor> provideIncomingMessageProcessorProvider;
+
+    private Provider<BackgroundDeliveryController> provideBackgroundDeliveryControllerProvider;
+
+    private Provider<LanVisibilityController> provideLanVisibilityControllerProvider;
+
+    private Provider<OutboxRepository> provideOutboxRepositoryProvider;
+
+    private Provider<SendReadAckUseCase> provideSendReadAckUseCaseProvider;
+
+    private SingletonCImpl(ApplicationContextModule applicationContextModuleParam) {
+      this.applicationContextModule = applicationContextModuleParam;
+      initialize(applicationContextModuleParam);
+
+    }
+
+    private ContactDao contactDao() {
+      return AppModule_ProvideContactDaoFactory.provideContactDao(provideDatabaseProvider.get());
+    }
+
+    private MessageDao messageDao() {
+      return AppModule_ProvideMessageDaoFactory.provideMessageDao(provideDatabaseProvider.get());
+    }
+
+    private OutboxDao outboxDao() {
+      return AppModule_ProvideOutboxDaoFactory.provideOutboxDao(provideDatabaseProvider.get());
+    }
+
+    private AttemptDeliveryUseCase attemptDeliveryUseCase() {
+      return AppModule_ProvideAttemptDeliveryUseCaseFactory.provideAttemptDeliveryUseCase(provideContactRepositoryProvider.get(), provideTransportRepositoryProvider.get());
+    }
+
+    private RelayChecker relayChecker() {
+      return AppModule_ProvideRelayCheckerFactory.provideRelayChecker(provideRelayClientProvider.get());
+    }
+
+    private RelayFormController relayFormController() {
+      return AppModule_ProvideRelayFormControllerFactory.provideRelayFormController(provideRelaySettingsProvider.get(), relayChecker());
+    }
+
+    @SuppressWarnings("unchecked")
+    private void initialize(final ApplicationContextModule applicationContextModuleParam) {
+      this.provideLanDiscoveryServiceProvider = DoubleCheck.provider(new SwitchingProvider<LanDiscoveryService>(singletonCImpl, 0));
+      this.provideSecureKeyStoreProvider = DoubleCheck.provider(new SwitchingProvider<SecureKeyStore>(singletonCImpl, 4));
+      this.provideDatabaseProvider = DoubleCheck.provider(new SwitchingProvider<RamkaDatabase>(singletonCImpl, 3));
+      this.provideContactRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<ContactRepository>(singletonCImpl, 2));
+      this.provideMessageRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<MessageRepository>(singletonCImpl, 5));
+      this.provideKeyManagerProvider = DoubleCheck.provider(new SwitchingProvider<KeyManager>(singletonCImpl, 9));
+      this.provideSecureLanChannelProvider = DoubleCheck.provider(new SwitchingProvider<SecureLanChannel>(singletonCImpl, 8));
+      this.provideAppScopeProvider = DoubleCheck.provider(new SwitchingProvider<CoroutineScope>(singletonCImpl, 10));
+      this.provideLanTransportRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<LanTransportRepository>(singletonCImpl, 7));
+      this.provideRelayClientProvider = DoubleCheck.provider(new SwitchingProvider<RelayClient>(singletonCImpl, 12));
+      this.provideAppPreferencesProvider = DoubleCheck.provider(new SwitchingProvider<AppPreferences>(singletonCImpl, 15));
+      this.provideRelaySettingsProvider = DoubleCheck.provider(new SwitchingProvider<RelaySettings>(singletonCImpl, 14));
+      this.provideRelayProvider = DoubleCheck.provider(new SwitchingProvider<SingleRelayProvider>(singletonCImpl, 13));
+      this.provideRelayTransportRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<RelayTransportRepository>(singletonCImpl, 11));
+      this.provideLocalNetworkDetectorProvider = DoubleCheck.provider(new SwitchingProvider<LocalNetworkDetector>(singletonCImpl, 16));
+      this.provideTransportRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<TransportRepository>(singletonCImpl, 6));
+      this.provideActiveChatTrackerProvider = DoubleCheck.provider(new SwitchingProvider<ActiveChatTracker>(singletonCImpl, 17));
+      this.provideJitterProvider = DoubleCheck.provider(new SwitchingProvider<Jitter>(singletonCImpl, 18));
+      this.provideIncomingMessageProcessorProvider = DoubleCheck.provider(new SwitchingProvider<IncomingMessageProcessor>(singletonCImpl, 1));
+      this.provideBackgroundDeliveryControllerProvider = DoubleCheck.provider(new SwitchingProvider<BackgroundDeliveryController>(singletonCImpl, 19));
+      this.provideLanVisibilityControllerProvider = DoubleCheck.provider(new SwitchingProvider<LanVisibilityController>(singletonCImpl, 20));
+      this.provideOutboxRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<OutboxRepository>(singletonCImpl, 21));
+      this.provideSendReadAckUseCaseProvider = DoubleCheck.provider(new SwitchingProvider<SendReadAckUseCase>(singletonCImpl, 22));
+    }
+
+    @Override
+    public void injectRamkaApp(RamkaApp ramkaApp) {
+      injectRamkaApp2(ramkaApp);
+    }
+
+    @Override
+    public ProcessOutboxUseCase processOutboxUseCase() {
+      return AppModule_ProvideProcessOutboxUseCaseFactory.provideProcessOutboxUseCase(provideOutboxRepositoryProvider.get(), provideMessageRepositoryProvider.get(), attemptDeliveryUseCase(), provideJitterProvider.get());
+    }
+
+    @Override
+    public Set<Boolean> getDisableFragmentGetContextFix() {
+      return Collections.<Boolean>emptySet();
+    }
+
+    @Override
+    public ActivityRetainedComponentBuilder retainedComponentBuilder() {
+      return new ActivityRetainedCBuilder(singletonCImpl);
+    }
+
+    @Override
+    public ServiceComponentBuilder serviceComponentBuilder() {
+      return new ServiceCBuilder(singletonCImpl);
+    }
+
+    private RamkaApp injectRamkaApp2(RamkaApp instance) {
+      RamkaApp_MembersInjector.injectLanDiscoveryService(instance, provideLanDiscoveryServiceProvider.get());
+      RamkaApp_MembersInjector.injectIncomingMessageProcessor(instance, provideIncomingMessageProcessorProvider.get());
+      RamkaApp_MembersInjector.injectProcessOutboxUseCase(instance, processOutboxUseCase());
+      RamkaApp_MembersInjector.injectAppScope(instance, provideAppScopeProvider.get());
+      RamkaApp_MembersInjector.injectBackgroundDeliveryController(instance, provideBackgroundDeliveryControllerProvider.get());
+      RamkaApp_MembersInjector.injectLanVisibilityController(instance, provideLanVisibilityControllerProvider.get());
+      return instance;
+    }
+
+    private static final class SwitchingProvider<T> implements Provider<T> {
+      private final SingletonCImpl singletonCImpl;
+
+      private final int id;
+
+      SwitchingProvider(SingletonCImpl singletonCImpl, int id) {
+        this.singletonCImpl = singletonCImpl;
+        this.id = id;
+      }
+
+      @SuppressWarnings("unchecked")
+      @Override
+      public T get() {
+        switch (id) {
+          case 0: // com.ramka.network.local.LanDiscoveryService 
+          return (T) AppModule_ProvideLanDiscoveryServiceFactory.provideLanDiscoveryService(ApplicationContextModule_ProvideContextFactory.provideContext(singletonCImpl.applicationContextModule));
+
+          case 1: // com.ramka.data.incoming.IncomingMessageProcessor 
+          return (T) AppModule_ProvideIncomingMessageProcessorFactory.provideIncomingMessageProcessor(ApplicationContextModule_ProvideContextFactory.provideContext(singletonCImpl.applicationContextModule), singletonCImpl.provideContactRepositoryProvider.get(), singletonCImpl.provideMessageRepositoryProvider.get(), singletonCImpl.provideTransportRepositoryProvider.get(), singletonCImpl.provideActiveChatTrackerProvider.get(), singletonCImpl.provideJitterProvider.get());
+
+          case 2: // com.ramka.domain.repository.ContactRepository 
+          return (T) AppModule_ProvideContactRepositoryFactory.provideContactRepository(singletonCImpl.contactDao());
+
+          case 3: // com.ramka.storage.db.RamkaDatabase 
+          return (T) AppModule_ProvideDatabaseFactory.provideDatabase(ApplicationContextModule_ProvideContextFactory.provideContext(singletonCImpl.applicationContextModule), singletonCImpl.provideSecureKeyStoreProvider.get());
+
+          case 4: // com.ramka.crypto.securestorage.SecureKeyStore 
+          return (T) AppModule_ProvideSecureKeyStoreFactory.provideSecureKeyStore(ApplicationContextModule_ProvideContextFactory.provideContext(singletonCImpl.applicationContextModule));
+
+          case 5: // com.ramka.domain.repository.MessageRepository 
+          return (T) AppModule_ProvideMessageRepositoryFactory.provideMessageRepository(singletonCImpl.messageDao());
+
+          case 6: // com.ramka.domain.repository.TransportRepository 
+          return (T) AppModule_ProvideTransportRepositoryFactory.provideTransportRepository(singletonCImpl.provideLanTransportRepositoryProvider.get(), singletonCImpl.provideRelayTransportRepositoryProvider.get(), singletonCImpl.provideRelaySettingsProvider.get(), singletonCImpl.provideLocalNetworkDetectorProvider.get());
+
+          case 7: // com.ramka.data.repository.LanTransportRepository 
+          return (T) AppModule_ProvideLanTransportRepositoryFactory.provideLanTransportRepository(singletonCImpl.provideSecureLanChannelProvider.get(), singletonCImpl.provideAppScopeProvider.get());
+
+          case 8: // com.ramka.network.local.SecureLanChannel 
+          return (T) AppModule_ProvideSecureLanChannelFactory.provideSecureLanChannel(singletonCImpl.provideKeyManagerProvider.get(), singletonCImpl.provideContactRepositoryProvider.get());
+
+          case 9: // com.ramka.crypto.keys.KeyManager 
+          return (T) AppModule_ProvideKeyManagerFactory.provideKeyManager(singletonCImpl.provideSecureKeyStoreProvider.get());
+
+          case 10: // kotlinx.coroutines.CoroutineScope 
+          return (T) AppModule_ProvideAppScopeFactory.provideAppScope();
+
+          case 11: // com.ramka.data.repository.RelayTransportRepository 
+          return (T) AppModule_ProvideRelayTransportRepositoryFactory.provideRelayTransportRepository(singletonCImpl.provideSecureLanChannelProvider.get(), singletonCImpl.provideRelayClientProvider.get(), singletonCImpl.provideRelayProvider.get());
+
+          case 12: // com.ramka.network.relay.RelayClient 
+          return (T) AppModule_ProvideRelayClientFactory.provideRelayClient(singletonCImpl.provideKeyManagerProvider.get());
+
+          case 13: // com.ramka.domain.relay.SingleRelayProvider 
+          return (T) AppModule_ProvideRelayProviderFactory.provideRelayProvider(singletonCImpl.provideRelaySettingsProvider.get());
+
+          case 14: // com.ramka.app.relay.RelaySettings 
+          return (T) AppModule_ProvideRelaySettingsFactory.provideRelaySettings(singletonCImpl.provideAppPreferencesProvider.get(), singletonCImpl.provideSecureKeyStoreProvider.get());
+
+          case 15: // com.ramka.app.preferences.AppPreferences 
+          return (T) AppModule_ProvideAppPreferencesFactory.provideAppPreferences(ApplicationContextModule_ProvideContextFactory.provideContext(singletonCImpl.applicationContextModule));
+
+          case 16: // com.ramka.app.relay.LocalNetworkDetector 
+          return (T) AppModule_ProvideLocalNetworkDetectorFactory.provideLocalNetworkDetector(ApplicationContextModule_ProvideContextFactory.provideContext(singletonCImpl.applicationContextModule));
+
+          case 17: // com.ramka.domain.util.ActiveChatTracker 
+          return (T) AppModule_ProvideActiveChatTrackerFactory.provideActiveChatTracker();
+
+          case 18: // com.ramka.domain.util.Jitter 
+          return (T) AppModule_ProvideJitterFactory.provideJitter();
+
+          case 19: // com.ramka.app.background.BackgroundDeliveryController 
+          return (T) AppModule_ProvideBackgroundDeliveryControllerFactory.provideBackgroundDeliveryController(ApplicationContextModule_ProvideContextFactory.provideContext(singletonCImpl.applicationContextModule), singletonCImpl.provideAppPreferencesProvider.get());
+
+          case 20: // com.ramka.app.discovery.LanVisibilityController 
+          return (T) AppModule_ProvideLanVisibilityControllerFactory.provideLanVisibilityController(singletonCImpl.provideAppPreferencesProvider.get());
+
+          case 21: // com.ramka.domain.repository.OutboxRepository 
+          return (T) AppModule_ProvideOutboxRepositoryFactory.provideOutboxRepository(singletonCImpl.outboxDao());
+
+          case 22: // com.ramka.domain.usecase.SendReadAckUseCase 
+          return (T) AppModule_ProvideSendReadAckUseCaseFactory.provideSendReadAckUseCase(singletonCImpl.provideMessageRepositoryProvider.get(), singletonCImpl.attemptDeliveryUseCase(), singletonCImpl.provideJitterProvider.get(), singletonCImpl.provideAppScopeProvider.get());
+
+          default: throw new AssertionError(id);
+        }
+      }
+    }
+  }
+}

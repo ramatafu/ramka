@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.ramka.domain.usecase.ProcessOutboxUseCaseTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-10-01T08:47:50.164Z" hostname="DESKTOP-EIGI3GP" time="0.033">
+  <properties/>
+  <testcase name="real randomness gives different delays for identical attempts" classname="com.ramka.domain.usecase.ProcessOutboxUseCaseTest" time="0.014"/>
+  <testcase name="disabled jitter keeps the deterministic backoff" classname="com.ramka.domain.usecase.ProcessOutboxUseCaseTest" time="0.001"/>
+  <testcase name="at the one hour cap the delay is between 48 and 72 minutes" classname="com.ramka.domain.usecase.ProcessOutboxUseCaseTest" time="0.001"/>
+  <testcase name="jitter extremes give exactly minus 20 and about plus 20 percent" classname="com.ramka.domain.usecase.ProcessOutboxUseCaseTest" time="0.001"/>
+  <testcase name="failed attempt schedules next try within plus minus 20 percent of backoff" classname="com.ramka.domain.usecase.ProcessOutboxUseCaseTest" time="0.015"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

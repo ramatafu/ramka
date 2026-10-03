@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.ramka.crypto.noise.IkHandshakeTest" tests="25" skipped="0" failures="0" errors="0" timestamp="2026-10-01T03:58:42.820Z" hostname="DESKTOP-EIGI3GP" time="0.315">
+  <properties/>
+  <testcase name="Message2 payload reused as Message3 is rejected" classname="com.ramka.crypto.noise.IkHandshakeTest" time="0.026"/>
+  <testcase name="signatures are not visible and not verifiable from public data" classname="com.ramka.crypto.noise.IkHandshakeTest" time="0.015"/>
+  <testcase name="Message2 and Message3 of the old format and wrong lengths are rejected" classname="com.ramka.crypto.noise.IkHandshakeTest" time="0.007"/>
+  <testcase name="replaying an old Message3 against a session with a new responder ephemeral is rejected" classname="com.ramka.crypto.noise.IkHandshakeTest" time="0.006"/>
+  <testcase name="any single byte change in Message3 is rejected" classname="com.ramka.crypto.noise.IkHandshakeTest" time="0.056"/>
+  <testcase name="any single byte change in Message2 is rejected" classname="com.ramka.crypto.noise.IkHandshakeTest" time="0.076"/>
+  <testcase name="low order ephemeral point in Message2 is rejected without exception" classname="com.ramka.crypto.noise.IkHandshakeTest" time="0.003"/>
+  <testcase name="any single byte change in Message1 is rejected" classname="com.ramka.crypto.noise.IkHandshakeTest" time="0.046"/>
+  <testcase name="high bit of the ephemeral key is covered by the AAD" classname="com.ramka.crypto.noise.IkHandshakeTest" time="0.001"/>
+  <testcase name="Message3 verified with another signing key is rejected" classname="com.ramka.crypto.noise.IkHandshakeTest" time="0.005"/>
+  <testcase name="Message2 and Message3 have fixed sizes" classname="com.ramka.crypto.noise.IkHandshakeTest" time="0.002"/>
+  <testcase name="Message1 addressed to another responder is rejected" classname="com.ramka.crypto.noise.IkHandshakeTest" time="0.001"/>
+  <testcase name="old Message2 replayed to a new initiator is rejected" classname="com.ramka.crypto.noise.IkHandshakeTest" time="0.008"/>
+  <testcase name="Message2 verified with the wrong signing key is rejected" classname="com.ramka.crypto.noise.IkHandshakeTest" time="0.003"/>
+  <testcase name="high bit of the responder ephemeral key is covered by the transcript" classname="com.ramka.crypto.noise.IkHandshakeTest" time="0.003"/>
+  <testcase name="Message3 reused as Message2 payload is rejected" classname="com.ramka.crypto.noise.IkHandshakeTest" time="0.004"/>
+  <testcase name="Message1 has fixed size and hides the initiator static key" classname="com.ramka.crypto.noise.IkHandshakeTest" time="0.001"/>
+  <testcase name="responder recovers the initiator static key from Message1" classname="com.ramka.crypto.noise.IkHandshakeTest" time="0.002"/>
+  <testcase name="Message2 and Message3 of two handshakes of the same pair share no 16 byte window" classname="com.ramka.crypto.noise.IkHandshakeTest" time="0.027"/>
+  <testcase name="old Message3 replayed into a new handshake is rejected" classname="com.ramka.crypto.noise.IkHandshakeTest" time="0.004"/>
+  <testcase name="Message1 of the old 64 byte format and wrong lengths are rejected" classname="com.ramka.crypto.noise.IkHandshakeTest" time="0.0"/>
+  <testcase name="full round-trip yields matching sendKey-recvKey pairs on both sides" classname="com.ramka.crypto.noise.IkHandshakeTest" time="0.005"/>
+  <testcase name="reflection is stopped by key separation and not only by the signature check" classname="com.ramka.crypto.noise.IkHandshakeTest" time="0.009"/>
+  <testcase name="two Message1 from the same pair have no common 16 byte window" classname="com.ramka.crypto.noise.IkHandshakeTest" time="0.002"/>
+  <testcase name="Message1 with a low order ephemeral point is rejected without exception" classname="com.ramka.crypto.noise.IkHandshakeTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

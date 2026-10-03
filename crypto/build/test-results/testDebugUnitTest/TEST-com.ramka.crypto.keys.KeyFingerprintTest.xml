@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.ramka.crypto.keys.KeyFingerprintTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-10-01T03:58:42.491Z" hostname="DESKTOP-EIGI3GP" time="0.251">
+  <properties/>
+  <testcase name="same key pair produces the same fingerprint" classname="com.ramka.crypto.keys.KeyFingerprintTest" time="0.237"/>
+  <testcase name="different key pairs produce different fingerprints" classname="com.ramka.crypto.keys.KeyFingerprintTest" time="0.001"/>
+  <testcase name="fingerprint format is stable — four groups of four lowercase hex characters" classname="com.ramka.crypto.keys.KeyFingerprintTest" time="0.007"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

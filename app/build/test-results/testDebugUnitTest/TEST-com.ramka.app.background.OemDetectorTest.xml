@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.ramka.app.background.OemDetectorTest" tests="8" skipped="0" failures="0" errors="0" timestamp="2026-10-01T08:57:35.472Z" hostname="DESKTOP-EIGI3GP" time="0.047">
+  <properties/>
+  <testcase name="hint text per vendor starts with the common phrase and names the vendor" classname="com.ramka.app.background.OemDetectorTest" time="0.036"/>
+  <testcase name="generic text is used for other vendors and has no vendor name" classname="com.ramka.app.background.OemDetectorTest" time="0.001"/>
+  <testcase name="null empty and unknown inputs fall back to OTHER" classname="com.ramka.app.background.OemDetectorTest" time="0.007"/>
+  <testcase name="all hint texts are distinct" classname="com.ramka.app.background.OemDetectorTest" time="0.001"/>
+  <testcase name="fingerprint brand is used when manufacturer is not recognised" classname="com.ramka.app.background.OemDetectorTest" time="0.0"/>
+  <testcase name="manufacturer table maps to the expected vendor" classname="com.ramka.app.background.OemDetectorTest" time="0.0"/>
+  <testcase name="recognised manufacturer wins over fingerprint" classname="com.ramka.app.background.OemDetectorTest" time="0.0"/>
+  <testcase name="surrounding whitespace and case are ignored" classname="com.ramka.app.background.OemDetectorTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

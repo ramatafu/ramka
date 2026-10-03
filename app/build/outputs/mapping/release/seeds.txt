@@ -1,0 +1,1383 @@
+com.ramka.storage.db.RamkaDatabase
+androidx.work.impl.WorkDatabase
+androidx.work.impl.background.systemalarm.SystemAlarmService
+androidx.lifecycle.ProcessLifecycleInitializer
+com.ramka.storage.db.RamkaDatabase_Impl
+androidx.compose.foundation.layout.HorizontalAlignElement
+androidx.compose.ui.layout.LayoutElement
+dagger.hilt.android.internal.lifecycle.HiltViewModelFactory$ViewModelFactoriesEntryPoint
+androidx.compose.ui.focus.FocusTargetNode$FocusTargetElement
+androidx.work.impl.workers.CombineContinuationsWorker
+net.sqlcipher.CursorWindow
+androidx.work.Worker
+androidx.compose.ui.focus.FocusOwnerImpl$modifier$1
+androidx.compose.ui.draw.PainterElement
+androidx.room.MultiInstanceInvalidationService
+androidx.compose.animation.EnterExitTransitionElement
+androidx.compose.foundation.ClickableElement
+com.ramka.app.RamkaApp_GeneratedInjector
+androidx.compose.ui.draw.DrawBehindElement
+androidx.work.WorkManagerInitializer
+net.sqlcipher.database.SQLiteCompiledSql
+dagger.hilt.android.internal.lifecycle.HiltViewModelFactory$ActivityCreatorEntryPoint
+kotlinx.coroutines.android.AndroidDispatcherFactory
+androidx.compose.foundation.FocusableElement
+net.sqlcipher.database.SQLiteProgram
+androidx.work.impl.foreground.SystemForegroundService
+androidx.compose.foundation.BackgroundElement
+net.sqlcipher.database.SQLiteQuery
+androidx.compose.ui.draw.DrawWithContentElement
+dagger.hilt.android.internal.lifecycle.HiltWrapper_HiltViewModelFactory_ActivityCreatorEntryPoint
+dagger.hilt.android.internal.lifecycle.DefaultViewModelFactories$ActivityEntryPoint
+androidx.compose.foundation.relocation.BringIntoViewRequesterElement
+androidx.work.impl.background.systemalarm.ConstraintProxyUpdateReceiver
+androidx.compose.foundation.MagnifierElement
+androidx.compose.ui.focus.FocusChangedElement
+androidx.work.impl.background.systemjob.SystemJobService
+dagger.hilt.android.internal.managers.ActivityRetainedComponentManager$ActivityRetainedLifecycleEntryPoint
+androidx.compose.ui.node.ForceUpdateElement
+androidx.work.impl.background.systemalarm.ConstraintProxy$BatteryNotLowProxy
+androidx.compose.foundation.gestures.ScrollableElement
+androidx.navigation.NavGraphNavigator
+androidx.work.impl.WorkDatabase_Impl
+androidx.navigation.ActivityNavigator
+androidx.compose.ui.draw.DrawWithCacheElement
+androidx.work.impl.workers.ConstraintTrackingWorker
+androidx.compose.foundation.layout.OffsetElement
+androidx.compose.ui.input.pointer.PointerHoverIconModifierElement
+com.ramka.app.MainActivity_GeneratedInjector
+androidx.work.OverwritingInputMerger
+androidx.compose.ui.graphics.GraphicsLayerElement
+com.journeyapps.barcodescanner.BarcodeView
+androidx.compose.foundation.gestures.DraggableElement
+net.sqlcipher.database.SQLiteDebug
+androidx.compose.ui.input.key.KeyInputElement
+androidx.work.impl.background.systemalarm.ConstraintProxy$BatteryChargingProxy
+androidx.compose.ui.layout.LayoutIdElement
+net.sqlcipher.database.SQLiteDatabase
+androidx.core.app.CoreComponentFactory
+androidx.annotation.Keep
+androidx.navigation.compose.ComposeNavGraphNavigator
+androidx.compose.ui.input.rotary.RotaryInputElement
+kotlinx.coroutines.internal.StackTraceRecoveryKt
+androidx.compose.foundation.layout.PaddingValuesElement
+androidx.compose.foundation.BorderModifierNodeElement
+dagger.hilt.android.internal.managers.ActivityRetainedComponentManager$ActivityRetainedComponentBuilderEntryPoint
+androidx.compose.foundation.HoverableElement
+com.ramka.app.di.OutboxWorkerEntryPoint
+androidx.work.impl.background.systemalarm.ConstraintProxy$StorageNotLowProxy
+androidx.core.graphics.drawable.IconCompatParcelizer
+androidx.compose.ui.semantics.ClearAndSetSemanticsElement
+androidx.compose.foundation.text.modifiers.TextStringSimpleElement
+androidx.work.impl.background.systemalarm.ConstraintProxy$NetworkStateProxy
+android.support.v4.app.RemoteActionCompatParcelizer
+com.ramka.app.RamkaApp
+androidx.core.app.RemoteActionCompatParcelizer
+androidx.compose.foundation.FocusableKt$FocusableInNonTouchModeElement$1
+kotlin.coroutines.jvm.internal.BaseContinuationImpl
+androidx.emoji2.text.EmojiCompatInitializer
+androidx.compose.foundation.layout.LayoutWeightElement
+androidx.compose.foundation.layout.UnspecifiedConstraintsElement
+androidx.compose.foundation.layout.WrapContentElement
+androidx.compose.foundation.layout.PaddingElement
+androidx.work.impl.utils.ForceStopRunnable$BroadcastReceiver
+androidx.work.impl.diagnostics.DiagnosticsReceiver
+androidx.startup.InitializationProvider
+com.journeyapps.barcodescanner.DecoratedBarcodeView
+androidx.versionedparcelable.CustomVersionedParcelable
+androidx.work.impl.background.systemalarm.RescheduleReceiver
+androidx.work.CoroutineWorker
+net.sqlcipher.database.SQLiteStatement
+com.ramka.app.outbox.OutboxSweepWorker
+androidx.navigation.compose.DialogNavigator
+androidx.compose.ui.focus.FocusRequesterElement
+androidx.compose.foundation.layout.OffsetPxElement
+androidx.profileinstaller.ProfileInstallerInitializer
+com.journeyapps.barcodescanner.CaptureActivity
+android.support.v4.graphics.drawable.IconCompatParcelizer
+androidx.compose.ui.semantics.AppendedSemanticsElement
+androidx.compose.foundation.layout.SizeElement
+androidx.compose.foundation.text.modifiers.TextAnnotatedStringElement
+androidx.compose.ui.layout.OnGloballyPositionedElement
+dagger.hilt.android.internal.managers.ActivityComponentManager$ActivityComponentBuilderEntryPoint
+androidx.core.graphics.drawable.IconCompat
+androidx.core.app.RemoteActionCompat
+androidx.work.WorkerParameters
+androidx.compose.ui.input.pointer.SuspendPointerInputElement
+com.ramka.app.MainActivity
+androidx.compose.material3.MinimumInteractiveModifier
+androidx.versionedparcelable.ParcelImpl
+androidx.work.impl.workers.DiagnosticsWorker
+androidx.navigation.compose.ComposeNavigator
+androidx.compose.foundation.layout.FillElement
+androidx.compose.foundation.layout.BoxChildDataElement
+androidx.profileinstaller.ProfileInstallReceiver
+com.journeyapps.barcodescanner.ViewfinderView
+androidx.work.ArrayCreatingInputMerger
+androidx.compose.ui.semantics.EmptySemanticsElement
+androidx.compose.foundation.text.modifiers.SelectableTextAnnotatedStringElement
+androidx.compose.ui.platform.DragAndDropModifierOnDragListener$modifier$1
+com.ramka.app.background.PersistentDeliveryService
+com.google.crypto.tink.proto.KeysetInfo: com.google.crypto.tink.shaded.protobuf.Parser PARSER
+kotlinx.serialization.json.JsonNull: kotlinx.serialization.json.JsonNull INSTANCE
+com.google.crypto.tink.proto.ChaCha20Poly1305Key: int KEY_VALUE_FIELD_NUMBER
+com.google.crypto.tink.shaded.protobuf.GeneratedMessageLite: java.util.Map defaultInstanceMap
+com.google.crypto.tink.proto.KmsAeadKey: com.google.crypto.tink.proto.KmsAeadKeyFormat params_
+com.google.crypto.tink.proto.AesGcmKeyFormat: int VERSION_FIELD_NUMBER
+androidx.compose.runtime.ParcelableSnapshotMutableLongState: android.os.Parcelable$Creator CREATOR
+com.google.crypto.tink.proto.KeyTemplate: int TYPE_URL_FIELD_NUMBER
+com.google.crypto.tink.proto.ChaCha20Poly1305Key: int version_
+kotlinx.coroutines.scheduling.CoroutineScheduler: long parkedWorkersStack$volatile
+com.google.crypto.tink.proto.KeyTypeEntry: int keyManagerVersion_
+com.google.crypto.tink.proto.AesSivKey: int VERSION_FIELD_NUMBER
+com.google.crypto.tink.proto.HmacParams: com.google.crypto.tink.proto.HmacParams DEFAULT_INSTANCE
+com.google.crypto.tink.proto.AesCtrKeyFormat: int keySize_
+com.google.crypto.tink.proto.AesCmacKeyFormat: com.google.crypto.tink.proto.AesCmacParams params_
+com.google.crypto.tink.proto.ChaCha20Poly1305KeyFormat: com.google.crypto.tink.proto.ChaCha20Poly1305KeyFormat DEFAULT_INSTANCE
+com.google.crypto.tink.proto.AesCtrHmacAeadKeyFormat: int AES_CTR_KEY_FORMAT_FIELD_NUMBER
+com.google.crypto.tink.proto.KeyTypeEntry: int PRIMITIVE_NAME_FIELD_NUMBER
+com.google.crypto.tink.proto.KeyData: int keyMaterialType_
+com.google.crypto.tink.proto.Keyset$Key: int keyId_
+com.google.crypto.tink.shaded.protobuf.GeneratedMessageLite: com.google.crypto.tink.shaded.protobuf.UnknownFieldSetLite unknownFields
+kotlinx.coroutines.JobSupport: java.lang.Object _parentHandle$volatile
+kotlinx.coroutines.android.AndroidExceptionPreHandler: java.lang.Object _preHandler
+com.google.crypto.tink.proto.AesGcmSivKeyFormat: int keySize_
+com.google.crypto.tink.proto.KeyData: com.google.crypto.tink.shaded.protobuf.ByteString value_
+kotlinx.coroutines.JobSupport$Finishing: java.lang.Object _rootCause$volatile
+kotlinx.coroutines.sync.SemaphoreImpl: java.lang.Object tail$volatile
+com.google.crypto.tink.proto.AesEaxKey: com.google.crypto.tink.shaded.protobuf.Parser PARSER
+com.google.crypto.tink.proto.KeyData: com.google.crypto.tink.proto.KeyData DEFAULT_INSTANCE
+androidx.lifecycle.ProcessLifecycleOwner$attach$1$onActivityPreCreated$1: androidx.lifecycle.ProcessLifecycleOwner this$0
+com.google.crypto.tink.proto.AesCmacKey: int version_
+kotlinx.coroutines.sync.SemaphoreImpl: long enqIdx$volatile
+com.google.crypto.tink.proto.AesEaxKey: int VERSION_FIELD_NUMBER
+com.google.crypto.tink.proto.AesGcmKey: int VERSION_FIELD_NUMBER
+com.google.crypto.tink.proto.Keyset: com.google.crypto.tink.shaded.protobuf.Parser PARSER
+com.google.crypto.tink.proto.KmsEnvelopeAeadKey: int version_
+com.google.crypto.tink.proto.AesEaxKeyFormat: int KEY_SIZE_FIELD_NUMBER
+com.google.crypto.tink.proto.ChaCha20Poly1305Key: com.google.crypto.tink.shaded.protobuf.Parser PARSER
+kotlinx.coroutines.DefaultExecutor: java.lang.Thread _thread
+com.google.crypto.tink.proto.AesCmacKey: int PARAMS_FIELD_NUMBER
+com.google.crypto.tink.proto.AesSivKey: com.google.crypto.tink.shaded.protobuf.Parser PARSER
+com.google.crypto.tink.proto.EncryptedKeyset: com.google.crypto.tink.shaded.protobuf.ByteString encryptedKeyset_
+com.google.crypto.tink.proto.HmacParams: int TAG_SIZE_FIELD_NUMBER
+com.google.crypto.tink.proto.AesCmacKeyFormat: com.google.crypto.tink.proto.AesCmacKeyFormat DEFAULT_INSTANCE
+com.google.crypto.tink.proto.AesCmacKey: com.google.crypto.tink.proto.AesCmacKey DEFAULT_INSTANCE
+androidx.activity.result.IntentSenderRequest: android.os.Parcelable$Creator CREATOR
+com.google.crypto.tink.proto.XChaCha20Poly1305KeyFormat: com.google.crypto.tink.proto.XChaCha20Poly1305KeyFormat DEFAULT_INSTANCE
+com.google.crypto.tink.proto.KeyTemplate: com.google.crypto.tink.shaded.protobuf.ByteString value_
+com.google.crypto.tink.proto.HmacKey: com.google.crypto.tink.proto.HmacParams params_
+kotlinx.coroutines.internal.DispatchedContinuation: java.lang.Object _reusableCancellableContinuation$volatile
+androidx.lifecycle.Lifecycle$Event: androidx.lifecycle.Lifecycle$Event ON_RESUME
+kotlinx.coroutines.channels.BufferedChannel: java.lang.Object receiveSegment$volatile
+com.google.crypto.tink.proto.XChaCha20Poly1305KeyFormat: int VERSION_FIELD_NUMBER
+com.google.crypto.tink.proto.AesCmacKey: int KEY_VALUE_FIELD_NUMBER
+com.google.crypto.tink.shaded.protobuf.GeneratedMessageLite: int MUTABLE_FLAG_MASK
+kotlinx.coroutines.internal.ConcurrentLinkedListNode: java.lang.Object _next$volatile
+com.google.crypto.tink.proto.KmsAeadKeyFormat: com.google.crypto.tink.shaded.protobuf.Parser PARSER
+com.google.crypto.tink.proto.AesGcmSivKeyFormat: com.google.crypto.tink.shaded.protobuf.Parser PARSER
+com.google.crypto.tink.proto.AesSivKeyFormat: int keySize_
+com.google.crypto.tink.proto.AesCmacParams: int TAG_SIZE_FIELD_NUMBER
+com.google.crypto.tink.proto.Keyset$Key: com.google.crypto.tink.proto.Keyset$Key DEFAULT_INSTANCE
+kotlinx.coroutines.channels.BufferedChannel: java.lang.Object bufferEndSegment$volatile
+com.google.crypto.tink.proto.KeyTypeEntry: com.google.crypto.tink.shaded.protobuf.Parser PARSER
+com.google.crypto.tink.proto.XChaCha20Poly1305KeyFormat: com.google.crypto.tink.shaded.protobuf.Parser PARSER
+com.google.crypto.tink.proto.HmacKeyFormat: com.google.crypto.tink.shaded.protobuf.Parser PARSER
+com.google.crypto.tink.proto.HmacKey: int PARAMS_FIELD_NUMBER
+com.google.crypto.tink.proto.AesCtrKey: int PARAMS_FIELD_NUMBER
+com.google.crypto.tink.proto.AesCmacKey: int VERSION_FIELD_NUMBER
+androidx.concurrent.futures.AbstractResolvableFuture$Waiter: androidx.concurrent.futures.AbstractResolvableFuture$Waiter next
+androidx.compose.foundation.lazy.layout.DefaultLazyKey: android.os.Parcelable$Creator CREATOR
+kotlinx.coroutines.EventLoopImplBase: java.lang.Object _queue$volatile
+com.google.crypto.tink.proto.Keyset: com.google.crypto.tink.shaded.protobuf.Internal$ProtobufList key_
+com.google.crypto.tink.proto.Keyset$Key: int status_
+kotlinx.coroutines.channels.BufferedChannel: java.lang.Object closeHandler$volatile
+com.google.crypto.tink.proto.RegistryConfig: com.google.crypto.tink.shaded.protobuf.Parser PARSER
+com.google.crypto.tink.proto.AesSivKeyFormat: int KEY_SIZE_FIELD_NUMBER
+com.google.crypto.tink.proto.KmsAeadKey: int PARAMS_FIELD_NUMBER
+com.google.crypto.tink.proto.HmacKeyFormat: com.google.crypto.tink.proto.HmacParams params_
+com.google.crypto.tink.proto.EncryptedKeyset: int KEYSET_INFO_FIELD_NUMBER
+kotlinx.coroutines.JobSupport: java.lang.Object _state$volatile
+com.google.crypto.tink.proto.AesSivKey: com.google.crypto.tink.shaded.protobuf.ByteString keyValue_
+com.google.crypto.tink.proto.AesGcmKeyFormat: int keySize_
+com.google.crypto.tink.proto.KeyTemplate: int outputPrefixType_
+androidx.lifecycle.Lifecycle$Event: androidx.lifecycle.Lifecycle$Event$Companion Companion
+com.google.crypto.tink.proto.KeysetInfo$KeyInfo: int OUTPUT_PREFIX_TYPE_FIELD_NUMBER
+com.google.crypto.tink.proto.AesCtrKey: com.google.crypto.tink.proto.AesCtrKey DEFAULT_INSTANCE
+com.google.crypto.tink.proto.KmsEnvelopeAeadKeyFormat: java.lang.String kekUri_
+kotlinx.coroutines.EventLoopImplBase: int _isCompleted$volatile
+androidx.versionedparcelable.ParcelImpl: android.os.Parcelable$Creator CREATOR
+com.google.crypto.tink.proto.RegistryConfig: com.google.crypto.tink.proto.RegistryConfig DEFAULT_INSTANCE
+com.google.crypto.tink.proto.AesGcmKey: com.google.crypto.tink.proto.AesGcmKey DEFAULT_INSTANCE
+com.google.crypto.tink.proto.EncryptedKeyset: com.google.crypto.tink.shaded.protobuf.Parser PARSER
+com.google.crypto.tink.proto.KeyTypeEntry: boolean newKeyAllowed_
+kotlinx.coroutines.sync.SemaphoreImpl: java.lang.Object head$volatile
+com.google.crypto.tink.proto.KeyData: java.lang.String typeUrl_
+com.google.crypto.tink.proto.Keyset$Key: int KEY_ID_FIELD_NUMBER
+com.google.crypto.tink.proto.AesEaxParams: com.google.crypto.tink.proto.AesEaxParams DEFAULT_INSTANCE
+kotlinx.coroutines.InvokeOnCancelling: int _invoked$volatile
+kotlinx.serialization.json.JsonArray: kotlinx.serialization.json.JsonArray$Companion Companion
+androidx.concurrent.futures.AbstractResolvableFuture: androidx.concurrent.futures.AbstractResolvableFuture$Listener listeners
+com.google.crypto.tink.shaded.protobuf.GeneratedMessageLite: int UNINITIALIZED_HASH_CODE
+com.google.crypto.tink.proto.AesEaxKeyFormat: int PARAMS_FIELD_NUMBER
+com.google.crypto.tink.proto.KmsAeadKeyFormat: java.lang.String keyUri_
+com.google.crypto.tink.proto.ChaCha20Poly1305Key: com.google.crypto.tink.proto.ChaCha20Poly1305Key DEFAULT_INSTANCE
+kotlinx.coroutines.internal.LockFreeTaskQueue: java.lang.Object _cur$volatile
+com.google.crypto.tink.proto.KmsAeadKeyFormat: com.google.crypto.tink.proto.KmsAeadKeyFormat DEFAULT_INSTANCE
+com.google.crypto.tink.proto.KeyData: int VALUE_FIELD_NUMBER
+com.google.crypto.tink.proto.HmacKeyFormat: int version_
+kotlinx.coroutines.channels.BufferedChannel: long bufferEnd$volatile
+kotlinx.coroutines.sync.SemaphoreImpl: long deqIdx$volatile
+com.google.crypto.tink.proto.KeyTypeEntry: int KEY_MANAGER_VERSION_FIELD_NUMBER
+com.google.crypto.tink.proto.RegistryConfig: int CONFIG_NAME_FIELD_NUMBER
+com.google.crypto.tink.proto.KmsEnvelopeAeadKey: int PARAMS_FIELD_NUMBER
+com.google.crypto.tink.proto.XChaCha20Poly1305Key: com.google.crypto.tink.proto.XChaCha20Poly1305Key DEFAULT_INSTANCE
+com.google.crypto.tink.proto.AesCtrParams: com.google.crypto.tink.proto.AesCtrParams DEFAULT_INSTANCE
+kotlinx.coroutines.channels.BufferedChannel: long completedExpandBuffersAndPauseFlag$volatile
+kotlinx.coroutines.internal.LockFreeLinkedListNode: java.lang.Object _prev$volatile
+com.google.crypto.tink.shaded.protobuf.GeneratedMessageLite: int UNINITIALIZED_SERIALIZED_SIZE
+androidx.compose.runtime.ParcelableSnapshotMutableState: android.os.Parcelable$Creator CREATOR
+com.google.crypto.tink.proto.KeyData: int TYPE_URL_FIELD_NUMBER
+com.google.crypto.tink.proto.HmacParams: com.google.crypto.tink.shaded.protobuf.Parser PARSER
+com.google.crypto.tink.proto.AesCtrHmacAeadKeyFormat: com.google.crypto.tink.proto.AesCtrHmacAeadKeyFormat DEFAULT_INSTANCE
+com.google.crypto.tink.proto.KeysetInfo: int KEY_INFO_FIELD_NUMBER
+com.google.crypto.tink.proto.AesGcmSivKey: com.google.crypto.tink.shaded.protobuf.ByteString keyValue_
+androidx.work.impl.utils.futures.AbstractFuture: androidx.work.impl.utils.futures.AbstractFuture$Listener listeners
+com.google.crypto.tink.proto.AesCmacKeyFormat: int PARAMS_FIELD_NUMBER
+com.google.crypto.tink.proto.KeysetInfo$KeyInfo: int keyId_
+kotlinx.coroutines.CancellableContinuationImpl: java.lang.Object _state$volatile
+kotlinx.coroutines.DispatchedCoroutine: int _decision$volatile
+com.google.crypto.tink.proto.AesCtrHmacAeadKey: com.google.crypto.tink.proto.HmacKey hmacKey_
+com.google.crypto.tink.proto.AesGcmSivKeyFormat: com.google.crypto.tink.proto.AesGcmSivKeyFormat DEFAULT_INSTANCE
+kotlinx.coroutines.CancellableContinuationImpl: java.lang.Object _parentHandle$volatile
+androidx.lifecycle.Lifecycle$Event: androidx.lifecycle.Lifecycle$Event ON_ANY
+kotlinx.coroutines.internal.AtomicOp: java.lang.Object _consensus$volatile
+androidx.concurrent.futures.AbstractResolvableFuture: java.lang.Object value
+com.google.crypto.tink.proto.AesCmacKey: com.google.crypto.tink.shaded.protobuf.Parser PARSER
+com.google.crypto.tink.proto.Keyset$Key: int STATUS_FIELD_NUMBER
+com.google.crypto.tink.proto.AesCmacKeyFormat: int keySize_
+com.google.crypto.tink.proto.AesEaxKeyFormat: com.google.crypto.tink.shaded.protobuf.Parser PARSER
+com.google.crypto.tink.shaded.protobuf.AbstractMessageLite: int memoizedHashCode
+com.google.crypto.tink.proto.Keyset$Key: com.google.crypto.tink.shaded.protobuf.Parser PARSER
+kotlinx.coroutines.flow.StateFlowImpl: java.lang.Object _state$volatile
+com.google.crypto.tink.proto.AesGcmKey: com.google.crypto.tink.shaded.protobuf.Parser PARSER
+com.google.crypto.tink.proto.XChaCha20Poly1305Key: int VERSION_FIELD_NUMBER
+com.google.crypto.tink.proto.AesCtrKey: com.google.crypto.tink.proto.AesCtrParams params_
+kotlinx.coroutines.channels.BufferedChannel: long receivers$volatile
+com.google.crypto.tink.proto.AesSivKeyFormat: int VERSION_FIELD_NUMBER
+com.google.crypto.tink.proto.HmacKeyFormat: int PARAMS_FIELD_NUMBER
+kotlinx.coroutines.sync.SemaphoreImpl: int _availablePermits$volatile
+com.google.crypto.tink.proto.AesGcmSivKey: com.google.crypto.tink.shaded.protobuf.Parser PARSER
+kotlinx.coroutines.scheduling.WorkQueue: int consumerIndex$volatile
+com.google.crypto.tink.proto.AesGcmKey: int KEY_VALUE_FIELD_NUMBER
+com.google.crypto.tink.proto.KmsAeadKey: int VERSION_FIELD_NUMBER
+kotlinx.coroutines.scheduling.CoroutineScheduler$Worker: java.lang.Object nextParkedWorker
+com.google.crypto.tink.proto.KeysetInfo$KeyInfo: int status_
+com.google.crypto.tink.proto.KeysetInfo$KeyInfo: com.google.crypto.tink.proto.KeysetInfo$KeyInfo DEFAULT_INSTANCE
+com.google.crypto.tink.proto.AesEaxKey: com.google.crypto.tink.proto.AesEaxKey DEFAULT_INSTANCE
+kotlinx.coroutines.android.HandlerDispatcherKt: android.view.Choreographer choreographer
+com.google.crypto.tink.proto.KeyTypeEntry: com.google.crypto.tink.proto.KeyTypeEntry DEFAULT_INSTANCE
+kotlinx.coroutines.scheduling.WorkQueue: int producerIndex$volatile
+com.google.crypto.tink.proto.AesGcmKeyFormat: com.google.crypto.tink.shaded.protobuf.Parser PARSER
+com.google.crypto.tink.proto.Keyset$Key: int KEY_DATA_FIELD_NUMBER
+com.google.crypto.tink.proto.KeyTypeEntry: java.lang.String catalogueName_
+com.google.crypto.tink.proto.AesSivKey: int KEY_VALUE_FIELD_NUMBER
+kotlinx.coroutines.scheduling.WorkQueue: int blockingTasksInBuffer$volatile
+com.google.crypto.tink.proto.XChaCha20Poly1305KeyFormat: int version_
+kotlinx.coroutines.internal.LockFreeLinkedListNode: java.lang.Object _next$volatile
+com.google.crypto.tink.proto.HmacParams: int HASH_FIELD_NUMBER
+kotlin.coroutines.SafeContinuation: java.lang.Object result
+kotlinx.coroutines.channels.BufferedChannel: java.lang.Object sendSegment$volatile
+com.google.crypto.tink.proto.KmsEnvelopeAeadKey: com.google.crypto.tink.proto.KmsEnvelopeAeadKeyFormat params_
+com.google.crypto.tink.proto.KmsAeadKey: com.google.crypto.tink.shaded.protobuf.Parser PARSER
+com.google.crypto.tink.proto.AesGcmSivKey: int version_
+com.google.crypto.tink.proto.HmacKey: com.google.crypto.tink.shaded.protobuf.ByteString keyValue_
+com.google.crypto.tink.proto.HmacKeyFormat: int KEY_SIZE_FIELD_NUMBER
+com.google.crypto.tink.proto.AesCtrHmacAeadKeyFormat: com.google.crypto.tink.proto.HmacKeyFormat hmacKeyFormat_
+com.google.crypto.tink.proto.AesEaxKey: com.google.crypto.tink.proto.AesEaxParams params_
+com.google.crypto.tink.proto.KmsAeadKey: com.google.crypto.tink.proto.KmsAeadKey DEFAULT_INSTANCE
+com.google.crypto.tink.proto.HmacKeyFormat: int keySize_
+androidx.lifecycle.Lifecycle$Event: androidx.lifecycle.Lifecycle$Event ON_PAUSE
+com.google.crypto.tink.proto.KeyData: com.google.crypto.tink.shaded.protobuf.Parser PARSER
+com.google.crypto.tink.proto.AesGcmSivKey: com.google.crypto.tink.proto.AesGcmSivKey DEFAULT_INSTANCE
+com.google.crypto.tink.proto.KeyTemplate: int OUTPUT_PREFIX_TYPE_FIELD_NUMBER
+kotlinx.coroutines.internal.ConcurrentLinkedListNode: java.lang.Object _prev$volatile
+com.google.crypto.tink.proto.KmsEnvelopeAeadKeyFormat: int KEK_URI_FIELD_NUMBER
+kotlinx.coroutines.channels.BufferedChannel: java.lang.Object _closeCause$volatile
+kotlinx.coroutines.internal.LockFreeTaskQueueCore: java.lang.Object _next$volatile
+com.google.crypto.tink.proto.AesEaxKeyFormat: com.google.crypto.tink.proto.AesEaxParams params_
+com.google.crypto.tink.proto.KmsEnvelopeAeadKey: com.google.crypto.tink.shaded.protobuf.Parser PARSER
+com.google.crypto.tink.proto.KeyTypeEntry: int CATALOGUE_NAME_FIELD_NUMBER
+kotlinx.coroutines.scheduling.CoroutineScheduler: long controlState$volatile
+androidx.work.impl.utils.futures.AbstractFuture: androidx.work.impl.utils.futures.AbstractFuture$Waiter waiters
+com.google.crypto.tink.proto.AesGcmKeyFormat: int version_
+com.google.crypto.tink.proto.KeysetInfo$KeyInfo: java.lang.String typeUrl_
+kotlinx.coroutines.sync.MutexImpl: java.lang.Object owner$volatile
+kotlinx.coroutines.internal.LockFreeTaskQueueCore: long _state$volatile
+kotlinx.coroutines.scheduling.CoroutineScheduler$Worker: int workerCtl$volatile
+com.google.crypto.tink.proto.HmacKey: int KEY_VALUE_FIELD_NUMBER
+com.google.crypto.tink.proto.XChaCha20Poly1305Key: com.google.crypto.tink.shaded.protobuf.ByteString keyValue_
+com.google.crypto.tink.proto.KmsEnvelopeAeadKeyFormat: com.google.crypto.tink.proto.KeyTemplate dekTemplate_
+com.google.crypto.tink.proto.AesCtrHmacAeadKey: int HMAC_KEY_FIELD_NUMBER
+com.google.crypto.tink.proto.KeysetInfo$KeyInfo: int outputPrefixType_
+kotlinx.coroutines.channels.BufferedChannel: long sendersAndCloseStatus$volatile
+com.google.crypto.tink.proto.ChaCha20Poly1305KeyFormat: com.google.crypto.tink.shaded.protobuf.Parser PARSER
+com.google.crypto.tink.proto.Keyset: com.google.crypto.tink.proto.Keyset DEFAULT_INSTANCE
+com.google.crypto.tink.proto.Keyset$Key: com.google.crypto.tink.proto.KeyData keyData_
+com.google.crypto.tink.proto.AesCtrKey: com.google.crypto.tink.shaded.protobuf.Parser PARSER
+com.google.crypto.tink.proto.KeyTemplate: java.lang.String typeUrl_
+com.google.crypto.tink.proto.KeyTypeEntry: java.lang.String typeUrl_
+androidx.compose.runtime.ParcelableSnapshotMutableIntState: android.os.Parcelable$Creator CREATOR
+androidx.work.impl.utils.futures.AbstractFuture: java.lang.Object value
+com.google.crypto.tink.proto.AesCtrParams: int IV_SIZE_FIELD_NUMBER
+com.google.crypto.tink.proto.HmacKeyFormat: com.google.crypto.tink.proto.HmacKeyFormat DEFAULT_INSTANCE
+com.google.crypto.tink.proto.AesCtrParams: com.google.crypto.tink.shaded.protobuf.Parser PARSER
+com.google.crypto.tink.proto.KeyTypeEntry: int NEW_KEY_ALLOWED_FIELD_NUMBER
+androidx.lifecycle.Lifecycle$Event: androidx.lifecycle.Lifecycle$Event ON_CREATE
+kotlinx.coroutines.internal.LockFreeLinkedListNode: java.lang.Object _removedRef$volatile
+kotlinx.coroutines.JobSupport$Finishing: int _isCompleting$volatile
+androidx.work.impl.utils.futures.AbstractFuture$Waiter: java.lang.Thread thread
+com.google.crypto.tink.proto.AesCmacKeyFormat: com.google.crypto.tink.shaded.protobuf.Parser PARSER
+kotlinx.coroutines.CancelledContinuation: int _resumed$volatile
+kotlin.SafePublicationLazyImpl: java.lang.Object _value
+com.google.crypto.tink.proto.KeysetInfo: com.google.crypto.tink.shaded.protobuf.Internal$ProtobufList keyInfo_
+androidx.lifecycle.ProcessLifecycleOwner$attach$1: androidx.lifecycle.ProcessLifecycleOwner this$0
+com.google.crypto.tink.proto.AesEaxParams: int IV_SIZE_FIELD_NUMBER
+com.google.crypto.tink.proto.AesSivKeyFormat: com.google.crypto.tink.proto.AesSivKeyFormat DEFAULT_INSTANCE
+com.google.crypto.tink.proto.ChaCha20Poly1305Key: com.google.crypto.tink.shaded.protobuf.ByteString keyValue_
+com.google.crypto.tink.proto.AesGcmSivKey: int KEY_VALUE_FIELD_NUMBER
+kotlinx.coroutines.DefaultExecutor: int debugStatus
+kotlinx.coroutines.internal.LimitedDispatcher: int runningWorkers$volatile
+com.google.crypto.tink.proto.AesEaxKey: int PARAMS_FIELD_NUMBER
+kotlinx.serialization.json.JsonPrimitive: kotlinx.serialization.json.JsonPrimitive$Companion Companion
+com.google.crypto.tink.proto.KmsAeadKeyFormat: int KEY_URI_FIELD_NUMBER
+com.google.crypto.tink.proto.Keyset: int PRIMARY_KEY_ID_FIELD_NUMBER
+com.google.crypto.tink.proto.HmacKey: com.google.crypto.tink.shaded.protobuf.Parser PARSER
+com.google.crypto.tink.proto.AesCtrKeyFormat: com.google.crypto.tink.shaded.protobuf.Parser PARSER
+com.google.crypto.tink.proto.AesCtrHmacAeadKey: int version_
+com.google.crypto.tink.proto.AesGcmSivKeyFormat: int VERSION_FIELD_NUMBER
+com.google.crypto.tink.proto.AesEaxKeyFormat: com.google.crypto.tink.proto.AesEaxKeyFormat DEFAULT_INSTANCE
+kotlinx.coroutines.CancellableContinuationImpl: int _decisionAndIndex$volatile
+com.google.crypto.tink.proto.HmacParams: int tagSize_
+com.google.crypto.tink.proto.AesCtrHmacAeadKey: int AES_CTR_KEY_FIELD_NUMBER
+com.google.crypto.tink.proto.AesCtrHmacAeadKeyFormat: com.google.crypto.tink.shaded.protobuf.Parser PARSER
+com.google.crypto.tink.proto.AesCtrHmacAeadKey: int VERSION_FIELD_NUMBER
+androidx.concurrent.futures.AbstractResolvableFuture: androidx.concurrent.futures.AbstractResolvableFuture$Waiter waiters
+com.google.crypto.tink.proto.KeyTemplate: com.google.crypto.tink.proto.KeyTemplate DEFAULT_INSTANCE
+com.google.crypto.tink.shaded.protobuf.GeneratedMessageLite: int memoizedSerializedSize
+com.google.crypto.tink.proto.AesCtrKeyFormat: com.google.crypto.tink.proto.AesCtrKeyFormat DEFAULT_INSTANCE
+com.google.crypto.tink.proto.AesCtrKey: int KEY_VALUE_FIELD_NUMBER
+com.google.crypto.tink.proto.KmsAeadKey: int version_
+com.google.crypto.tink.proto.AesCtrKey: int VERSION_FIELD_NUMBER
+androidx.lifecycle.Lifecycle$Event: androidx.lifecycle.Lifecycle$Event[] $VALUES
+com.google.crypto.tink.proto.EncryptedKeyset: com.google.crypto.tink.proto.KeysetInfo keysetInfo_
+androidx.lifecycle.Lifecycle$Event: androidx.lifecycle.Lifecycle$Event ON_STOP
+net.sqlcipher.CursorWindow: android.os.Parcelable$Creator CREATOR
+com.google.crypto.tink.proto.AesCtrHmacAeadKeyFormat: int HMAC_KEY_FORMAT_FIELD_NUMBER
+com.google.crypto.tink.proto.AesGcmSivKeyFormat: int version_
+com.google.crypto.tink.proto.XChaCha20Poly1305Key: int version_
+androidx.navigation.NavBackStackEntryState: android.os.Parcelable$Creator CREATOR
+com.google.crypto.tink.proto.AesCtrKeyFormat: int KEY_SIZE_FIELD_NUMBER
+com.google.crypto.tink.proto.AesGcmKeyFormat: int KEY_SIZE_FIELD_NUMBER
+com.google.crypto.tink.proto.KeysetInfo: int primaryKeyId_
+com.google.crypto.tink.proto.KmsEnvelopeAeadKeyFormat: com.google.crypto.tink.proto.KmsEnvelopeAeadKeyFormat DEFAULT_INSTANCE
+com.google.crypto.tink.proto.AesCmacParams: com.google.crypto.tink.proto.AesCmacParams DEFAULT_INSTANCE
+com.google.crypto.tink.proto.HmacParams: int hash_
+com.google.crypto.tink.proto.KeysetInfo$KeyInfo: com.google.crypto.tink.shaded.protobuf.Parser PARSER
+com.google.crypto.tink.proto.KeysetInfo$KeyInfo: int TYPE_URL_FIELD_NUMBER
+com.google.crypto.tink.proto.AesEaxKeyFormat: int keySize_
+com.google.crypto.tink.proto.RegistryConfig: com.google.crypto.tink.shaded.protobuf.Internal$ProtobufList entry_
+com.google.crypto.tink.proto.KeyData: int KEY_MATERIAL_TYPE_FIELD_NUMBER
+com.google.crypto.tink.proto.AesCtrKey: int version_
+com.google.crypto.tink.proto.Keyset: int KEY_FIELD_NUMBER
+com.google.crypto.tink.proto.KeysetInfo: int PRIMARY_KEY_ID_FIELD_NUMBER
+kotlinx.serialization.json.JsonElement: kotlinx.serialization.json.JsonElement$Companion Companion
+com.google.crypto.tink.proto.AesCtrHmacAeadKey: com.google.crypto.tink.shaded.protobuf.Parser PARSER
+kotlinx.coroutines.internal.ThreadSafeHeap: int _size$volatile
+com.google.crypto.tink.proto.KeyTemplate: com.google.crypto.tink.shaded.protobuf.Parser PARSER
+com.google.crypto.tink.proto.KeyTemplate: int VALUE_FIELD_NUMBER
+com.google.crypto.tink.proto.AesCtrKey: com.google.crypto.tink.shaded.protobuf.ByteString keyValue_
+kotlinx.serialization.json.JsonObject: kotlinx.serialization.json.JsonObject$Companion Companion
+com.google.crypto.tink.proto.KeysetInfo$KeyInfo: int STATUS_FIELD_NUMBER
+com.google.crypto.tink.proto.AesEaxKey: int KEY_VALUE_FIELD_NUMBER
+com.google.crypto.tink.proto.Keyset: int primaryKeyId_
+com.google.crypto.tink.shaded.protobuf.GeneratedMessageLite: int MEMOIZED_SERIALIZED_SIZE_MASK
+com.google.crypto.tink.proto.AesEaxParams: int ivSize_
+com.google.crypto.tink.proto.KmsEnvelopeAeadKeyFormat: com.google.crypto.tink.shaded.protobuf.Parser PARSER
+com.google.crypto.tink.proto.RegistryConfig: java.lang.String configName_
+com.google.crypto.tink.proto.AesCtrHmacAeadKeyFormat: com.google.crypto.tink.proto.AesCtrKeyFormat aesCtrKeyFormat_
+com.google.crypto.tink.proto.AesCmacKey: com.google.crypto.tink.proto.AesCmacParams params_
+androidx.lifecycle.ReportFragment$LifecycleCallbacks: androidx.lifecycle.ReportFragment$LifecycleCallbacks$Companion Companion
+com.google.crypto.tink.proto.EncryptedKeyset: int ENCRYPTED_KEYSET_FIELD_NUMBER
+com.google.crypto.tink.proto.AesCtrKeyFormat: com.google.crypto.tink.proto.AesCtrParams params_
+com.google.crypto.tink.proto.AesGcmSivKeyFormat: int KEY_SIZE_FIELD_NUMBER
+com.google.crypto.tink.proto.Keyset$Key: int outputPrefixType_
+com.google.crypto.tink.proto.KmsEnvelopeAeadKeyFormat: int DEK_TEMPLATE_FIELD_NUMBER
+com.google.crypto.tink.proto.AesCtrKeyFormat: int PARAMS_FIELD_NUMBER
+androidx.work.impl.utils.futures.AbstractFuture$Waiter: androidx.work.impl.utils.futures.AbstractFuture$Waiter next
+com.google.crypto.tink.proto.HmacKey: int version_
+com.google.crypto.tink.proto.AesCtrHmacAeadKey: com.google.crypto.tink.proto.AesCtrHmacAeadKey DEFAULT_INSTANCE
+com.google.crypto.tink.proto.KeysetInfo$KeyInfo: int KEY_ID_FIELD_NUMBER
+kotlinx.coroutines.UndispatchedCoroutine: boolean threadLocalIsSet
+com.google.crypto.tink.proto.AesSivKeyFormat: com.google.crypto.tink.shaded.protobuf.Parser PARSER
+com.google.crypto.tink.proto.AesSivKey: com.google.crypto.tink.proto.AesSivKey DEFAULT_INSTANCE
+com.google.crypto.tink.proto.KmsEnvelopeAeadKey: int VERSION_FIELD_NUMBER
+com.ramka.network.protocol.InviteWire: com.ramka.network.protocol.InviteWire$Companion Companion
+androidx.lifecycle.Lifecycle$Event: androidx.lifecycle.Lifecycle$Event ON_START
+kotlinx.coroutines.scheduling.CoroutineScheduler$Worker: int indexInArray
+com.google.crypto.tink.proto.Keyset$Key: int OUTPUT_PREFIX_TYPE_FIELD_NUMBER
+com.google.crypto.tink.proto.HmacKey: int VERSION_FIELD_NUMBER
+kotlinx.coroutines.EventLoopImplBase: java.lang.Object _delayed$volatile
+com.google.crypto.tink.proto.AesCtrHmacAeadKey: com.google.crypto.tink.proto.AesCtrKey aesCtrKey_
+androidx.activity.result.ActivityResult: android.os.Parcelable$Creator CREATOR
+kotlinx.coroutines.EventLoopImplBase$DelayedTask: java.lang.Object _heap
+androidx.concurrent.futures.AbstractResolvableFuture$Waiter: java.lang.Thread thread
+com.google.crypto.tink.proto.AesCmacParams: com.google.crypto.tink.shaded.protobuf.Parser PARSER
+kotlinx.coroutines.scheduling.WorkQueue: java.lang.Object lastScheduledTask$volatile
+com.google.crypto.tink.proto.KeyTypeEntry: int TYPE_URL_FIELD_NUMBER
+com.google.crypto.tink.proto.AesEaxParams: com.google.crypto.tink.shaded.protobuf.Parser PARSER
+androidx.lifecycle.Lifecycle$Event: androidx.lifecycle.Lifecycle$Event ON_DESTROY
+kotlinx.coroutines.CompletedExceptionally: int _handled$volatile
+com.google.crypto.tink.proto.XChaCha20Poly1305Key: int KEY_VALUE_FIELD_NUMBER
+com.google.crypto.tink.proto.KeyTypeEntry: java.lang.String primitiveName_
+com.google.crypto.tink.proto.HmacKeyFormat: int VERSION_FIELD_NUMBER
+com.google.crypto.tink.proto.AesGcmKeyFormat: com.google.crypto.tink.proto.AesGcmKeyFormat DEFAULT_INSTANCE
+com.google.crypto.tink.proto.AesGcmSivKey: int VERSION_FIELD_NUMBER
+com.google.crypto.tink.proto.AesSivKeyFormat: int version_
+com.google.crypto.tink.proto.AesEaxKey: com.google.crypto.tink.shaded.protobuf.ByteString keyValue_
+kotlinx.coroutines.JobSupport$Finishing: java.lang.Object _exceptionsHolder$volatile
+com.google.crypto.tink.proto.AesCmacKeyFormat: int KEY_SIZE_FIELD_NUMBER
+com.google.crypto.tink.proto.AesCtrParams: int ivSize_
+com.google.crypto.tink.proto.ChaCha20Poly1305Key: int VERSION_FIELD_NUMBER
+com.google.crypto.tink.proto.AesGcmKey: com.google.crypto.tink.shaded.protobuf.ByteString keyValue_
+com.google.crypto.tink.proto.AesEaxKey: int version_
+com.google.crypto.tink.proto.EncryptedKeyset: com.google.crypto.tink.proto.EncryptedKeyset DEFAULT_INSTANCE
+kotlinx.coroutines.internal.ResizableAtomicArray: java.util.concurrent.atomic.AtomicReferenceArray array
+com.google.crypto.tink.proto.HmacKey: com.google.crypto.tink.proto.HmacKey DEFAULT_INSTANCE
+androidx.compose.runtime.ParcelableSnapshotMutableFloatState: android.os.Parcelable$Creator CREATOR
+com.google.crypto.tink.proto.AesGcmKey: int version_
+com.google.crypto.tink.proto.AesSivKey: int version_
+com.google.crypto.tink.proto.AesCmacKey: com.google.crypto.tink.shaded.protobuf.ByteString keyValue_
+com.google.crypto.tink.proto.AesCmacParams: int tagSize_
+com.google.crypto.tink.proto.XChaCha20Poly1305Key: com.google.crypto.tink.shaded.protobuf.Parser PARSER
+com.google.crypto.tink.proto.KmsEnvelopeAeadKey: com.google.crypto.tink.proto.KmsEnvelopeAeadKey DEFAULT_INSTANCE
+com.google.crypto.tink.proto.RegistryConfig: int ENTRY_FIELD_NUMBER
+kotlinx.coroutines.internal.Segment: int cleanedAndPointers$volatile
+kotlinx.coroutines.scheduling.CoroutineScheduler: int _isTerminated$volatile
+com.google.crypto.tink.proto.KeysetInfo: com.google.crypto.tink.proto.KeysetInfo DEFAULT_INSTANCE
+androidx.work.impl.utils.NetworkApi21: boolean hasCapabilityCompat(android.net.NetworkCapabilities,int)
+androidx.compose.ui.focus.CustomDestinationResult: androidx.compose.ui.focus.CustomDestinationResult[] values()
+androidx.compose.ui.platform.RenderNodeVerificationHelper28: int getSpotShadowColor(android.view.RenderNode)
+androidx.core.os.BundleCompat$Api33Impl: java.io.Serializable getSerializable(android.os.Bundle,java.lang.String,java.lang.Class)
+androidx.compose.ui.state.ToggleableState: androidx.compose.ui.state.ToggleableState valueOf(java.lang.String)
+androidx.room.Index$Order: androidx.room.Index$Order[] values()
+net.sqlcipher.database.SQLiteDatabase: void key_mutf8(char[])
+androidx.compose.ui.platform.AndroidComposeView: androidx.compose.ui.draganddrop.DragAndDropManager getDragAndDropManager()
+androidx.compose.ui.platform.AndroidComposeView: void getLastMatrixRecalculationAnimationTime$ui_release$annotations()
+androidx.compose.ui.text.platform.Api28Impl: android.text.style.TypefaceSpan createTypefaceSpan(android.graphics.Typeface)
+androidx.compose.ui.window.PopupLayout: void setSecurePolicy(androidx.compose.ui.window.SecureFlagPolicy)
+net.sqlcipher.CursorWindow: void native_clear()
+androidx.core.app.NotificationCompatBuilder$Api26Impl: android.app.Notification$Builder createBuilder(android.content.Context,java.lang.String)
+androidx.core.app.NotificationCompatBuilder$Api20Impl: android.app.Notification$Builder setGroup(android.app.Notification$Builder,java.lang.String)
+androidx.work.impl.WorkManagerImpl$Api24Impl: boolean isDeviceProtectedStorage(android.content.Context)
+net.sqlcipher.CursorWindow: int getType_native(int,int)
+net.sqlcipher.CursorWindow: boolean isNull_native(int,int)
+androidx.compose.ui.platform.ViewLayer: void setCameraDistancePx(float)
+androidx.core.view.ViewCompat$Api21Impl: void setZ(android.view.View,float)
+net.sqlcipher.CursorWindow: boolean putLong_native(long,int,int)
+androidx.activity.ComponentActivity$Api33Impl: android.window.OnBackInvokedDispatcher getOnBackInvokedDispatcher(android.app.Activity)
+androidx.compose.ui.focus.FocusStateImpl: androidx.compose.ui.focus.FocusStateImpl[] values()
+androidx.core.view.ViewCompat$Api21Impl: android.content.res.ColorStateList getBackgroundTintList(android.view.View)
+androidx.core.view.WindowInsetsCompat$BuilderImpl: androidx.core.view.WindowInsetsCompat build()
+androidx.core.view.ViewCompat$Api29Impl: android.view.contentcapture.ContentCaptureSession getContentCaptureSession(android.view.View)
+androidx.core.view.accessibility.AccessibilityNodeInfoCompat$Api34Impl: void setQueryFromAppProcessEnabled(android.view.accessibility.AccessibilityNodeInfo,android.view.View,boolean)
+androidx.compose.ui.platform.AbstractComposeView: boolean getHasComposition()
+androidx.core.view.DisplayCutoutCompat$Api28Impl: int getSafeInsetTop(android.view.DisplayCutout)
+androidx.compose.ui.platform.AndroidComposeView: void setFontFamilyResolver(androidx.compose.ui.text.font.FontFamily$Resolver)
+com.journeyapps.barcodescanner.CameraPreview: com.journeyapps.barcodescanner.camera.CameraSettings getCameraSettings()
+androidx.compose.material3.TabSlots: androidx.compose.material3.TabSlots valueOf(java.lang.String)
+com.ramka.app.ui.contacts.NotificationPermissionUiState: com.ramka.app.ui.contacts.NotificationPermissionUiState[] values()
+androidx.compose.ui.platform.AndroidComposeView: androidx.compose.ui.text.font.FontFamily$Resolver getFontFamilyResolver()
+androidx.core.view.accessibility.AccessibilityNodeInfoCompat$Api33Impl: androidx.core.view.accessibility.AccessibilityNodeInfoCompat getParent(android.view.accessibility.AccessibilityNodeInfo,int)
+net.sqlcipher.CursorWindow: boolean allocRow_native()
+kotlinx.coroutines.android.AndroidDispatcherFactory: kotlinx.coroutines.MainCoroutineDispatcher createDispatcher(java.util.List)
+androidx.core.app.NotificationCompatBuilder$Api26Impl: android.app.Notification$Builder setSettingsText(android.app.Notification$Builder,java.lang.CharSequence)
+com.google.crypto.tink.proto.KeyStatusType: com.google.crypto.tink.proto.KeyStatusType[] values()
+androidx.core.os.BundleCompat$Api33Impl: java.lang.Object getParcelable(android.os.Bundle,java.lang.String,java.lang.Class)
+kotlin.coroutines.intrinsics.CoroutineSingletons: kotlin.coroutines.intrinsics.CoroutineSingletons valueOf(java.lang.String)
+androidx.compose.foundation.text.KeyCommand: androidx.compose.foundation.text.KeyCommand[] values()
+androidx.core.view.ViewCompat$Api29Impl: void setContentCaptureSession(android.view.View,androidx.core.view.contentcapture.ContentCaptureSessionCompat)
+androidx.core.view.WindowInsetsCompat$BuilderImpl29: void setSystemGestureInsets(androidx.core.graphics.Insets)
+androidx.compose.ui.text.font.TypefaceHelperMethodsApi28: android.graphics.Typeface create(android.graphics.Typeface,int,boolean)
+androidx.core.view.ViewCompat$Api23Impl: void setScrollIndicators(android.view.View,int,int)
+com.journeyapps.barcodescanner.ViewfinderView: void setMaskColor(int)
+androidx.compose.ui.platform.AbstractComposeView: boolean getShouldCreateCompositionOnAttachedToWindow()
+com.ramka.domain.model.MessageStatus: com.ramka.domain.model.MessageStatus valueOf(java.lang.String)
+androidx.compose.runtime.InvalidationResult: androidx.compose.runtime.InvalidationResult[] values()
+androidx.emoji2.text.ConcurrencyHelpers$Handler28Impl: android.os.Handler createAsync(android.os.Looper)
+androidx.compose.ui.platform.AndroidComposeView: androidx.compose.ui.text.font.Font$ResourceLoader getFontLoader()
+org.bouncycastle.pqc.jcajce.provider.BouncyCastlePQCProvider: BouncyCastlePQCProvider()
+androidx.core.app.RemoteActionCompatParcelizer: RemoteActionCompatParcelizer()
+androidx.lifecycle.ProcessLifecycleOwner$attach$1$onActivityPreCreated$1: void onActivityPostResumed(android.app.Activity)
+androidx.core.view.ViewCompat$Api23Impl: void setScrollIndicators(android.view.View,int)
+androidx.core.graphics.drawable.IconCompat$Api28Impl: int getType(java.lang.Object)
+androidx.core.view.WindowInsetsCompat$Impl28: int hashCode()
+androidx.core.view.WindowInsetsCompat$BuilderImpl: void applyInsetTypes()
+kotlin.LazyThreadSafetyMode: kotlin.LazyThreadSafetyMode valueOf(java.lang.String)
+androidx.compose.ui.platform.AndroidComposeView: androidx.compose.ui.focus.FocusOwner getFocusOwner()
+kotlinx.coroutines.android.AndroidDispatcherFactory: java.lang.String hintOnError()
+androidx.compose.ui.platform.AndroidComposeViewAccessibilityDelegateCompat$TranslateStatus: androidx.compose.ui.platform.AndroidComposeViewAccessibilityDelegateCompat$TranslateStatus valueOf(java.lang.String)
+com.google.crypto.tink.proto.HashType: com.google.crypto.tink.proto.HashType[] values()
+com.google.crypto.tink.proto.KeyStatusType: com.google.crypto.tink.proto.KeyStatusType valueOf(java.lang.String)
+androidx.core.content.res.FontResourcesParserCompat$Api21Impl: int getType(android.content.res.TypedArray,int)
+com.google.zxing.DecodeHintType: com.google.zxing.DecodeHintType[] values()
+com.google.crypto.tink.shaded.protobuf.ProtoSyntax: com.google.crypto.tink.shaded.protobuf.ProtoSyntax[] values()
+androidx.compose.foundation.text.KeyCommand: androidx.compose.foundation.text.KeyCommand valueOf(java.lang.String)
+androidx.compose.ui.text.android.StaticLayoutFactory23: android.text.StaticLayout create(androidx.compose.ui.text.android.StaticLayoutParams)
+androidx.lifecycle.ReportFragment$LifecycleCallbacks: ReportFragment$LifecycleCallbacks()
+com.google.zxing.datamatrix.decoder.DecodedBitStreamParser$Mode: com.google.zxing.datamatrix.decoder.DecodedBitStreamParser$Mode[] values()
+androidx.core.view.ViewCompat$Api21Impl: float getElevation(android.view.View)
+androidx.lifecycle.EmptyActivityLifecycleCallbacks: void onActivityResumed(android.app.Activity)
+androidx.activity.Api34Impl: float progress(android.window.BackEvent)
+androidx.core.content.ContextCompat$Api26Impl: android.content.ComponentName startForegroundService(android.content.Context,android.content.Intent)
+androidx.compose.foundation.text.HandleState: androidx.compose.foundation.text.HandleState valueOf(java.lang.String)
+androidx.compose.ui.platform.AndroidComposeView: kotlin.coroutines.CoroutineContext getCoroutineContext()
+com.journeyapps.barcodescanner.CaptureActivity: CaptureActivity()
+androidx.core.app.CoreComponentFactory: CoreComponentFactory()
+androidx.core.view.accessibility.AccessibilityNodeInfoCompat$Api34Impl: void setMinDurationBetweenContentChangeMillis(android.view.accessibility.AccessibilityNodeInfo,long)
+kotlinx.coroutines.selects.TrySelectDetailedResult: kotlinx.coroutines.selects.TrySelectDetailedResult valueOf(java.lang.String)
+kotlinx.coroutines.flow.SharingCommand: kotlinx.coroutines.flow.SharingCommand[] values()
+com.google.crypto.tink.shaded.protobuf.FieldType: com.google.crypto.tink.shaded.protobuf.FieldType[] values()
+androidx.compose.ui.platform.AndroidComposeView: androidx.compose.ui.platform.ClipboardManager getClipboardManager()
+androidx.compose.foundation.layout.LayoutOrientation: androidx.compose.foundation.layout.LayoutOrientation[] values()
+androidx.core.view.ViewCompat$Api21Impl: void setTransitionName(android.view.View,java.lang.String)
+androidx.core.app.NotificationCompatBuilder$Api24Impl: android.app.Notification$Action$Builder setAllowGeneratedReplies(android.app.Notification$Action$Builder,boolean)
+androidx.core.view.WindowInsetsCompat$Impl29: androidx.core.graphics.Insets getTappableElementInsets()
+kotlinx.serialization.json.ClassDiscriminatorMode: kotlinx.serialization.json.ClassDiscriminatorMode[] values()
+androidx.compose.ui.platform.AndroidComposeViewAccessibilityDelegateCompat$Api24Impl: void addSetProgressAction(androidx.core.view.accessibility.AccessibilityNodeInfoCompat,androidx.compose.ui.semantics.SemanticsNode)
+androidx.compose.ui.window.PopupLayout: androidx.compose.ui.window.PopupPositionProvider getPositionProvider()
+androidx.core.view.WindowInsetsCompat$BuilderImpl: void setSystemGestureInsets(androidx.core.graphics.Insets)
+androidx.security.crypto.MasterKey$KeyScheme: androidx.security.crypto.MasterKey$KeyScheme[] values()
+androidx.core.view.DisplayCutoutCompat$Api28Impl: int getSafeInsetBottom(android.view.DisplayCutout)
+androidx.core.view.ViewCompat$Api20Impl: android.view.WindowInsets onApplyWindowInsets(android.view.View,android.view.WindowInsets)
+androidx.compose.ui.platform.AndroidComposeView: void setLastMatrixRecalculationAnimationTime$ui_release(long)
+androidx.work.impl.Api21Impl: java.io.File getNoBackupFilesDir(android.content.Context)
+androidx.compose.ui.platform.TextToolbarHelperMethods: void invalidateContentRect(android.view.ActionMode)
+com.journeyapps.barcodescanner.DecoratedBarcodeView: void setStatusText(java.lang.String)
+androidx.work.impl.utils.NetworkApi23: android.net.Network getActiveNetworkCompat(android.net.ConnectivityManager)
+androidx.compose.ui.node.LayoutNode$LayoutState: androidx.compose.ui.node.LayoutNode$LayoutState[] values()
+androidx.compose.ui.text.AnnotationType: androidx.compose.ui.text.AnnotationType[] values()
+androidx.navigation.compose.DialogNavigator: DialogNavigator()
+androidx.compose.foundation.MutatePriority: androidx.compose.foundation.MutatePriority valueOf(java.lang.String)
+androidx.compose.ui.platform.ViewLayer: long getOwnerViewId()
+androidx.core.view.WindowInsetsCompat$Impl29: WindowInsetsCompat$Impl29(androidx.core.view.WindowInsetsCompat,android.view.WindowInsets)
+androidx.compose.foundation.text.selection.SelectionHandleAnchor: androidx.compose.foundation.text.selection.SelectionHandleAnchor[] values()
+com.google.crypto.tink.shaded.protobuf.GeneratedMessageLite$MethodToInvoke: com.google.crypto.tink.shaded.protobuf.GeneratedMessageLite$MethodToInvoke valueOf(java.lang.String)
+androidx.lifecycle.LifecycleDispatcher$DispatcherActivityCallback: LifecycleDispatcher$DispatcherActivityCallback()
+net.sqlcipher.database.SQLiteDatabase: int lastChangeCount()
+androidx.emoji2.text.EmojiExclusions$EmojiExclusions_Api34: java.util.Set getExclusions()
+androidx.security.crypto.EncryptedSharedPreferences$EncryptedType: androidx.security.crypto.EncryptedSharedPreferences$EncryptedType[] values()
+androidx.compose.foundation.text.selection.CrossStatus: androidx.compose.foundation.text.selection.CrossStatus valueOf(java.lang.String)
+androidx.compose.ui.text.android.BoringLayoutFactory33: android.text.BoringLayout$Metrics isBoring(java.lang.CharSequence,android.text.TextPaint,android.text.TextDirectionHeuristic)
+androidx.core.view.ViewCompat$Api28Impl: void setAccessibilityPaneTitle(android.view.View,java.lang.CharSequence)
+net.sqlcipher.CursorWindow: boolean isFloat_native(int,int)
+androidx.compose.material3.tokens.ColorSchemeKeyTokens: androidx.compose.material3.tokens.ColorSchemeKeyTokens valueOf(java.lang.String)
+androidx.compose.ui.platform.coreshims.ViewCompatShims$Api29Impl: android.view.contentcapture.ContentCaptureSession getContentCaptureSession(android.view.View)
+androidx.compose.runtime.Recomposer$State: androidx.compose.runtime.Recomposer$State valueOf(java.lang.String)
+androidx.compose.material3.tokens.ShapeKeyTokens: androidx.compose.material3.tokens.ShapeKeyTokens[] values()
+androidx.compose.ui.input.pointer.PointerEventPass: androidx.compose.ui.input.pointer.PointerEventPass valueOf(java.lang.String)
+androidx.compose.ui.platform.AndroidComposeViewAccessibilityDelegateCompat$TranslateStatus: androidx.compose.ui.platform.AndroidComposeViewAccessibilityDelegateCompat$TranslateStatus[] values()
+com.ramka.domain.model.KeyVerificationStatus: com.ramka.domain.model.KeyVerificationStatus valueOf(java.lang.String)
+kotlinx.serialization.json.ClassDiscriminatorMode: kotlinx.serialization.json.ClassDiscriminatorMode valueOf(java.lang.String)
+androidx.core.app.NotificationCompat$BubbleMetadata$Api30Impl: android.app.Notification$BubbleMetadata toPlatform(androidx.core.app.NotificationCompat$BubbleMetadata)
+androidx.core.view.WindowInsetsCompat$Impl: void setRootWindowInsets(androidx.core.view.WindowInsetsCompat)
+androidx.core.view.ViewCompat$Api21Impl: void setOnApplyWindowInsetsListener(android.view.View,androidx.core.view.OnApplyWindowInsetsListener)
+androidx.compose.ui.platform.AbstractComposeView: void setPreviousAttachedWindowToken(android.os.IBinder)
+androidx.compose.foundation.FocusableKt$FocusableInNonTouchModeElement$1: FocusableKt$FocusableInNonTouchModeElement$1()
+kotlin.time.DurationUnit: kotlin.time.DurationUnit[] values()
+androidx.compose.foundation.MutatePriority: androidx.compose.foundation.MutatePriority[] values()
+androidx.compose.ui.state.ToggleableState: androidx.compose.ui.state.ToggleableState[] values()
+androidx.lifecycle.ReportFragment$LifecycleCallbacks: void onActivityStopped(android.app.Activity)
+androidx.compose.ui.platform.AndroidViewsHandler: java.util.HashMap getLayoutNodeToHolder()
+com.journeyapps.barcodescanner.CameraPreview: void setPreviewScalingStrategy(com.journeyapps.barcodescanner.camera.PreviewScalingStrategy)
+net.sqlcipher.database.SQLiteDatabase: void enableSqlProfiling(java.lang.String)
+androidx.compose.ui.platform.RenderNodeVerificationHelper28: int getAmbientShadowColor(android.view.RenderNode)
+net.sqlcipher.database.SQLiteProgram: void native_bind_long(int,long)
+androidx.compose.ui.platform.ViewLayer: void setInvalidated(boolean)
+com.ramka.app.outbox.OutboxSweepWorker: OutboxSweepWorker(android.content.Context,androidx.work.WorkerParameters)
+androidx.compose.ui.platform.AndroidComposeViewTranslationCallbackS: void clearViewTranslationCallback(android.view.View)
+androidx.compose.ui.platform.AndroidComposeView: void set_viewTreeOwners(androidx.compose.ui.platform.AndroidComposeView$ViewTreeOwners)
+androidx.core.view.ViewCompat$Api21Impl: void stopNestedScroll(android.view.View)
+androidx.compose.ui.window.PopupLayout: kotlin.jvm.functions.Function2 getContent()
+androidx.core.app.NotificationCompatBuilder$Api20Impl: android.app.Notification$Action$Builder addExtras(android.app.Notification$Action$Builder,android.os.Bundle)
+androidx.activity.Api34Impl: float touchY(android.window.BackEvent)
+androidx.core.view.WindowInsetsCompat$Impl: androidx.core.graphics.Insets getMandatorySystemGestureInsets()
+androidx.lifecycle.Lifecycle$Event: androidx.lifecycle.Lifecycle$Event[] values()
+androidx.core.view.ViewCompat$Api30Impl: java.lang.CharSequence getStateDescription(android.view.View)
+androidx.core.view.WindowInsetsCompat$Impl20: boolean isVisible(int)
+com.google.crypto.tink.shaded.protobuf.Writer$FieldOrder: com.google.crypto.tink.shaded.protobuf.Writer$FieldOrder[] values()
+androidx.compose.ui.platform.ComposeView: java.lang.CharSequence getAccessibilityClassName()
+androidx.core.view.WindowInsetsCompat$Impl30: WindowInsetsCompat$Impl30(androidx.core.view.WindowInsetsCompat,android.view.WindowInsets)
+androidx.compose.ui.platform.AbstractComposeView: void setShowLayoutBounds(boolean)
+androidx.compose.ui.window.PopupLayout: void setPositionProvider(androidx.compose.ui.window.PopupPositionProvider)
+androidx.compose.ui.platform.coreshims.ViewStructureCompat$Api23Impl: void setTextStyle(android.view.ViewStructure,float,int,int,int)
+androidx.compose.material3.ScaffoldLayoutContent: androidx.compose.material3.ScaffoldLayoutContent valueOf(java.lang.String)
+androidx.compose.ui.platform.AndroidComposeView: androidx.compose.ui.autofill.Autofill getAutofill()
+androidx.compose.ui.platform.coreshims.ViewCompatShims$Api26Impl: android.view.autofill.AutofillId getAutofillId(android.view.View)
+androidx.core.view.DisplayCutoutCompat$Api28Impl: int getSafeInsetLeft(android.view.DisplayCutout)
+androidx.lifecycle.ReportFragment$LifecycleCallbacks: void onActivityResumed(android.app.Activity)
+androidx.compose.ui.platform.RenderNodeVerificationHelper24: void discardDisplayList(android.view.RenderNode)
+androidx.core.view.WindowInsetsCompat$Impl28: androidx.core.view.WindowInsetsCompat consumeDisplayCutout()
+androidx.compose.foundation.text.Handle: androidx.compose.foundation.text.Handle[] values()
+kotlin.collections.AbstractList: AbstractList()
+androidx.core.view.WindowInsetsCompat$Impl30: void copyRootViewBounds(android.view.View)
+androidx.core.view.WindowInsetsCompat$BuilderImpl30: WindowInsetsCompat$BuilderImpl30(androidx.core.view.WindowInsetsCompat)
+androidx.core.view.ViewCompat$Api29Impl: void setSystemGestureExclusionRects(android.view.View,java.util.List)
+androidx.core.view.ViewCompat$Api29Impl: java.util.List getSystemGestureExclusionRects(android.view.View)
+androidx.compose.ui.text.input.TextInputServiceAndroid$TextInputCommand: androidx.compose.ui.text.input.TextInputServiceAndroid$TextInputCommand[] values()
+androidx.core.app.NotificationCompatBuilder$Api28Impl: android.app.Notification$Action$Builder setSemanticAction(android.app.Notification$Action$Builder,int)
+androidx.compose.material3.TextFieldType: androidx.compose.material3.TextFieldType[] values()
+androidx.core.view.WindowInsetsCompat$Impl21: WindowInsetsCompat$Impl21(androidx.core.view.WindowInsetsCompat,androidx.core.view.WindowInsetsCompat$Impl21)
+com.ramka.app.background.Oem: com.ramka.app.background.Oem[] values()
+androidx.core.view.WindowInsetsCompat$BuilderImpl20: WindowInsetsCompat$BuilderImpl20(androidx.core.view.WindowInsetsCompat)
+net.sqlcipher.CursorWindow: boolean putNull_native(int,int)
+androidx.work.impl.background.systemalarm.ConstraintProxy$BatteryChargingProxy: ConstraintProxy$BatteryChargingProxy()
+androidx.compose.ui.focus.FocusStateImpl: androidx.compose.ui.focus.FocusStateImpl valueOf(java.lang.String)
+androidx.core.app.RemoteActionCompatParcelizer: void write(androidx.core.app.RemoteActionCompat,androidx.versionedparcelable.VersionedParcel)
+com.google.crypto.tink.config.internal.TinkFipsUtil$AlgorithmFipsCompatibility: com.google.crypto.tink.config.internal.TinkFipsUtil$AlgorithmFipsCompatibility valueOf(java.lang.String)
+androidx.compose.ui.platform.AndroidComposeView: void setConfigurationChangeObserver(kotlin.jvm.functions.Function1)
+androidx.compose.foundation.layout.SizeMode: androidx.compose.foundation.layout.SizeMode valueOf(java.lang.String)
+androidx.compose.ui.platform.AndroidComposeView: android.view.View getView()
+androidx.lifecycle.ProcessLifecycleOwner$attach$1: void onActivityPreCreated(android.app.Activity,android.os.Bundle)
+androidx.core.view.ViewCompat$Api21Impl: boolean hasNestedScrollingParent(android.view.View)
+com.google.zxing.qrcode.decoder.Mode: com.google.zxing.qrcode.decoder.Mode valueOf(java.lang.String)
+androidx.compose.ui.text.style.ResolvedTextDirection: androidx.compose.ui.text.style.ResolvedTextDirection[] values()
+com.google.zxing.pdf417.decoder.DecodedBitStreamParser$Mode: com.google.zxing.pdf417.decoder.DecodedBitStreamParser$Mode[] values()
+com.google.zxing.oned.rss.expanded.decoders.CurrentParsingState$State: com.google.zxing.oned.rss.expanded.decoders.CurrentParsingState$State[] values()
+androidx.work.ExistingWorkPolicy: androidx.work.ExistingWorkPolicy[] values()
+androidx.core.view.ViewCompat$Api29Impl: void saveAttributeDataForStyleable(android.view.View,android.content.Context,int[],android.util.AttributeSet,android.content.res.TypedArray,int,int)
+androidx.compose.ui.window.PopupLayout: boolean getCanCalculatePosition()
+com.google.zxing.oned.rss.expanded.decoders.CurrentParsingState$State: com.google.zxing.oned.rss.expanded.decoders.CurrentParsingState$State valueOf(java.lang.String)
+androidx.work.impl.WorkDatabase: WorkDatabase()
+androidx.lifecycle.ReportFragment$LifecycleCallbacks: void onActivityPreStopped(android.app.Activity)
+com.google.zxing.EncodeHintType: com.google.zxing.EncodeHintType valueOf(java.lang.String)
+androidx.core.view.WindowInsetsCompat$Impl28: WindowInsetsCompat$Impl28(androidx.core.view.WindowInsetsCompat,android.view.WindowInsets)
+androidx.work.impl.workers.DiagnosticsWorker: DiagnosticsWorker(android.content.Context,androidx.work.WorkerParameters)
+androidx.activity.EdgeToEdgeApi30: void adjustLayoutInDisplayCutoutMode(android.view.Window)
+androidx.compose.ui.platform.coreshims.ViewStructureCompat$Api23Impl: void setClassName(android.view.ViewStructure,java.lang.String)
+androidx.activity.OnBackPressedDispatcher$Api33Impl: void registerOnBackInvokedCallback(java.lang.Object,int,java.lang.Object)
+android.support.v4.graphics.drawable.IconCompatParcelizer: IconCompatParcelizer()
+androidx.compose.ui.autofill.AutofillApi26Helper: java.lang.CharSequence textValue(android.view.autofill.AutofillValue)
+androidx.compose.ui.platform.AndroidComposeView: androidx.compose.ui.unit.LayoutDirection getLayoutDirection()
+androidx.compose.ui.platform.AndroidComposeView: androidx.compose.ui.text.input.TextInputService getTextInputService()
+androidx.compose.ui.platform.ViewLayerVerificationHelper31: void setRenderEffect(android.view.View,androidx.compose.ui.graphics.RenderEffect)
+androidx.work.impl.WorkDatabase_Impl: WorkDatabase_Impl()
+androidx.work.NetworkType: androidx.work.NetworkType valueOf(java.lang.String)
+androidx.core.view.WindowInsetsCompat$Impl20: androidx.core.graphics.Insets getSystemWindowInsets()
+androidx.compose.ui.text.android.StaticLayoutFactory26: void setJustificationMode(android.text.StaticLayout$Builder,int)
+androidx.core.view.accessibility.AccessibilityNodeInfoCompat$Api33Impl: androidx.core.view.accessibility.AccessibilityNodeInfoCompat$CollectionItemInfoCompat buildCollectionItemInfoCompat(boolean,int,int,int,int,boolean,java.lang.String,java.lang.String)
+androidx.compose.ui.platform.coreshims.ContentCaptureSessionCompat$Api29Impl: void notifyViewTextChanged(android.view.contentcapture.ContentCaptureSession,android.view.autofill.AutofillId,java.lang.CharSequence)
+androidx.core.view.ViewCompat$Api23Impl: int getScrollIndicators(android.view.View)
+kotlinx.coroutines.scheduling.CoroutineScheduler$WorkerState: kotlinx.coroutines.scheduling.CoroutineScheduler$WorkerState valueOf(java.lang.String)
+androidx.core.app.NotificationCompatBuilder$Api21Impl: android.app.Notification$Builder setPublicVersion(android.app.Notification$Builder,android.app.Notification)
+kotlinx.serialization.json.JsonNull: kotlinx.serialization.KSerializer serializer()
+androidx.compose.ui.autofill.AutofillApi26Helper: boolean isDate(android.view.autofill.AutofillValue)
+net.sqlcipher.CursorWindow: boolean setNumColumns_native(int)
+androidx.core.view.WindowInsetsCompat$BuilderImpl: void setStableInsets(androidx.core.graphics.Insets)
+androidx.compose.foundation.text.Handle: androidx.compose.foundation.text.Handle valueOf(java.lang.String)
+androidx.compose.ui.platform.AbstractComposeView: void setTransitionGroup(boolean)
+androidx.core.view.DisplayCutoutCompat$Api28Impl: java.util.List getBoundingRects(android.view.DisplayCutout)
+androidx.compose.ui.graphics.BlendModeColorFilterHelper: androidx.compose.ui.graphics.BlendModeColorFilter createBlendModeColorFilter(android.graphics.BlendModeColorFilter)
+androidx.core.view.ViewCompat$Api21Impl: void setBackgroundTintMode(android.view.View,android.graphics.PorterDuff$Mode)
+androidx.core.view.WindowInsetsCompat$BuilderImpl29: androidx.core.view.WindowInsetsCompat build()
+androidx.activity.OnBackPressedDispatcher$Api33Impl: void unregisterOnBackInvokedCallback(java.lang.Object,java.lang.Object)
+androidx.core.view.WindowInsetsCompat$BuilderImpl20: WindowInsetsCompat$BuilderImpl20()
+androidx.core.app.NotificationCompatBuilder$Api26Impl: android.app.Notification$Builder setShortcutId(android.app.Notification$Builder,java.lang.String)
+net.sqlcipher.database.SQLiteQuery: int native_column_count()
+androidx.compose.ui.unit.LayoutDirection: androidx.compose.ui.unit.LayoutDirection[] values()
+androidx.compose.ui.window.PopupLayout: android.view.View getViewRoot()
+androidx.navigation.compose.ComposeNavigator: ComposeNavigator()
+com.google.crypto.tink.shaded.protobuf.JavaType: com.google.crypto.tink.shaded.protobuf.JavaType[] values()
+androidx.core.view.WindowInsetsCompat$Impl21: boolean isConsumed()
+androidx.lifecycle.EmptyActivityLifecycleCallbacks: void onActivityStarted(android.app.Activity)
+androidx.compose.ui.window.PopupLayout: androidx.compose.ui.platform.AbstractComposeView getSubCompositionView()
+net.sqlcipher.CursorWindow: long getLong_native(int,int)
+androidx.core.view.WindowInsetsCompat$Impl: void copyWindowDataInto(androidx.core.view.WindowInsetsCompat)
+com.journeyapps.barcodescanner.ViewfinderView: ViewfinderView(android.content.Context,android.util.AttributeSet)
+androidx.core.view.accessibility.AccessibilityNodeInfoCompat$Api34Impl: void setAccessibilityDataSensitive(android.view.accessibility.AccessibilityNodeInfo,boolean)
+androidx.compose.ui.platform.actionmodecallback.MenuItemOption: androidx.compose.ui.platform.actionmodecallback.MenuItemOption[] values()
+androidx.core.app.AppOpsManagerCompat$Api29Impl: android.app.AppOpsManager getSystemService(android.content.Context)
+androidx.compose.foundation.text.selection.SelectionHandleAnchor: androidx.compose.foundation.text.selection.SelectionHandleAnchor valueOf(java.lang.String)
+androidx.lifecycle.EmptyActivityLifecycleCallbacks: void onActivitySaveInstanceState(android.app.Activity,android.os.Bundle)
+androidx.compose.ui.window.PopupLayout: java.lang.String getTestTag()
+androidx.core.view.ViewCompat$Api21Impl: float getTranslationZ(android.view.View)
+androidx.core.app.AppOpsManagerCompat$Api23Impl: java.lang.Object getSystemService(android.content.Context,java.lang.Class)
+androidx.core.view.WindowInsetsCompat$Impl: void setRootViewData(androidx.core.graphics.Insets)
+androidx.core.view.ViewCompat$Api21Impl: void setNestedScrollingEnabled(android.view.View,boolean)
+androidx.security.crypto.MasterKey$KeyScheme: androidx.security.crypto.MasterKey$KeyScheme valueOf(java.lang.String)
+com.journeyapps.barcodescanner.BarcodeView: com.journeyapps.barcodescanner.DecoderFactory getDecoderFactory()
+androidx.compose.material3.tokens.ColorSchemeKeyTokens: androidx.compose.material3.tokens.ColorSchemeKeyTokens[] values()
+androidx.core.app.NotificationCompatBuilder$Api20Impl: android.app.Notification$Builder setLocalOnly(android.app.Notification$Builder,boolean)
+androidx.core.view.ViewCompat$Api21Impl: boolean dispatchNestedPreScroll(android.view.View,int,int,int[],int[])
+androidx.compose.ui.platform.AndroidComposeView: androidx.compose.ui.platform.SoftwareKeyboardController getSoftwareKeyboardController()
+com.journeyapps.barcodescanner.CameraPreview: void setCameraSettings(com.journeyapps.barcodescanner.camera.CameraSettings)
+androidx.compose.ui.platform.ViewLayerContainer: void dispatchGetDisplayList()
+androidx.core.view.WindowInsetsCompat$Impl20: void copyRootViewBounds(android.view.View)
+androidx.core.view.WindowInsetsCompat$Impl20: androidx.core.graphics.Insets getRootStableInsets()
+org.bouncycastle.jce.provider.BouncyCastleProvider: BouncyCastleProvider()
+com.journeyapps.barcodescanner.CameraPreview: com.journeyapps.barcodescanner.Size getFramingRectSize()
+androidx.core.os.BundleApi21ImplKt: void putSize(android.os.Bundle,java.lang.String,android.util.Size)
+androidx.compose.ui.platform.ViewLayerVerificationHelper28: void setOutlineSpotShadowColor(android.view.View,int)
+androidx.core.app.NotificationCompatBuilder$Api31Impl: android.app.Notification$Action$Builder setAuthenticationRequired(android.app.Notification$Action$Builder,boolean)
+com.google.crypto.tink.KeyTemplate$OutputPrefixType: com.google.crypto.tink.KeyTemplate$OutputPrefixType valueOf(java.lang.String)
+androidx.profileinstaller.ProfileInstallerInitializer$Choreographer16Impl: void postFrameCallback(java.lang.Runnable)
+androidx.work.OverwritingInputMerger: OverwritingInputMerger()
+androidx.compose.ui.window.PopupLayout: void setContent(kotlin.jvm.functions.Function2)
+androidx.core.view.WindowInsetsCompat$Impl: boolean equals(java.lang.Object)
+com.ramka.network.protocol.InviteWire$Companion: kotlinx.serialization.KSerializer serializer()
+androidx.compose.ui.platform.AndroidComposeViewVerificationHelperMethodsO: void focusable(android.view.View,int,boolean)
+androidx.core.view.ViewCompat$Api30Impl: int getImportantForContentCapture(android.view.View)
+com.ramka.app.ui.contacts.NotificationPermissionUiState: com.ramka.app.ui.contacts.NotificationPermissionUiState valueOf(java.lang.String)
+androidx.core.view.ViewCompat$Api21Impl: androidx.core.view.WindowInsetsCompat getRootWindowInsets(android.view.View)
+kotlin.LazyThreadSafetyMode: kotlin.LazyThreadSafetyMode[] values()
+androidx.core.app.NotificationCompatBuilder$Api24Impl: android.app.Notification$Builder setCustomBigContentView(android.app.Notification$Builder,android.widget.RemoteViews)
+androidx.core.graphics.drawable.IconCompatParcelizer: void write(androidx.core.graphics.drawable.IconCompat,androidx.versionedparcelable.VersionedParcel)
+androidx.work.impl.diagnostics.DiagnosticsReceiver: DiagnosticsReceiver()
+androidx.compose.ui.window.PopupLayout: boolean getShouldCreateCompositionOnAttachedToWindow()
+com.google.crypto.tink.shaded.protobuf.WireFormat$JavaType: com.google.crypto.tink.shaded.protobuf.WireFormat$JavaType[] values()
+androidx.compose.ui.platform.AndroidComposeView: androidx.compose.ui.node.RootForTest getRootForTest()
+androidx.compose.material3.InputPhase: androidx.compose.material3.InputPhase valueOf(java.lang.String)
+com.journeyapps.barcodescanner.CameraPreview: com.journeyapps.barcodescanner.Size getPreviewSize()
+androidx.compose.ui.platform.RenderNodeVerificationHelper28: void setAmbientShadowColor(android.view.RenderNode,int)
+androidx.core.app.NotificationCompatBuilder$Api24Impl: android.app.Notification$Builder setCustomHeadsUpContentView(android.app.Notification$Builder,android.widget.RemoteViews)
+androidx.work.impl.utils.futures.DirectExecutor: androidx.work.impl.utils.futures.DirectExecutor valueOf(java.lang.String)
+androidx.compose.ui.platform.AndroidComposeView: androidx.compose.ui.layout.Placeable$PlacementScope getPlacementScope()
+androidx.compose.ui.window.PopupLayout: androidx.compose.ui.layout.LayoutCoordinates getParentLayoutCoordinates()
+androidx.compose.ui.platform.AndroidComposeView: androidx.compose.ui.input.pointer.PointerIconService getPointerIconService()
+androidx.compose.ui.platform.AndroidComposeView: androidx.compose.ui.unit.Density getDensity()
+kotlinx.coroutines.channels.BufferOverflow: kotlinx.coroutines.channels.BufferOverflow[] values()
+androidx.compose.foundation.text.selection.HandleReferencePoint: androidx.compose.foundation.text.selection.HandleReferencePoint valueOf(java.lang.String)
+androidx.core.app.RemoteInput$Api29Impl: int getEditChoicesBeforeSending(java.lang.Object)
+androidx.compose.ui.platform.ComposeView: boolean getShouldCreateCompositionOnAttachedToWindow()
+com.journeyapps.barcodescanner.CameraPreview: int getDisplayRotation()
+androidx.core.graphics.drawable.IconCompat$Api23Impl: android.graphics.drawable.Icon toIcon(androidx.core.graphics.drawable.IconCompat,android.content.Context)
+androidx.core.view.WindowInsetsCompat$Impl20: boolean equals(java.lang.Object)
+androidx.compose.ui.window.PopupLayout: androidx.compose.ui.unit.IntSize getPopupContentSize-bOM6tXw()
+androidx.profileinstaller.ProfileVerifier$Api33Impl: android.content.pm.PackageInfo getPackageInfo(android.content.pm.PackageManager,android.content.Context)
+androidx.core.view.ViewCompat$Api28Impl: boolean isScreenReaderFocusable(android.view.View)
+com.google.zxing.DecodeHintType: com.google.zxing.DecodeHintType valueOf(java.lang.String)
+androidx.activity.Api34Impl: android.window.BackEvent createOnBackEvent(float,float,float,int)
+com.google.crypto.tink.proto.OutputPrefixType: com.google.crypto.tink.proto.OutputPrefixType valueOf(java.lang.String)
+com.google.crypto.tink.shaded.protobuf.Writer$FieldOrder: com.google.crypto.tink.shaded.protobuf.Writer$FieldOrder valueOf(java.lang.String)
+androidx.compose.ui.window.PopupLayout: void setParentLayoutDirection(androidx.compose.ui.unit.LayoutDirection)
+androidx.core.app.NotificationCompatBuilder$Api21Impl: android.app.Notification$Builder setSound(android.app.Notification$Builder,android.net.Uri,java.lang.Object)
+androidx.core.graphics.Insets$Api29Impl: android.graphics.Insets of(int,int,int,int)
+androidx.compose.ui.platform.AndroidComposeView: void setOnViewTreeOwnersAvailable(kotlin.jvm.functions.Function1)
+androidx.compose.material.ripple.RippleHostView: void setRippleState$lambda$2(androidx.compose.material.ripple.RippleHostView)
+com.journeyapps.barcodescanner.BarcodeView: void setDecoderFactory(com.journeyapps.barcodescanner.DecoderFactory)
+androidx.core.view.WindowInsetsCompat$Impl30: boolean isVisible(int)
+androidx.core.app.RemoteInput$Api26Impl: java.util.Map getDataResultsFromIntent(android.content.Intent,java.lang.String)
+androidx.compose.ui.platform.AndroidComposeViewTranslationCallbackS: void setViewTranslationCallback(android.view.View,android.view.translation.ViewTranslationCallback)
+androidx.work.impl.background.systemjob.SystemJobService$Api24Impl: java.lang.String[] getTriggeredContentAuthorities(android.app.job.JobParameters)
+androidx.core.app.AppOpsManagerCompat$Api29Impl: java.lang.String getOpPackageName(android.content.Context)
+androidx.core.view.ViewCompat$Api21Impl: androidx.core.view.WindowInsetsCompat computeSystemWindowInsets(android.view.View,androidx.core.view.WindowInsetsCompat,android.graphics.Rect)
+androidx.compose.ui.window.PopupLayout: void setParentLayoutCoordinates(androidx.compose.ui.layout.LayoutCoordinates)
+com.journeyapps.barcodescanner.DecoratedBarcodeView: com.journeyapps.barcodescanner.DecoderFactory getDecoderFactory()
+androidx.compose.ui.platform.AbstractComposeView: boolean getShowLayoutBounds()
+com.journeyapps.barcodescanner.camera.CameraSettings$FocusMode: com.journeyapps.barcodescanner.camera.CameraSettings$FocusMode[] values()
+androidx.lifecycle.LegacySavedStateHandleController$OnRecreation: LegacySavedStateHandleController$OnRecreation()
+androidx.compose.ui.node.TraversableNode$Companion$TraverseDescendantsAction: androidx.compose.ui.node.TraversableNode$Companion$TraverseDescendantsAction valueOf(java.lang.String)
+androidx.compose.ui.window.PopupLayout: void setTestTag(java.lang.String)
+androidx.core.view.WindowInsetsCompat$BuilderImpl30: WindowInsetsCompat$BuilderImpl30()
+androidx.sqlite.db.framework.FrameworkSQLiteOpenHelper$OpenHelper$CallbackName: androidx.sqlite.db.framework.FrameworkSQLiteOpenHelper$OpenHelper$CallbackName[] values()
+androidx.activity.EdgeToEdgeApi28: void adjustLayoutInDisplayCutoutMode(android.view.Window)
+androidx.core.view.ViewCompat$Api28Impl: boolean isAccessibilityHeading(android.view.View)
+androidx.core.view.WindowInsetsCompat$Impl21: void setStableInsets(androidx.core.graphics.Insets)
+com.journeyapps.barcodescanner.BarcodeView$DecodeMode: com.journeyapps.barcodescanner.BarcodeView$DecodeMode valueOf(java.lang.String)
+androidx.security.crypto.EncryptedSharedPreferences$PrefValueEncryptionScheme: androidx.security.crypto.EncryptedSharedPreferences$PrefValueEncryptionScheme[] values()
+androidx.core.view.WindowInsetsCompat$Impl: androidx.core.graphics.Insets getSystemGestureInsets()
+kotlinx.serialization.json.JsonPrimitive$Companion: kotlinx.serialization.KSerializer serializer()
+androidx.compose.material3.TextFieldType: androidx.compose.material3.TextFieldType valueOf(java.lang.String)
+androidx.room.MultiInstanceInvalidationService: MultiInstanceInvalidationService()
+androidx.compose.ui.input.pointer.util.VelocityTracker1D$Strategy: androidx.compose.ui.input.pointer.util.VelocityTracker1D$Strategy[] values()
+androidx.core.graphics.PaintCompat$Api23Impl: boolean hasGlyph(android.graphics.Paint,java.lang.String)
+androidx.core.app.NotificationCompatBuilder$Api20Impl: android.app.Notification$Builder addAction(android.app.Notification$Builder,android.app.Notification$Action)
+androidx.compose.ui.platform.AndroidComposeView: androidx.compose.ui.semantics.SemanticsOwner getSemanticsOwner()
+androidx.compose.ui.node.TraversableNode$Companion$TraverseDescendantsAction: androidx.compose.ui.node.TraversableNode$Companion$TraverseDescendantsAction[] values()
+com.ramka.domain.model.KeyVerificationStatus: com.ramka.domain.model.KeyVerificationStatus[] values()
+androidx.compose.ui.platform.DrawChildContainer: int getChildCount()
+androidx.core.app.RemoteInput$Api26Impl: void addDataResultToIntent(androidx.core.app.RemoteInput,android.content.Intent,java.util.Map)
+net.sqlcipher.database.SQLiteDatabase: void dbopen(java.lang.String,int)
+androidx.profileinstaller.ProfileInstallReceiver: ProfileInstallReceiver()
+androidx.work.impl.background.systemalarm.SystemAlarmService: SystemAlarmService()
+kotlinx.coroutines.flow.SharingCommand: kotlinx.coroutines.flow.SharingCommand valueOf(java.lang.String)
+androidx.compose.ui.autofill.AutofillApi26Helper: boolean isList(android.view.autofill.AutofillValue)
+androidx.compose.ui.window.PopupLayout: androidx.compose.ui.unit.LayoutDirection getParentLayoutDirection()
+net.sqlcipher.database.SQLiteDatabase: long lastInsertRow()
+androidx.core.app.NotificationCompatBuilder$Api20Impl: java.lang.String getGroup(android.app.Notification)
+androidx.compose.ui.platform.MotionEventVerifierApi29: boolean isValidMotionEvent(android.view.MotionEvent,int)
+androidx.compose.ui.platform.AndroidComposeView: androidx.compose.ui.node.LayoutNode getRoot()
+net.sqlcipher.CursorWindow: void native_init(android.os.IBinder)
+androidx.core.app.NotificationCompat$BubbleMetadata$Api29Impl: android.app.Notification$BubbleMetadata toPlatform(androidx.core.app.NotificationCompat$BubbleMetadata)
+androidx.lifecycle.ReportFragment: ReportFragment()
+net.sqlcipher.database.SQLiteDatabase: void native_execSQL(java.lang.String)
+androidx.compose.foundation.text.HandleState: androidx.compose.foundation.text.HandleState[] values()
+androidx.compose.ui.window.PopupLayout: void setLayoutDirection(int)
+androidx.compose.ui.platform.AndroidComposeView: androidx.compose.ui.input.InputModeManager getInputModeManager()
+androidx.work.WorkInfo$State: androidx.work.WorkInfo$State valueOf(java.lang.String)
+androidx.core.view.WindowInsetsCompat$Impl: androidx.core.view.WindowInsetsCompat consumeStableInsets()
+androidx.core.app.NotificationCompatBuilder$Api26Impl: android.app.Notification$Builder setBadgeIconType(android.app.Notification$Builder,int)
+androidx.core.app.NotificationCompatBuilder$Api23Impl: android.app.Notification$Builder setSmallIcon(android.app.Notification$Builder,java.lang.Object)
+androidx.core.view.WindowInsetsCompat$Impl: boolean isRound()
+androidx.core.content.ContextCompat$Api26Impl: android.content.Intent registerReceiver(android.content.Context,android.content.BroadcastReceiver,android.content.IntentFilter,java.lang.String,android.os.Handler,int)
+androidx.work.impl.utils.Api28Impl: java.lang.String getProcessName()
+androidx.compose.ui.autofill.AutofillApi23Helper: void setId(android.view.ViewStructure,int,java.lang.String,java.lang.String,java.lang.String)
+androidx.core.app.NotificationCompatBuilder$Api21Impl: android.app.Notification$Builder addPerson(android.app.Notification$Builder,java.lang.String)
+com.google.crypto.tink.shaded.protobuf.JavaType: com.google.crypto.tink.shaded.protobuf.JavaType valueOf(java.lang.String)
+androidx.security.crypto.EncryptedSharedPreferences$PrefKeyEncryptionScheme: androidx.security.crypto.EncryptedSharedPreferences$PrefKeyEncryptionScheme valueOf(java.lang.String)
+androidx.core.app.NotificationCompatBuilder$Api23Impl: android.app.Notification$Action$Builder createBuilder(android.graphics.drawable.Icon,java.lang.CharSequence,android.app.PendingIntent)
+kotlinx.serialization.json.JsonArray$Companion: kotlinx.serialization.KSerializer serializer()
+com.ramka.domain.model.MessageDirection: com.ramka.domain.model.MessageDirection valueOf(java.lang.String)
+com.google.crypto.tink.shaded.protobuf.FieldType$Collection: com.google.crypto.tink.shaded.protobuf.FieldType$Collection[] values()
+androidx.compose.material.ripple.UnprojectedRipple$MRadiusHelper: void setRadius(android.graphics.drawable.RippleDrawable,int)
+com.journeyapps.barcodescanner.DecoratedBarcodeView: void setCameraSettings(com.journeyapps.barcodescanner.camera.CameraSettings)
+androidx.core.os.UserManagerCompat$Api24Impl: boolean isUserUnlocked(android.content.Context)
+net.sqlcipher.database.SQLiteProgram: void native_bind_double(int,double)
+androidx.core.app.NotificationCompatBuilder$Api26Impl: android.app.Notification$Builder setTimeoutAfter(android.app.Notification$Builder,long)
+androidx.compose.ui.platform.coreshims.ContentCaptureSessionCompat$Api29Impl: android.view.ViewStructure newVirtualViewStructure(android.view.contentcapture.ContentCaptureSession,android.view.autofill.AutofillId,long)
+androidx.compose.ui.graphics.WrapperVerificationHelperMethods: void setBlendMode-GB0RdKg(android.graphics.Paint,int)
+net.sqlcipher.CursorWindow: char[] copyStringToBuffer_native(int,int,int,android.database.CharArrayBuffer)
+com.journeyapps.barcodescanner.DecoratedBarcodeView: android.widget.TextView getStatusView()
+androidx.lifecycle.ProcessLifecycleOwner$attach$1: ProcessLifecycleOwner$attach$1(androidx.lifecycle.ProcessLifecycleOwner)
+androidx.core.app.NotificationCompatBuilder$Api20Impl: android.app.Notification$Builder setGroupSummary(android.app.Notification$Builder,boolean)
+androidx.lifecycle.ProcessLifecycleOwner$attach$1: void onActivityPaused(android.app.Activity)
+kotlin.collections.AbstractMutableSet: AbstractMutableSet()
+androidx.compose.ui.platform.AndroidComposeView: androidx.compose.ui.platform.AndroidComposeView$ViewTreeOwners getViewTreeOwners()
+androidx.compose.ui.platform.AndroidComposeViewAccessibilityDelegateCompat$ViewTranslationHelperMethodsS: void onVirtualViewTranslationResponses(androidx.compose.ui.platform.AndroidComposeViewAccessibilityDelegateCompat,android.util.LongSparseArray)
+androidx.core.graphics.drawable.IconCompat$Api26Impl: android.graphics.drawable.Icon createWithAdaptiveBitmap(android.graphics.Bitmap)
+androidx.core.app.NotificationCompatBuilder$Api26Impl: android.app.Notification$Builder setColorized(android.app.Notification$Builder,boolean)
+com.google.zxing.common.CharacterSetECI: com.google.zxing.common.CharacterSetECI[] values()
+androidx.core.app.RemoteInput$Api26Impl: android.app.RemoteInput$Builder setAllowDataType(android.app.RemoteInput$Builder,java.lang.String,boolean)
+androidx.core.view.accessibility.AccessibilityNodeInfoCompat$Api34Impl: long getMinDurationBetweenContentChangeMillis(android.view.accessibility.AccessibilityNodeInfo)
+com.google.zxing.EncodeHintType: com.google.zxing.EncodeHintType[] values()
+org.bouncycastle.crypto.CryptoServicePurpose: org.bouncycastle.crypto.CryptoServicePurpose valueOf(java.lang.String)
+androidx.core.app.RemoteInput$Api26Impl: java.util.Set getAllowedDataTypes(java.lang.Object)
+androidx.core.view.WindowInsetsCompat$Impl28: androidx.core.view.DisplayCutoutCompat getDisplayCutout()
+androidx.core.view.ViewCompat$Api21Impl: void setElevation(android.view.View,float)
+kotlinx.coroutines.android.AndroidExceptionPreHandler: void handleException(kotlin.coroutines.CoroutineContext,java.lang.Throwable)
+androidx.lifecycle.EmptyActivityLifecycleCallbacks: void onActivityDestroyed(android.app.Activity)
+androidx.core.app.NotificationCompatBuilder$Api29Impl: android.app.Notification$Builder setAllowSystemGeneratedContextualActions(android.app.Notification$Builder,boolean)
+net.sqlcipher.database.SQLiteQuery: java.lang.String native_column_name(int)
+androidx.compose.ui.platform.AndroidComposeView: androidx.compose.ui.platform.TextToolbar getTextToolbar()
+androidx.compose.foundation.layout.LayoutOrientation: androidx.compose.foundation.layout.LayoutOrientation valueOf(java.lang.String)
+net.sqlcipher.database.SQLiteCompiledSql: void native_compile(java.lang.String)
+net.sqlcipher.CursorWindow: double getDouble_native(int,int)
+androidx.core.graphics.drawable.IconCompat$Api28Impl: java.lang.String getResPackage(java.lang.Object)
+androidx.room.Index$Order: androidx.room.Index$Order valueOf(java.lang.String)
+androidx.core.view.WindowInsetsCompat$BuilderImpl20: android.view.WindowInsets createWindowInsetsInstance()
+androidx.core.os.BundleApi21ImplKt: void putSizeF(android.os.Bundle,java.lang.String,android.util.SizeF)
+androidx.compose.ui.platform.AndroidComposeView: androidx.compose.ui.platform.ViewConfiguration getViewConfiguration()
+android.support.v4.app.RemoteActionCompatParcelizer: androidx.core.app.RemoteActionCompat read(androidx.versionedparcelable.VersionedParcel)
+androidx.core.view.accessibility.AccessibilityNodeInfoCompat$Api33Impl: java.lang.String getUniqueId(android.view.accessibility.AccessibilityNodeInfo)
+kotlinx.serialization.json.internal.WriteMode: kotlinx.serialization.json.internal.WriteMode valueOf(java.lang.String)
+androidx.lifecycle.ReportFragment$LifecycleCallbacks: void onActivityPostCreated(android.app.Activity,android.os.Bundle)
+androidx.core.view.WindowInsetsCompat$BuilderImpl: void setInsets(int,androidx.core.graphics.Insets)
+androidx.core.view.ViewCompat$Api23Impl: androidx.core.view.WindowInsetsCompat getRootWindowInsets(android.view.View)
+androidx.compose.ui.node.LayoutNode$UsageByParent: androidx.compose.ui.node.LayoutNode$UsageByParent[] values()
+androidx.lifecycle.Lifecycle$State: androidx.lifecycle.Lifecycle$State valueOf(java.lang.String)
+androidx.core.view.ViewConfigurationCompat$Api26Impl: float getScaledVerticalScrollFactor(android.view.ViewConfiguration)
+androidx.lifecycle.ReportFragment$LifecycleCallbacks: void onActivitySaveInstanceState(android.app.Activity,android.os.Bundle)
+androidx.compose.ui.platform.RenderNodeVerificationHelper28: void setSpotShadowColor(android.view.RenderNode,int)
+androidx.core.app.NotificationCompatBuilder$Api24Impl: android.app.Notification$Builder setRemoteInputHistory(android.app.Notification$Builder,java.lang.CharSequence[])
+com.ramka.domain.model.MessageDirection: com.ramka.domain.model.MessageDirection[] values()
+androidx.compose.ui.autofill.AutofillApi23Helper: int addChildCount(android.view.ViewStructure,int)
+com.google.zxing.qrcode.decoder.DataMask: com.google.zxing.qrcode.decoder.DataMask valueOf(java.lang.String)
+androidx.core.view.ViewCompat$Api30Impl: void setImportantForContentCapture(android.view.View,int)
+net.sqlcipher.database.SQLiteDatabase: void native_rawExecSQL(java.lang.String)
+androidx.compose.ui.platform.AccessibilityNodeInfoVerificationHelperMethods: void setAvailableExtraData(android.view.accessibility.AccessibilityNodeInfo,java.util.List)
+androidx.compose.material3.ScaffoldLayoutContent: androidx.compose.material3.ScaffoldLayoutContent[] values()
+androidx.compose.ui.node.NodeMeasuringIntrinsics$IntrinsicMinMax: androidx.compose.ui.node.NodeMeasuringIntrinsics$IntrinsicMinMax valueOf(java.lang.String)
+androidx.core.view.ViewCompat$Api28Impl: void setAccessibilityHeading(android.view.View,boolean)
+androidx.core.view.WindowInsetsCompat$Impl: WindowInsetsCompat$Impl(androidx.core.view.WindowInsetsCompat)
+androidx.compose.ui.platform.AndroidComposeView: android.view.View findViewByAccessibilityIdTraversal(int)
+androidx.core.view.WindowInsetsCompat$Impl: androidx.core.graphics.Insets getTappableElementInsets()
+kotlin.random.Random: Random()
+androidx.lifecycle.ProcessLifecycleOwner$attach$1$onActivityPreCreated$1: void onActivityPostStarted(android.app.Activity)
+com.ramka.app.ui.qr.CameraPermissionUiState: com.ramka.app.ui.qr.CameraPermissionUiState[] values()
+androidx.compose.ui.platform.ViewLayer$UniqueDrawingIdApi29: long getUniqueDrawingId(android.view.View)
+androidx.lifecycle.ProcessLifecycleOwner$attach$1$onActivityPreCreated$1: ProcessLifecycleOwner$attach$1$onActivityPreCreated$1(androidx.lifecycle.ProcessLifecycleOwner)
+net.sqlcipher.database.SQLiteDatabase: void dbclose()
+androidx.lifecycle.ReportFragment$LifecycleCallbacks: void onActivityPrePaused(android.app.Activity)
+androidx.compose.ui.layout.IntrinsicWidthHeight: androidx.compose.ui.layout.IntrinsicWidthHeight[] values()
+androidx.compose.ui.platform.AndroidComposeView: void setShowLayoutBounds(boolean)
+androidx.compose.ui.platform.coreshims.ContentCaptureSessionCompat$Api29Impl: void notifyViewAppeared(android.view.contentcapture.ContentCaptureSession,android.view.ViewStructure)
+androidx.work.impl.utils.NetworkApi21: void unregisterNetworkCallbackCompat(android.net.ConnectivityManager,android.net.ConnectivityManager$NetworkCallback)
+androidx.compose.ui.autofill.AutofillApi26Helper: android.view.autofill.AutofillId getAutofillId(android.view.ViewStructure)
+androidx.core.view.WindowInsetsCompat$Impl20: androidx.core.graphics.Insets getInsets(int)
+androidx.compose.ui.autofill.AutofillApi26Helper: boolean isToggle(android.view.autofill.AutofillValue)
+net.sqlcipher.CursorWindow: boolean putBlob_native(byte[],int,int)
+androidx.compose.ui.unit.LayoutDirection: androidx.compose.ui.unit.LayoutDirection valueOf(java.lang.String)
+androidx.compose.ui.platform.AndroidComposeView: androidx.compose.ui.platform.AccessibilityManager getAccessibilityManager()
+androidx.core.view.WindowInsetsCompat$BuilderImpl29: void setMandatorySystemGestureInsets(androidx.core.graphics.Insets)
+androidx.core.view.WindowInsetsCompat$Impl20: boolean isTypeVisible(int)
+androidx.work.OutOfQuotaPolicy: androidx.work.OutOfQuotaPolicy[] values()
+androidx.compose.animation.EnterExitState: androidx.compose.animation.EnterExitState valueOf(java.lang.String)
+androidx.work.WorkInfo$State: androidx.work.WorkInfo$State[] values()
+androidx.work.BackoffPolicy: androidx.work.BackoffPolicy[] values()
+androidx.core.view.WindowInsetsCompat$BuilderImpl: WindowInsetsCompat$BuilderImpl()
+com.ramka.app.background.PersistentDeliveryService: PersistentDeliveryService()
+androidx.compose.ui.platform.AbstractComposeView: void setParentCompositionContext(androidx.compose.runtime.CompositionContext)
+com.google.crypto.tink.KeyTemplate$OutputPrefixType: com.google.crypto.tink.KeyTemplate$OutputPrefixType[] values()
+androidx.work.impl.foreground.SystemForegroundService$Api29Impl: void startForeground(android.app.Service,int,android.app.Notification,int)
+androidx.compose.ui.autofill.AutofillApi26Helper: void setAutofillHints(android.view.ViewStructure,java.lang.String[])
+androidx.core.view.ViewCompat$Api21Impl: boolean isImportantForAccessibility(android.view.View)
+androidx.compose.foundation.Api31Impl: float onPullDistance(android.widget.EdgeEffect,float,float)
+androidx.compose.ui.platform.TextToolbarStatus: androidx.compose.ui.platform.TextToolbarStatus[] values()
+androidx.core.view.WindowInsetsCompat$BuilderImpl: void setTappableElementInsets(androidx.core.graphics.Insets)
+org.bouncycastle.crypto.CryptoServicePurpose: org.bouncycastle.crypto.CryptoServicePurpose[] values()
+com.journeyapps.barcodescanner.CameraPreview: void setUseTextureView(boolean)
+androidx.compose.runtime.Recomposer$State: androidx.compose.runtime.Recomposer$State[] values()
+com.google.crypto.tink.shaded.protobuf.GeneratedMessageLite$MethodToInvoke: com.google.crypto.tink.shaded.protobuf.GeneratedMessageLite$MethodToInvoke[] values()
+net.sqlcipher.database.SQLiteProgram: void native_bind_null(int)
+com.google.crypto.tink.proto.KeyData$KeyMaterialType: com.google.crypto.tink.proto.KeyData$KeyMaterialType[] values()
+kotlinx.coroutines.android.AndroidDispatcherFactory: AndroidDispatcherFactory()
+androidx.activity.OnBackPressedDispatcher$Api33Impl: android.window.OnBackInvokedCallback createOnBackInvokedCallback(kotlin.jvm.functions.Function0)
+com.google.zxing.common.CharacterSetECI: com.google.zxing.common.CharacterSetECI valueOf(java.lang.String)
+androidx.core.view.WindowInsetsCompat$Impl21: androidx.core.graphics.Insets getStableInsets()
+androidx.compose.ui.semantics.EmptySemanticsElement: EmptySemanticsElement()
+androidx.compose.ui.platform.ComposeView: void setContent(kotlin.jvm.functions.Function2)
+androidx.compose.ui.platform.AndroidComposeView: long getMeasureIteration()
+com.google.zxing.aztec.decoder.Decoder$Table: com.google.zxing.aztec.decoder.Decoder$Table valueOf(java.lang.String)
+androidx.compose.ui.text.android.StaticLayoutFactory33: void setLineBreakConfig(android.text.StaticLayout$Builder,int,int)
+androidx.core.view.ViewCompat$Api28Impl: java.lang.Object requireViewById(android.view.View,int)
+androidx.work.impl.utils.futures.DirectExecutor: androidx.work.impl.utils.futures.DirectExecutor[] values()
+net.sqlcipher.database.SQLiteDatabase$SQLiteDatabaseTransactionType: net.sqlcipher.database.SQLiteDatabase$SQLiteDatabaseTransactionType[] values()
+androidx.core.view.ViewCompat$Api28Impl: void removeOnUnhandledKeyEventListener(android.view.View,androidx.core.view.ViewCompat$OnUnhandledKeyEventListenerCompat)
+com.google.zxing.datamatrix.decoder.DecodedBitStreamParser$Mode: com.google.zxing.datamatrix.decoder.DecodedBitStreamParser$Mode valueOf(java.lang.String)
+com.journeyapps.barcodescanner.DecoratedBarcodeView: void setDecoderFactory(com.journeyapps.barcodescanner.DecoderFactory)
+androidx.compose.ui.window.PopupLayout: android.view.WindowManager$LayoutParams getParams$ui_release()
+androidx.compose.ui.platform.AndroidComposeView: boolean getHasPendingMeasureOrLayout()
+net.sqlcipher.CursorWindow: boolean isInteger_native(int,int)
+androidx.compose.ui.platform.AndroidComposeView: androidx.compose.ui.platform.AndroidAccessibilityManager getAccessibilityManager()
+net.sqlcipher.CursorWindow: android.os.IBinder native_getBinder()
+androidx.security.crypto.EncryptedSharedPreferences$PrefKeyEncryptionScheme: androidx.security.crypto.EncryptedSharedPreferences$PrefKeyEncryptionScheme[] values()
+kotlin.time.DurationUnit: kotlin.time.DurationUnit valueOf(java.lang.String)
+androidx.core.graphics.drawable.IconCompatParcelizer: androidx.core.graphics.drawable.IconCompat read(androidx.versionedparcelable.VersionedParcel)
+com.google.zxing.qrcode.decoder.Mode: com.google.zxing.qrcode.decoder.Mode[] values()
+androidx.core.app.RemoteActionCompat: RemoteActionCompat()
+androidx.compose.animation.EnterExitState: androidx.compose.animation.EnterExitState[] values()
+androidx.compose.ui.autofill.AutofillApi26Helper: void setAutofillType(android.view.ViewStructure,int)
+androidx.compose.foundation.layout.SizeMode: androidx.compose.foundation.layout.SizeMode[] values()
+androidx.compose.ui.layout.IntrinsicWidthHeight: androidx.compose.ui.layout.IntrinsicWidthHeight valueOf(java.lang.String)
+androidx.compose.ui.text.android.BoringLayoutFactory33: android.text.BoringLayout create(java.lang.CharSequence,android.text.TextPaint,int,android.text.Layout$Alignment,float,float,android.text.BoringLayout$Metrics,boolean,boolean,android.text.TextUtils$TruncateAt,int)
+androidx.core.view.WindowInsetsCompat$Impl28: boolean equals(java.lang.Object)
+androidx.profileinstaller.ProfileInstallerInitializer: ProfileInstallerInitializer()
+androidx.work.impl.utils.NetworkApi24: void registerDefaultNetworkCallbackCompat(android.net.ConnectivityManager,android.net.ConnectivityManager$NetworkCallback)
+com.journeyapps.barcodescanner.BarcodeView$DecodeMode: com.journeyapps.barcodescanner.BarcodeView$DecodeMode[] values()
+androidx.core.view.WindowInsetsCompat$Impl20: void setOverriddenInsets(androidx.core.graphics.Insets[])
+androidx.compose.ui.platform.AndroidComposeView: boolean getShowLayoutBounds()
+androidx.work.impl.background.systemalarm.ConstraintProxyUpdateReceiver: ConstraintProxyUpdateReceiver()
+androidx.core.view.ViewCompat$Api28Impl: void setAutofillId(android.view.View,androidx.core.view.autofill.AutofillIdCompat)
+androidx.core.view.accessibility.AccessibilityNodeInfoCompat$Api34Impl: void getBoundsInWindow(android.view.accessibility.AccessibilityNodeInfo,android.graphics.Rect)
+androidx.core.app.NotificationManagerCompat$Api24Impl: boolean areNotificationsEnabled(android.app.NotificationManager)
+com.ramka.storage.db.RamkaDatabase: RamkaDatabase()
+androidx.core.view.ViewCompat$Api21Impl: boolean isNestedScrollingEnabled(android.view.View)
+androidx.core.graphics.drawable.IconCompat$Api28Impl: android.net.Uri getUri(java.lang.Object)
+androidx.work.impl.foreground.SystemForegroundService: SystemForegroundService()
+androidx.compose.ui.platform.coreshims.ContentCaptureSessionCompat$Api29Impl: android.view.ViewStructure newViewStructure(android.view.contentcapture.ContentCaptureSession,android.view.View)
+com.journeyapps.barcodescanner.BarcodeView: BarcodeView(android.content.Context,android.util.AttributeSet)
+androidx.work.NetworkType: androidx.work.NetworkType[] values()
+androidx.core.view.ViewCompat$Api20Impl: void requestApplyInsets(android.view.View)
+androidx.compose.material3.MinimumInteractiveModifier: MinimumInteractiveModifier()
+androidx.compose.ui.platform.AndroidComposeView: androidx.compose.ui.platform.AndroidComposeView$ViewTreeOwners get_viewTreeOwners()
+androidx.core.view.WindowInsetsCompat$Impl: androidx.core.graphics.Insets getStableInsets()
+androidx.compose.ui.text.platform.extensions.LocaleListHelperMethods: java.lang.Object localeSpan(androidx.compose.ui.text.intl.LocaleList)
+androidx.core.view.WindowInsetsCompat$Impl: void copyRootViewBounds(android.view.View)
+androidx.navigation.NavControllerViewModel: NavControllerViewModel()
+com.ramka.app.background.Oem: com.ramka.app.background.Oem valueOf(java.lang.String)
+androidx.compose.ui.platform.AndroidComposeView: androidx.compose.ui.node.OwnerSnapshotObserver getSnapshotObserver()
+androidx.compose.ui.graphics.BlendModeColorFilterHelper: android.graphics.BlendModeColorFilter BlendModeColorFilter-xETnrds(long,int)
+com.google.crypto.tink.proto.HashType: com.google.crypto.tink.proto.HashType valueOf(java.lang.String)
+androidx.compose.foundation.layout.Direction: androidx.compose.foundation.layout.Direction valueOf(java.lang.String)
+androidx.core.view.WindowInsetsCompat$Impl: boolean isConsumed()
+androidx.compose.ui.text.android.StaticLayoutFactoryImpl: android.text.StaticLayout create(androidx.compose.ui.text.android.StaticLayoutParams)
+com.journeyapps.barcodescanner.DecoratedBarcodeView: com.journeyapps.barcodescanner.BarcodeView getBarcodeView()
+androidx.core.view.ViewCompat$Api21Impl: void setTranslationZ(android.view.View,float)
+androidx.startup.InitializationProvider: InitializationProvider()
+com.journeyapps.barcodescanner.DecoratedBarcodeView: com.journeyapps.barcodescanner.camera.CameraSettings getCameraSettings()
+net.sqlcipher.CursorWindow: boolean isBlob_native(int,int)
+androidx.activity.EdgeToEdgeApi21: void setUp(androidx.activity.SystemBarStyle,androidx.activity.SystemBarStyle,android.view.Window,android.view.View,boolean,boolean)
+android.support.v4.graphics.drawable.IconCompatParcelizer: androidx.core.graphics.drawable.IconCompat read(androidx.versionedparcelable.VersionedParcel)
+androidx.core.view.WindowCompat$Api30Impl: void setDecorFitsSystemWindows(android.view.Window,boolean)
+androidx.compose.ui.platform.AndroidViewsHandler: java.util.HashMap getHolderToLayoutNode()
+androidx.compose.ui.text.android.StaticLayoutFactoryDefault: android.text.StaticLayout create(androidx.compose.ui.text.android.StaticLayoutParams)
+androidx.compose.ui.node.LayoutNode$UsageByParent: androidx.compose.ui.node.LayoutNode$UsageByParent valueOf(java.lang.String)
+androidx.lifecycle.ProcessLifecycleInitializer: ProcessLifecycleInitializer()
+androidx.compose.material3.InputPhase: androidx.compose.material3.InputPhase[] values()
+androidx.compose.ui.text.android.Paint29: void getTextBounds(android.graphics.Paint,java.lang.CharSequence,int,int,android.graphics.Rect)
+androidx.lifecycle.Lifecycle$Event: androidx.lifecycle.Lifecycle$Event valueOf(java.lang.String)
+androidx.core.view.ViewCompat$Api21Impl: void setBackgroundTintList(android.view.View,android.content.res.ColorStateList)
+androidx.lifecycle.ProcessLifecycleOwner$attach$1: void onActivityStopped(android.app.Activity)
+com.journeyapps.barcodescanner.DecoratedBarcodeView: com.journeyapps.barcodescanner.ViewfinderView getViewFinder()
+androidx.core.view.accessibility.AccessibilityNodeInfoCompat$Api33Impl: java.lang.String getCollectionItemColumnTitle(java.lang.Object)
+androidx.compose.ui.platform.AndroidComposeView: androidx.compose.ui.platform.AndroidViewsHandler getAndroidViewsHandler$ui_release()
+androidx.core.view.WindowInsetsCompat$Impl20: androidx.core.graphics.Insets getVisibleInsets(android.view.View)
+androidx.compose.ui.platform.AndroidComposeView: void setLayoutDirection(androidx.compose.ui.unit.LayoutDirection)
+androidx.core.view.accessibility.AccessibilityNodeInfoCompat$Api30Impl: java.lang.CharSequence getStateDescription(android.view.accessibility.AccessibilityNodeInfo)
+androidx.compose.ui.platform.AndroidComposeView: long getLastMatrixRecalculationAnimationTime$ui_release()
+androidx.core.view.WindowInsetsCompat$BuilderImpl: WindowInsetsCompat$BuilderImpl(androidx.core.view.WindowInsetsCompat)
+androidx.compose.ui.platform.ViewLayer: long getLayerId()
+androidx.lifecycle.ProcessLifecycleOwner$Api29Impl: void registerActivityLifecycleCallbacks(android.app.Activity,android.app.Application$ActivityLifecycleCallbacks)
+androidx.core.view.WindowInsetsCompat$Impl: boolean isVisible(int)
+androidx.profileinstaller.FileSectionType: androidx.profileinstaller.FileSectionType valueOf(java.lang.String)
+net.sqlcipher.database.SQLiteCompiledSql: void native_finalize()
+androidx.core.view.ViewCompat$Api21Impl: android.graphics.PorterDuff$Mode getBackgroundTintMode(android.view.View)
+androidx.core.view.WindowInsetsCompat$BuilderImpl29: WindowInsetsCompat$BuilderImpl29()
+androidx.core.view.accessibility.AccessibilityNodeInfoCompat$Api34Impl: boolean isAccessibilityDataSensitive(android.view.accessibility.AccessibilityNodeInfo)
+androidx.core.app.NotificationCompatBuilder$Api29Impl: android.app.Notification$Builder setBubbleMetadata(android.app.Notification$Builder,android.app.Notification$BubbleMetadata)
+androidx.work.impl.utils.ForceStopRunnable$BroadcastReceiver: ForceStopRunnable$BroadcastReceiver()
+net.sqlcipher.database.SQLiteStatement: void native_execute()
+com.google.zxing.aztec.decoder.Decoder$Table: com.google.zxing.aztec.decoder.Decoder$Table[] values()
+androidx.lifecycle.ProcessLifecycleOwner$attach$1: void onActivityCreated(android.app.Activity,android.os.Bundle)
+androidx.core.view.WindowInsetsCompat$Impl20: boolean isRound()
+kotlinx.coroutines.selects.TrySelectDetailedResult: kotlinx.coroutines.selects.TrySelectDetailedResult[] values()
+net.sqlcipher.database.SQLiteQuery: int native_fill_window(net.sqlcipher.CursorWindow,int,int,int,int,int)
+kotlinx.coroutines.CoroutineStart: kotlinx.coroutines.CoroutineStart valueOf(java.lang.String)
+net.sqlcipher.CursorWindow: boolean putString_native(java.lang.String,int,int)
+androidx.lifecycle.EmptyActivityLifecycleCallbacks: void onActivityCreated(android.app.Activity,android.os.Bundle)
+androidx.compose.ui.platform.RenderNodeApi29VerificationHelper: void setRenderEffect(android.graphics.RenderNode,androidx.compose.ui.graphics.RenderEffect)
+androidx.compose.material3.tokens.ShapeKeyTokens: androidx.compose.material3.tokens.ShapeKeyTokens valueOf(java.lang.String)
+androidx.core.view.WindowInsetsCompat$Impl20: void setRootWindowInsets(androidx.core.view.WindowInsetsCompat)
+androidx.core.view.WindowInsetsCompat$Impl20: androidx.core.graphics.Insets getInsets(int,boolean)
+com.journeyapps.barcodescanner.CameraPreview: void setMarginFraction(double)
+org.bouncycastle.jce.provider.BouncyCastleProvider: java.security.Provider$Service getService(java.lang.String,java.lang.String)
+androidx.compose.ui.platform.actionmodecallback.MenuItemOption: androidx.compose.ui.platform.actionmodecallback.MenuItemOption valueOf(java.lang.String)
+androidx.compose.ui.platform.coreshims.ContentCaptureSessionCompat$Api34Impl: void notifyViewsAppeared(android.view.contentcapture.ContentCaptureSession,java.util.List)
+androidx.core.app.NotificationCompatBuilder$Api24Impl: android.app.Notification$Builder setCustomContentView(android.app.Notification$Builder,android.widget.RemoteViews)
+androidx.lifecycle.ReportFragment$LifecycleCallbacks: void onActivityPaused(android.app.Activity)
+android.support.v4.graphics.drawable.IconCompatParcelizer: void write(androidx.core.graphics.drawable.IconCompat,androidx.versionedparcelable.VersionedParcel)
+androidx.compose.ui.window.SecureFlagPolicy: androidx.compose.ui.window.SecureFlagPolicy valueOf(java.lang.String)
+androidx.compose.ui.platform.coreshims.ContentCaptureSessionCompat$Api29Impl: android.view.autofill.AutofillId newAutofillId(android.view.contentcapture.ContentCaptureSession,android.view.autofill.AutofillId,long)
+androidx.compose.ui.input.pointer.PointerEventPass: androidx.compose.ui.input.pointer.PointerEventPass[] values()
+androidx.compose.ui.platform.coreshims.ViewStructureCompat$Api23Impl: void setText(android.view.ViewStructure,java.lang.CharSequence)
+androidx.core.app.ActivityCompat$Api23Impl: void onSharedElementsReady(java.lang.Object)
+androidx.compose.ui.platform.AndroidComposeView: androidx.compose.ui.platform.WindowInfo getWindowInfo()
+androidx.core.os.BundleCompat$Api33Impl: android.util.SparseArray getSparseParcelableArray(android.os.Bundle,java.lang.String,java.lang.Class)
+androidx.core.app.NotificationManagerCompat$Api24Impl: int getImportance(android.app.NotificationManager)
+androidx.compose.ui.autofill.AutofillApi23Helper: android.view.ViewStructure newChild(android.view.ViewStructure,int)
+com.journeyapps.barcodescanner.CameraPreview: com.journeyapps.barcodescanner.camera.CameraInstance getCameraInstance()
+com.google.crypto.tink.shaded.protobuf.WireFormat$FieldType: com.google.crypto.tink.shaded.protobuf.WireFormat$FieldType[] values()
+androidx.core.app.RemoteInput$Api29Impl: android.app.RemoteInput$Builder setEditChoicesBeforeSending(android.app.RemoteInput$Builder,int)
+com.ramka.domain.model.MessageStatus: com.ramka.domain.model.MessageStatus[] values()
+androidx.core.view.WindowInsetsCompat$Impl29: WindowInsetsCompat$Impl29(androidx.core.view.WindowInsetsCompat,androidx.core.view.WindowInsetsCompat$Impl29)
+androidx.compose.ui.input.pointer.util.VelocityTracker1D$Strategy: androidx.compose.ui.input.pointer.util.VelocityTracker1D$Strategy valueOf(java.lang.String)
+androidx.compose.ui.platform.ComposeView: void getShouldCreateCompositionOnAttachedToWindow$annotations()
+com.google.crypto.tink.proto.KeyData$KeyMaterialType: com.google.crypto.tink.proto.KeyData$KeyMaterialType valueOf(java.lang.String)
+com.ramka.app.ui.qr.CameraPermissionUiState: com.ramka.app.ui.qr.CameraPermissionUiState valueOf(java.lang.String)
+androidx.core.view.ViewCompat$Api21Impl: float getZ(android.view.View)
+kotlinx.serialization.json.internal.WriteMode: kotlinx.serialization.json.internal.WriteMode[] values()
+androidx.core.view.WindowInsetsCompat$BuilderImpl30: void setInsets(int,androidx.core.graphics.Insets)
+androidx.core.view.WindowInsetsCompat$TypeImpl30: int toPlatformType(int)
+androidx.compose.animation.core.RepeatMode: androidx.compose.animation.core.RepeatMode valueOf(java.lang.String)
+androidx.emoji2.text.EmojiCompatInitializer: EmojiCompatInitializer()
+androidx.compose.ui.platform.AbstractComposeView: void getDisposeViewCompositionStrategy$annotations()
+androidx.core.view.WindowInsetsCompat$Impl21: WindowInsetsCompat$Impl21(androidx.core.view.WindowInsetsCompat,android.view.WindowInsets)
+androidx.versionedparcelable.CustomVersionedParcelable: CustomVersionedParcelable()
+androidx.core.app.ActivityCompat$Api23Impl: void requestPermissions(android.app.Activity,java.lang.String[],int)
+androidx.core.app.AppOpsManagerCompat$Api29Impl: int checkOpNoThrow(android.app.AppOpsManager,java.lang.String,int,java.lang.String)
+androidx.core.app.NotificationCompatBuilder$Api20Impl: android.app.Notification$Action$Builder addRemoteInput(android.app.Notification$Action$Builder,android.app.RemoteInput)
+androidx.compose.foundation.gestures.Orientation: androidx.compose.foundation.gestures.Orientation[] values()
+androidx.core.view.ViewCompat$Api28Impl: java.lang.CharSequence getAccessibilityPaneTitle(android.view.View)
+androidx.lifecycle.ReportFragment$LifecycleCallbacks: void onActivityDestroyed(android.app.Activity)
+androidx.work.ExistingPeriodicWorkPolicy: androidx.work.ExistingPeriodicWorkPolicy valueOf(java.lang.String)
+org.bouncycastle.pqc.crypto.rainbow.Version: org.bouncycastle.pqc.crypto.rainbow.Version valueOf(java.lang.String)
+androidx.lifecycle.LifecycleDispatcher$DispatcherActivityCallback: void onActivityCreated(android.app.Activity,android.os.Bundle)
+androidx.core.view.WindowInsetsCompat$Impl30: androidx.core.graphics.Insets getInsetsIgnoringVisibility(int)
+com.google.crypto.tink.shaded.protobuf.FieldType: com.google.crypto.tink.shaded.protobuf.FieldType valueOf(java.lang.String)
+androidx.work.impl.background.systemjob.SystemJobService: SystemJobService()
+androidx.core.view.accessibility.AccessibilityNodeInfoCompat$Api34Impl: void setBoundsInWindow(android.view.accessibility.AccessibilityNodeInfo,android.graphics.Rect)
+androidx.core.view.WindowInsetsCompat$Impl: androidx.core.graphics.Insets getSystemWindowInsets()
+androidx.work.impl.background.systemalarm.ConstraintProxy$NetworkStateProxy: ConstraintProxy$NetworkStateProxy()
+androidx.core.view.WindowInsetsCompat$Impl: androidx.core.graphics.Insets getInsets(int)
+androidx.core.view.ViewCompat$Api21Impl: boolean dispatchNestedFling(android.view.View,float,float,boolean)
+androidx.core.view.WindowInsetsCompat$Impl29: androidx.core.graphics.Insets getMandatorySystemGestureInsets()
+androidx.core.view.WindowInsetsCompat$Impl20: androidx.core.graphics.Insets getInsetsForType(int,boolean)
+com.google.zxing.pdf417.decoder.DecodedBitStreamParser$Mode: com.google.zxing.pdf417.decoder.DecodedBitStreamParser$Mode valueOf(java.lang.String)
+androidx.core.view.ViewCompat$Api20Impl: android.view.WindowInsets dispatchApplyWindowInsets(android.view.View,android.view.WindowInsets)
+androidx.core.view.accessibility.AccessibilityNodeInfoCompat$Api34Impl: void setContainerTitle(android.view.accessibility.AccessibilityNodeInfo,java.lang.CharSequence)
+androidx.core.graphics.drawable.IconCompat$Api23Impl: android.graphics.drawable.Drawable loadDrawable(android.graphics.drawable.Icon,android.content.Context)
+androidx.work.impl.background.systemjob.SystemJobService$Api28Impl: android.net.Network getNetwork(android.app.job.JobParameters)
+androidx.compose.ui.platform.TextToolbarHelperMethods: android.view.ActionMode startActionMode(android.view.View,android.view.ActionMode$Callback,int)
+com.journeyapps.barcodescanner.CameraPreview: double getMarginFraction()
+net.sqlcipher.CursorWindow: java.lang.String getString_native(int,int)
+com.ramka.app.MainActivity: MainActivity()
+androidx.compose.ui.platform.ViewLayer: androidx.compose.ui.graphics.Path getManualClipPath()
+com.google.zxing.ResultMetadataType: com.google.zxing.ResultMetadataType valueOf(java.lang.String)
+androidx.core.view.WindowInsetsCompat$Impl21: androidx.core.view.WindowInsetsCompat consumeSystemWindowInsets()
+net.sqlcipher.database.SQLiteDatabase: void rekey(byte[])
+androidx.lifecycle.ReportFragment$LifecycleCallbacks: void onActivityStarted(android.app.Activity)
+androidx.compose.ui.platform.coreshims.ContentCaptureSessionCompat$Api29Impl: void notifyViewsDisappeared(android.view.contentcapture.ContentCaptureSession,android.view.autofill.AutofillId,long[])
+net.sqlcipher.CursorWindow: boolean isString_native(int,int)
+androidx.activity.EdgeToEdgeApi23: void setUp(androidx.activity.SystemBarStyle,androidx.activity.SystemBarStyle,android.view.Window,android.view.View,boolean,boolean)
+kotlin.coroutines.intrinsics.CoroutineSingletons: kotlin.coroutines.intrinsics.CoroutineSingletons[] values()
+net.sqlcipher.CursorWindow: byte[] getBlob_native(int,int)
+androidx.compose.ui.platform.AndroidComposeView: androidx.compose.ui.autofill.AutofillTree getAutofillTree()
+androidx.work.ExistingWorkPolicy: androidx.work.ExistingWorkPolicy valueOf(java.lang.String)
+androidx.compose.ui.autofill.AutofillType: androidx.compose.ui.autofill.AutofillType[] values()
+androidx.compose.ui.platform.AndroidComposeViewStartDragAndDropN: boolean startDragAndDrop(android.view.View,androidx.compose.ui.draganddrop.DragAndDropTransferData,androidx.compose.ui.draganddrop.ComposeDragShadowBuilder)
+androidx.work.ArrayCreatingInputMerger: ArrayCreatingInputMerger()
+androidx.core.app.AppOpsManagerCompat$Api23Impl: java.lang.String permissionToOp(java.lang.String)
+androidx.compose.foundation.gestures.Orientation: androidx.compose.foundation.gestures.Orientation valueOf(java.lang.String)
+androidx.compose.ui.node.NodeMeasuringIntrinsics$IntrinsicMinMax: androidx.compose.ui.node.NodeMeasuringIntrinsics$IntrinsicMinMax[] values()
+androidx.compose.foundation.text.selection.CrossStatus: androidx.compose.foundation.text.selection.CrossStatus[] values()
+androidx.compose.ui.platform.AndroidComposeViewForceDarkModeQ: void disallowForceDark(android.view.View)
+kotlin.collections.AbstractMutableList: AbstractMutableList()
+androidx.compose.ui.node.LayoutNode$LayoutState: androidx.compose.ui.node.LayoutNode$LayoutState valueOf(java.lang.String)
+androidx.compose.material.ripple.RippleHostView: void setRippleState(boolean)
+androidx.compose.ui.autofill.AutofillCallback: void unregister(androidx.compose.ui.autofill.AndroidAutofill)
+androidx.core.app.RemoteInput$Api20Impl: android.os.Bundle getResultsFromIntent(android.content.Intent)
+androidx.core.view.WindowInsetsCompat$BuilderImpl29: void setTappableElementInsets(androidx.core.graphics.Insets)
+androidx.core.view.accessibility.AccessibilityNodeInfoCompat$Api33Impl: java.lang.String getCollectionItemRowTitle(java.lang.Object)
+androidx.lifecycle.Lifecycle$State: androidx.lifecycle.Lifecycle$State[] values()
+androidx.compose.ui.layout.IntrinsicMinMax: androidx.compose.ui.layout.IntrinsicMinMax valueOf(java.lang.String)
+androidx.core.app.ActivityCompat$Api23Impl: boolean shouldShowRequestPermissionRationale(android.app.Activity,java.lang.String)
+androidx.compose.ui.platform.coreshims.ViewStructureCompat$Api23Impl: void setContentDescription(android.view.ViewStructure,java.lang.CharSequence)
+androidx.core.graphics.drawable.IconCompat$Api26Impl: android.graphics.drawable.Drawable createAdaptiveIconDrawable(android.graphics.drawable.Drawable,android.graphics.drawable.Drawable)
+androidx.work.impl.background.systemalarm.RescheduleReceiver: RescheduleReceiver()
+androidx.compose.runtime.InvalidationResult: androidx.compose.runtime.InvalidationResult valueOf(java.lang.String)
+androidx.compose.ui.platform.AndroidComposeViewVerificationHelperMethodsN: void setPointerIcon(android.view.View,androidx.compose.ui.input.pointer.PointerIcon)
+com.google.crypto.tink.shaded.protobuf.ProtoSyntax: com.google.crypto.tink.shaded.protobuf.ProtoSyntax valueOf(java.lang.String)
+androidx.compose.ui.platform.CalculateMatrixToWindowApi29: void calculateMatrixToWindow-EL8BTi8(android.view.View,float[])
+androidx.core.view.accessibility.AccessibilityNodeInfoCompat$Api33Impl: boolean isTextSelectable(android.view.accessibility.AccessibilityNodeInfo)
+androidx.room.RoomDatabase$JournalMode: androidx.room.RoomDatabase$JournalMode[] values()
+androidx.work.impl.workers.CombineContinuationsWorker: CombineContinuationsWorker(android.content.Context,androidx.work.WorkerParameters)
+androidx.work.impl.background.systemalarm.ConstraintProxy$BatteryNotLowProxy: ConstraintProxy$BatteryNotLowProxy()
+androidx.work.WorkManager$UpdateResult: androidx.work.WorkManager$UpdateResult valueOf(java.lang.String)
+androidx.compose.ui.text.platform.extensions.LocaleListHelperMethods: void setTextLocales(androidx.compose.ui.text.platform.AndroidTextPaint,androidx.compose.ui.text.intl.LocaleList)
+androidx.core.app.NotificationCompatBuilder$Api21Impl: android.app.Notification$Builder setVisibility(android.app.Notification$Builder,int)
+androidx.activity.Api34Impl: float touchX(android.window.BackEvent)
+net.sqlcipher.database.SQLiteDatabase: void enableSqlTracing(java.lang.String)
+androidx.core.view.WindowInsetsCompat$Impl20: void copyWindowDataInto(androidx.core.view.WindowInsetsCompat)
+net.sqlcipher.CursorWindow: void native_init(boolean,long,long,long)
+androidx.core.view.WindowInsetsCompat$Impl: androidx.core.view.WindowInsetsCompat consumeSystemWindowInsets()
+androidx.compose.ui.autofill.AutofillApi23Helper: void setDimens(android.view.ViewStructure,int,int,int,int,int,int)
+androidx.compose.ui.platform.ViewLayer: float getCameraDistancePx()
+androidx.core.view.ViewCompat$Api21Impl: java.lang.String getTransitionName(android.view.View)
+androidx.core.view.ViewCompat$Api28Impl: void setScreenReaderFocusable(android.view.View,boolean)
+com.google.crypto.tink.shaded.protobuf.FieldType$Collection: com.google.crypto.tink.shaded.protobuf.FieldType$Collection valueOf(java.lang.String)
+androidx.work.impl.workers.ConstraintTrackingWorker: ConstraintTrackingWorker(android.content.Context,androidx.work.WorkerParameters)
+androidx.core.graphics.drawable.IconCompat$Api30Impl: android.graphics.drawable.Icon createWithAdaptiveBitmapContentUri(android.net.Uri)
+androidx.compose.ui.platform.RenderNodeVerificationHelper23: void destroyDisplayListData(android.view.RenderNode)
+androidx.compose.foundation.Api31Impl: float getDistance(android.widget.EdgeEffect)
+com.google.crypto.tink.shaded.protobuf.WireFormat$JavaType: com.google.crypto.tink.shaded.protobuf.WireFormat$JavaType valueOf(java.lang.String)
+androidx.core.view.ViewConfigurationCompat$Api26Impl: float getScaledHorizontalScrollFactor(android.view.ViewConfiguration)
+androidx.work.BackoffPolicy: androidx.work.BackoffPolicy valueOf(java.lang.String)
+androidx.compose.ui.autofill.AutofillApi26Helper: boolean isText(android.view.autofill.AutofillValue)
+androidx.core.view.DisplayCutoutCompat$Api28Impl: int getSafeInsetRight(android.view.DisplayCutout)
+androidx.core.view.DisplayCutoutCompat$Api28Impl: android.view.DisplayCutout createDisplayCutout(android.graphics.Rect,java.util.List)
+androidx.compose.ui.platform.ViewLayer: androidx.compose.ui.platform.AndroidComposeView getOwnerView()
+net.sqlcipher.CursorWindow: int getNumRows_native()
+androidx.compose.ui.window.PopupLayout: int getDisplayHeight()
+androidx.core.view.accessibility.AccessibilityNodeInfoCompat$Api34Impl: boolean hasRequestInitialAccessibilityFocus(android.view.accessibility.AccessibilityNodeInfo)
+androidx.core.view.WindowInsetsCompat$Impl30: androidx.core.graphics.Insets getInsets(int)
+androidx.core.view.WindowInsetsCompat$Impl29: androidx.core.graphics.Insets getSystemGestureInsets()
+androidx.core.view.WindowInsetsCompat$Impl20: androidx.core.graphics.Insets getInsetsIgnoringVisibility(int)
+androidx.activity.Api34Impl: int swipeEdge(android.window.BackEvent)
+android.support.v4.app.RemoteActionCompatParcelizer: RemoteActionCompatParcelizer()
+com.google.crypto.tink.config.internal.TinkFipsUtil$AlgorithmFipsCompatibility: com.google.crypto.tink.config.internal.TinkFipsUtil$AlgorithmFipsCompatibility[] values()
+androidx.compose.ui.platform.ViewLayer: androidx.compose.ui.platform.DrawChildContainer getContainer()
+net.sqlcipher.database.SQLiteProgram: void native_bind_string(int,java.lang.String)
+com.google.zxing.BarcodeFormat: com.google.zxing.BarcodeFormat valueOf(java.lang.String)
+androidx.core.app.NotificationCompatBuilder$Api23Impl: android.app.Notification$Builder setLargeIcon(android.app.Notification$Builder,android.graphics.drawable.Icon)
+androidx.compose.ui.focus.CustomDestinationResult: androidx.compose.ui.focus.CustomDestinationResult valueOf(java.lang.String)
+androidx.core.view.accessibility.AccessibilityNodeInfoCompat$Api34Impl: java.lang.CharSequence getContainerTitle(android.view.accessibility.AccessibilityNodeInfo)
+androidx.compose.ui.focus.FocusTargetNode$FocusTargetElement: FocusTargetNode$FocusTargetElement()
+androidx.security.crypto.EncryptedSharedPreferences$PrefValueEncryptionScheme: androidx.security.crypto.EncryptedSharedPreferences$PrefValueEncryptionScheme valueOf(java.lang.String)
+androidx.work.ExistingPeriodicWorkPolicy: androidx.work.ExistingPeriodicWorkPolicy[] values()
+com.google.zxing.qrcode.decoder.ErrorCorrectionLevel: com.google.zxing.qrcode.decoder.ErrorCorrectionLevel valueOf(java.lang.String)
+androidx.core.view.accessibility.AccessibilityNodeInfoCompat$Api30Impl: void setStateDescription(android.view.accessibility.AccessibilityNodeInfo,java.lang.CharSequence)
+androidx.core.view.DisplayCutoutCompat$Api30Impl: android.view.DisplayCutout createDisplayCutout(android.graphics.Insets,android.graphics.Rect,android.graphics.Rect,android.graphics.Rect,android.graphics.Rect,android.graphics.Insets)
+androidx.compose.ui.input.pointer.MotionEventHelper: long toRawOffset-dBAh8RU(android.view.MotionEvent,int)
+androidx.core.graphics.drawable.IconCompat$Api23Impl: android.net.Uri getUri(java.lang.Object)
+androidx.compose.ui.platform.AbstractComposeView: void setParentContext(androidx.compose.runtime.CompositionContext)
+androidx.compose.ui.text.input.CursorAnchorInfoApi34Helper: android.view.inputmethod.CursorAnchorInfo$Builder addVisibleLineBounds(android.view.inputmethod.CursorAnchorInfo$Builder,androidx.compose.ui.text.TextLayoutResult,androidx.compose.ui.geometry.Rect)
+com.google.zxing.qrcode.decoder.ErrorCorrectionLevel: com.google.zxing.qrcode.decoder.ErrorCorrectionLevel[] values()
+androidx.work.Worker: Worker(android.content.Context,androidx.work.WorkerParameters)
+androidx.work.impl.utils.NetworkApi21: android.net.NetworkCapabilities getNetworkCapabilitiesCompat(android.net.ConnectivityManager,android.net.Network)
+androidx.work.impl.background.systemalarm.ConstraintProxy$StorageNotLowProxy: ConstraintProxy$StorageNotLowProxy()
+net.sqlcipher.CursorWindow: void freeLastRow_native()
+androidx.compose.ui.autofill.AutofillType: androidx.compose.ui.autofill.AutofillType valueOf(java.lang.String)
+net.sqlcipher.CursorWindow: boolean putDouble_native(double,int,int)
+androidx.compose.ui.platform.AndroidComposeView: kotlin.jvm.functions.Function1 getConfigurationChangeObserver()
+androidx.core.app.NotificationCompatBuilder$Api20Impl: android.app.Notification$Action build(android.app.Notification$Action$Builder)
+androidx.core.view.WindowInsetsCompat$Impl20: WindowInsetsCompat$Impl20(androidx.core.view.WindowInsetsCompat,androidx.core.view.WindowInsetsCompat$Impl20)
+androidx.compose.ui.node.NodeMeasuringIntrinsics$IntrinsicWidthHeight: androidx.compose.ui.node.NodeMeasuringIntrinsics$IntrinsicWidthHeight[] values()
+androidx.compose.animation.core.MutatePriority: androidx.compose.animation.core.MutatePriority[] values()
+androidx.core.os.BundleCompat$Api33Impl: java.util.ArrayList getParcelableArrayList(android.os.Bundle,java.lang.String,java.lang.Class)
+androidx.core.view.accessibility.AccessibilityNodeInfoCompat$Api30Impl: java.lang.Object createRangeInfo(int,float,float,float)
+androidx.work.impl.foreground.SystemForegroundService$Api31Impl: void startForeground(android.app.Service,int,android.app.Notification,int)
+com.google.zxing.qrcode.decoder.DataMask: com.google.zxing.qrcode.decoder.DataMask[] values()
+androidx.core.view.WindowInsetsCompat$Impl: void setStableInsets(androidx.core.graphics.Insets)
+androidx.core.app.NotificationCompatBuilder$Api20Impl: android.app.Notification$Action$Builder createBuilder(int,java.lang.CharSequence,android.app.PendingIntent)
+androidx.core.app.AppOpsManagerCompat$Api23Impl: int noteProxyOpNoThrow(android.app.AppOpsManager,java.lang.String,java.lang.String)
+androidx.compose.ui.autofill.AutofillCallback: void register(androidx.compose.ui.autofill.AndroidAutofill)
+androidx.activity.OnBackPressedDispatcher$Api34Impl: android.window.OnBackInvokedCallback createOnBackAnimationCallback(kotlin.jvm.functions.Function1,kotlin.jvm.functions.Function1,kotlin.jvm.functions.Function0,kotlin.jvm.functions.Function0)
+com.journeyapps.barcodescanner.CameraPreview: android.graphics.Rect getPreviewFramingRect()
+androidx.compose.ui.platform.TextToolbarStatus: androidx.compose.ui.platform.TextToolbarStatus valueOf(java.lang.String)
+androidx.core.view.WindowInsetsCompat$Impl: androidx.core.graphics.Insets getInsetsIgnoringVisibility(int)
+androidx.core.view.ViewCompat$Api30Impl: boolean isImportantForContentCapture(android.view.View)
+androidx.compose.foundation.layout.Direction: androidx.compose.foundation.layout.Direction[] values()
+com.journeyapps.barcodescanner.camera.CameraSettings$FocusMode: com.journeyapps.barcodescanner.camera.CameraSettings$FocusMode valueOf(java.lang.String)
+com.journeyapps.barcodescanner.ViewfinderView: void setLaserVisibility(boolean)
+com.google.crypto.tink.proto.OutputPrefixType: com.google.crypto.tink.proto.OutputPrefixType[] values()
+com.journeyapps.barcodescanner.DecoratedBarcodeView: void setTorchListener(com.journeyapps.barcodescanner.DecoratedBarcodeView$TorchListener)
+androidx.core.view.accessibility.AccessibilityNodeInfoCompat$Api33Impl: android.view.accessibility.AccessibilityNodeInfo$ExtraRenderingInfo getExtraRenderingInfo(android.view.accessibility.AccessibilityNodeInfo)
+androidx.work.OutOfQuotaPolicy: androidx.work.OutOfQuotaPolicy valueOf(java.lang.String)
+androidx.core.view.WindowInsetsCompat$Impl20: void setRootViewData(androidx.core.graphics.Insets)
+androidx.compose.ui.autofill.AutofillApi26Helper: void setAutofillId(android.view.ViewStructure,android.view.autofill.AutofillId,int)
+androidx.compose.ui.platform.AbstractComposeView: void getShowLayoutBounds$annotations()
+com.journeyapps.barcodescanner.CameraPreview: android.graphics.Rect getFramingRect()
+androidx.core.view.WindowInsetsCompat$Impl20: void loadReflectionField()
+androidx.core.view.WindowInsetsCompat$BuilderImpl: void setSystemWindowInsets(androidx.core.graphics.Insets)
+androidx.lifecycle.SavedStateHandlesVM: SavedStateHandlesVM()
+androidx.lifecycle.EmptyActivityLifecycleCallbacks: void onActivityStopped(android.app.Activity)
+androidx.core.view.ViewCompat$Api21Impl: boolean dispatchNestedScroll(android.view.View,int,int,int,int,int[])
+androidx.compose.ui.graphics.ColorSpaceVerificationHelper: android.graphics.ColorSpace androidColorSpace(androidx.compose.ui.graphics.colorspace.ColorSpace)
+androidx.core.app.NotificationCompatBuilder$Api21Impl: android.app.Notification$Builder setCategory(android.app.Notification$Builder,java.lang.String)
+androidx.compose.ui.text.android.StaticLayoutFactory28: void setUseLineSpacingFromFallbacks(android.text.StaticLayout$Builder,boolean)
+net.sqlcipher.database.SQLiteProgram: void native_bind_blob(int,byte[])
+androidx.compose.ui.layout.MeasuringIntrinsics$IntrinsicWidthHeight: androidx.compose.ui.layout.MeasuringIntrinsics$IntrinsicWidthHeight[] values()
+androidx.work.impl.background.systemalarm.Alarms$Api19Impl: void setExact(android.app.AlarmManager,int,long,android.app.PendingIntent)
+androidx.navigation.compose.BackStackEntryIdViewModel: BackStackEntryIdViewModel(androidx.lifecycle.SavedStateHandle)
+androidx.work.WorkManagerInitializer: WorkManagerInitializer()
+androidx.core.app.AppOpsManagerCompat$Api23Impl: int noteProxyOp(android.app.AppOpsManager,java.lang.String,java.lang.String)
+androidx.compose.ui.platform.AndroidComposeViewAccessibilityDelegateCompat$ViewTranslationHelperMethodsS: void onCreateVirtualViewTranslationRequests(androidx.compose.ui.platform.AndroidComposeViewAccessibilityDelegateCompat,long[],int[],java.util.function.Consumer)
+androidx.compose.ui.graphics.Api26Bitmap: androidx.compose.ui.graphics.colorspace.ColorSpace composeColorSpace$ui_graphics_release(android.graphics.Bitmap)
+com.journeyapps.barcodescanner.CameraPreview: com.journeyapps.barcodescanner.camera.PreviewScalingStrategy getPreviewScalingStrategy()
+com.journeyapps.barcodescanner.CameraPreview: void setTorch(boolean)
+androidx.compose.ui.layout.MeasuringIntrinsics$IntrinsicMinMax: androidx.compose.ui.layout.MeasuringIntrinsics$IntrinsicMinMax[] values()
+androidx.core.view.WindowInsetsCompat$BuilderImpl: void setMandatorySystemGestureInsets(androidx.core.graphics.Insets)
+androidx.core.view.ViewCompat$Api21Impl$1: ViewCompat$Api21Impl$1(android.view.View,androidx.core.view.OnApplyWindowInsetsListener)
+androidx.compose.ui.text.style.ResolvedTextDirection: androidx.compose.ui.text.style.ResolvedTextDirection valueOf(java.lang.String)
+androidx.core.view.WindowInsetsCompat$BuilderImpl20: void setSystemWindowInsets(androidx.core.graphics.Insets)
+androidx.lifecycle.ReportFragment$LifecycleCallbacks: void onActivityPostStarted(android.app.Activity)
+androidx.compose.ui.platform.WrapperRenderNodeLayerHelperMethods: void onDescendantInvalidated(androidx.compose.ui.platform.AndroidComposeView)
+androidx.activity.ComponentActivity: void setContentView(android.view.View)
+androidx.core.view.WindowInsetsCompat$Impl29: void setStableInsets(androidx.core.graphics.Insets)
+androidx.lifecycle.ReportFragment$LifecycleCallbacks: void registerIn(android.app.Activity)
+com.google.zxing.BarcodeFormat: com.google.zxing.BarcodeFormat[] values()
+androidx.compose.ui.text.input.TextInputServiceAndroid$TextInputCommand: androidx.compose.ui.text.input.TextInputServiceAndroid$TextInputCommand valueOf(java.lang.String)
+androidx.core.graphics.drawable.IconCompat$Api28Impl: int getResId(java.lang.Object)
+androidx.compose.ui.text.input.CursorAnchorInfoApi33Helper: android.view.inputmethod.CursorAnchorInfo$Builder setEditorBoundsInfo(android.view.inputmethod.CursorAnchorInfo$Builder,androidx.compose.ui.geometry.Rect)
+androidx.core.app.RemoteInput$Api20Impl: void addResultsToIntent(java.lang.Object,android.content.Intent,android.os.Bundle)
+androidx.compose.ui.platform.AndroidComposeView: void getFontLoader$annotations()
+androidx.core.view.ViewCompat$Api28Impl: void addOnUnhandledKeyEventListener(android.view.View,androidx.core.view.ViewCompat$OnUnhandledKeyEventListenerCompat)
+androidx.compose.ui.layout.MeasuringIntrinsics$IntrinsicMinMax: androidx.compose.ui.layout.MeasuringIntrinsics$IntrinsicMinMax valueOf(java.lang.String)
+androidx.core.app.NotificationCompatBuilder$Api29Impl: android.app.Notification$Builder setLocusId(android.app.Notification$Builder,java.lang.Object)
+androidx.compose.ui.window.PopupLayout: int getDisplayWidth()
+androidx.core.view.WindowInsetsCompat$BuilderImpl29: WindowInsetsCompat$BuilderImpl29(androidx.core.view.WindowInsetsCompat)
+androidx.core.view.WindowInsetsCompat$BuilderImpl29: void setStableInsets(androidx.core.graphics.Insets)
+androidx.core.view.WindowInsetsCompat$BuilderImpl20: void setStableInsets(androidx.core.graphics.Insets)
+androidx.compose.animation.core.AnimationEndReason: androidx.compose.animation.core.AnimationEndReason valueOf(java.lang.String)
+androidx.compose.ui.platform.ViewLayerVerificationHelper28: void setOutlineAmbientShadowColor(android.view.View,int)
+kotlinx.coroutines.android.AndroidDispatcherFactory: int getLoadPriority()
+androidx.compose.ui.text.android.BoringLayoutFactoryDefault: android.text.BoringLayout$Metrics isBoring(java.lang.CharSequence,android.text.TextPaint,android.text.TextDirectionHeuristic)
+androidx.compose.ui.platform.coreshims.ViewStructureCompat$Api23Impl: void setDimens(android.view.ViewStructure,int,int,int,int,int,int)
+androidx.compose.ui.platform.AndroidComposeView: void getShowLayoutBounds$annotations()
+androidx.lifecycle.ReportFragment$LifecycleCallbacks: void onActivityPostResumed(android.app.Activity)
+androidx.compose.material3.tokens.TypographyKeyTokens: androidx.compose.material3.tokens.TypographyKeyTokens[] values()
+com.ramka.app.RamkaApp: RamkaApp()
+androidx.core.view.WindowInsetsCompat$Impl20: WindowInsetsCompat$Impl20(androidx.core.view.WindowInsetsCompat,android.view.WindowInsets)
+net.sqlcipher.CursorWindow: void close_native()
+androidx.compose.ui.layout.MeasuringIntrinsics$IntrinsicWidthHeight: androidx.compose.ui.layout.MeasuringIntrinsics$IntrinsicWidthHeight valueOf(java.lang.String)
+net.sqlcipher.database.SQLiteStatement: long native_1x1_long()
+android.support.v4.app.RemoteActionCompatParcelizer: void write(androidx.core.app.RemoteActionCompat,androidx.versionedparcelable.VersionedParcel)
+androidx.compose.ui.window.SecureFlagPolicy: androidx.compose.ui.window.SecureFlagPolicy[] values()
+androidx.lifecycle.ReportFragment$LifecycleCallbacks: void onActivityCreated(android.app.Activity,android.os.Bundle)
+androidx.compose.animation.core.RepeatMode: androidx.compose.animation.core.RepeatMode[] values()
+net.sqlcipher.database.SQLiteDatabase: void key(byte[])
+androidx.core.view.ViewCompat$Api30Impl: void setStateDescription(android.view.View,java.lang.CharSequence)
+androidx.compose.ui.graphics.Api26Bitmap: android.graphics.Bitmap createBitmap-x__-hDU$ui_graphics_release(int,int,int,boolean,androidx.compose.ui.graphics.colorspace.ColorSpace)
+org.bouncycastle.pqc.crypto.rainbow.Version: org.bouncycastle.pqc.crypto.rainbow.Version[] values()
+androidx.core.view.DisplayCutoutCompat$Api30Impl: android.graphics.Insets getWaterfallInsets(android.view.DisplayCutout)
+androidx.compose.ui.platform.coreshims.ContentCaptureSessionCompat$Api23Impl: android.os.Bundle getExtras(android.view.ViewStructure)
+androidx.core.view.ViewCompat$Api21Impl$1: android.view.WindowInsets onApplyWindowInsets(android.view.View,android.view.WindowInsets)
+kotlinx.coroutines.scheduling.CoroutineScheduler$WorkerState: kotlinx.coroutines.scheduling.CoroutineScheduler$WorkerState[] values()
+androidx.core.view.accessibility.AccessibilityNodeInfoCompat$Api33Impl: androidx.core.view.accessibility.AccessibilityNodeInfoCompat getChild(android.view.accessibility.AccessibilityNodeInfo,int,int)
+androidx.compose.ui.graphics.CanvasZHelper: void enableZ(android.graphics.Canvas,boolean)
+androidx.compose.ui.window.PopupLayout: void getParams$ui_release$annotations()
+androidx.activity.EdgeToEdgeApi29: void setUp(androidx.activity.SystemBarStyle,androidx.activity.SystemBarStyle,android.view.Window,android.view.View,boolean,boolean)
+androidx.compose.foundation.text.selection.HandleReferencePoint: androidx.compose.foundation.text.selection.HandleReferencePoint[] values()
+androidx.compose.ui.text.android.BoringLayoutFactoryDefault: android.text.BoringLayout create(java.lang.CharSequence,android.text.TextPaint,int,android.text.Layout$Alignment,float,float,android.text.BoringLayout$Metrics,boolean,android.text.TextUtils$TruncateAt,int)
+androidx.core.app.NotificationCompatBuilder$Api31Impl: android.app.Notification$Builder setForegroundServiceBehavior(android.app.Notification$Builder,int)
+androidx.core.view.accessibility.AccessibilityNodeInfoCompat$Api33Impl: void setTextSelectable(android.view.accessibility.AccessibilityNodeInfo,boolean)
+androidx.core.view.ViewCompat$Api21Impl: void callCompatInsetAnimationCallback(android.view.WindowInsets,android.view.View)
+androidx.compose.material3.tokens.TypographyKeyTokens: androidx.compose.material3.tokens.TypographyKeyTokens valueOf(java.lang.String)
+androidx.core.graphics.drawable.IconCompat: IconCompat()
+androidx.core.view.WindowInsetsCompat$Impl: androidx.core.view.DisplayCutoutCompat getDisplayCutout()
+kotlinx.serialization.json.JsonElement$Companion: kotlinx.serialization.KSerializer serializer()
+androidx.core.app.NotificationCompatBuilder$Api21Impl: android.app.Notification$Builder setColor(android.app.Notification$Builder,int)
+androidx.compose.ui.node.NodeMeasuringIntrinsics$IntrinsicWidthHeight: androidx.compose.ui.node.NodeMeasuringIntrinsics$IntrinsicWidthHeight valueOf(java.lang.String)
+androidx.compose.material3.TabSlots: androidx.compose.material3.TabSlots[] values()
+androidx.profileinstaller.FileSectionType: androidx.profileinstaller.FileSectionType[] values()
+androidx.compose.ui.text.android.StaticLayoutFactory33: boolean isFallbackLineSpacingEnabled(android.text.StaticLayout)
+androidx.compose.ui.platform.AndroidComposeView: androidx.compose.ui.node.LayoutNodeDrawScope getSharedDrawScope()
+androidx.core.view.WindowInsetsCompat$Impl21: androidx.core.view.WindowInsetsCompat consumeStableInsets()
+androidx.compose.ui.layout.IntrinsicMinMax: androidx.compose.ui.layout.IntrinsicMinMax[] values()
+androidx.core.view.accessibility.AccessibilityNodeInfoCompat$Api34Impl: android.view.accessibility.AccessibilityNodeInfo$AccessibilityAction getActionScrollInDirection()
+androidx.core.os.BundleCompat$Api33Impl: java.lang.Object[] getParcelableArray(android.os.Bundle,java.lang.String,java.lang.Class)
+com.journeyapps.barcodescanner.DecoratedBarcodeView: DecoratedBarcodeView(android.content.Context,android.util.AttributeSet)
+com.ramka.storage.db.RamkaDatabase_Impl: RamkaDatabase_Impl()
+kotlinx.coroutines.channels.BufferOverflow: kotlinx.coroutines.channels.BufferOverflow valueOf(java.lang.String)
+androidx.core.app.NotificationCompatBuilder$Api20Impl: android.app.Notification$Builder setSortKey(android.app.Notification$Builder,java.lang.String)
+androidx.compose.ui.platform.AndroidComposeView: androidx.compose.ui.modifier.ModifierLocalManager getModifierLocalManager()
+androidx.navigation.NavBackStackEntry$SavedStateViewModel: NavBackStackEntry$SavedStateViewModel(androidx.lifecycle.SavedStateHandle)
+androidx.compose.animation.core.MutatePriority: androidx.compose.animation.core.MutatePriority valueOf(java.lang.String)
+androidx.core.view.accessibility.AccessibilityNodeInfoCompat$Api34Impl: void setRequestInitialAccessibilityFocus(android.view.accessibility.AccessibilityNodeInfo,boolean)
+androidx.core.graphics.drawable.IconCompatParcelizer: IconCompatParcelizer()
+androidx.compose.ui.platform.coreshims.ViewCompatShims$Api30Impl: void setImportantForContentCapture(android.view.View,int)
+kotlinx.coroutines.android.AndroidExceptionPreHandler: AndroidExceptionPreHandler()
+androidx.work.WorkManager$UpdateResult: androidx.work.WorkManager$UpdateResult[] values()
+androidx.core.view.ViewCompat$Api29Impl: android.view.View$AccessibilityDelegate getAccessibilityDelegate(android.view.View)
+androidx.compose.ui.graphics.ColorSpaceVerificationHelper: androidx.compose.ui.graphics.colorspace.ColorSpace composeColorSpace(android.graphics.ColorSpace)
+androidx.compose.ui.window.PopupLayout: void setPopupContentSize-fhxjrPA(androidx.compose.ui.unit.IntSize)
+com.google.zxing.ResultMetadataType: com.google.zxing.ResultMetadataType[] values()
+androidx.work.CoroutineWorker: CoroutineWorker(android.content.Context,androidx.work.WorkerParameters)
+androidx.core.app.RemoteActionCompatParcelizer: androidx.core.app.RemoteActionCompat read(androidx.versionedparcelable.VersionedParcel)
+com.journeyapps.barcodescanner.ViewfinderView: void setCameraPreview(com.journeyapps.barcodescanner.CameraPreview)
+androidx.core.view.ViewCompat$Api21Impl: boolean startNestedScroll(android.view.View,int)
+androidx.core.view.WindowInsetsCompat$Impl: int hashCode()
+androidx.core.view.WindowInsetsCompat$Impl30: WindowInsetsCompat$Impl30(androidx.core.view.WindowInsetsCompat,androidx.core.view.WindowInsetsCompat$Impl30)
+androidx.profileinstaller.ProfileInstallerInitializer$Handler28Impl: android.os.Handler createAsync(android.os.Looper)
+net.sqlcipher.database.SQLiteDatabase$SQLiteDatabaseTransactionType: net.sqlcipher.database.SQLiteDatabase$SQLiteDatabaseTransactionType valueOf(java.lang.String)
+androidx.core.app.NotificationCompatBuilder$Api29Impl: android.app.Notification$Action$Builder setContextual(android.app.Notification$Action$Builder,boolean)
+androidx.compose.foundation.Api31Impl: android.widget.EdgeEffect create(android.content.Context,android.util.AttributeSet)
+androidx.compose.animation.core.AnimationEndReason: androidx.compose.animation.core.AnimationEndReason[] values()
+androidx.core.view.ViewCompat$Api21Impl: boolean dispatchNestedPreFling(android.view.View,float,float)
+androidx.sqlite.db.framework.FrameworkSQLiteOpenHelper$OpenHelper$CallbackName: androidx.sqlite.db.framework.FrameworkSQLiteOpenHelper$OpenHelper$CallbackName valueOf(java.lang.String)
+androidx.compose.ui.platform.AndroidComposeViewAccessibilityDelegateCompat$Api29Impl: void addPageActions(androidx.core.view.accessibility.AccessibilityNodeInfoCompat,androidx.compose.ui.semantics.SemanticsNode)
+androidx.core.app.NotificationCompatBuilder$Api28Impl: android.app.Notification$Builder addPerson(android.app.Notification$Builder,android.app.Person)
+androidx.core.app.NotificationCompatBuilder$Api26Impl: android.app.Notification$Builder setGroupAlertBehavior(android.app.Notification$Builder,int)
+androidx.compose.ui.platform.AndroidComposeView: androidx.compose.ui.hapticfeedback.HapticFeedback getHapticFeedBack()
+androidx.security.crypto.EncryptedSharedPreferences$EncryptedType: androidx.security.crypto.EncryptedSharedPreferences$EncryptedType valueOf(java.lang.String)
+kotlinx.coroutines.CoroutineStart: kotlinx.coroutines.CoroutineStart[] values()
+androidx.compose.ui.platform.AbstractComposeView: void setViewCompositionStrategy(androidx.compose.ui.platform.ViewCompositionStrategy)
+com.journeyapps.barcodescanner.CameraPreview: void setFramingRectSize(com.journeyapps.barcodescanner.Size)
+androidx.lifecycle.EmptyActivityLifecycleCallbacks: void onActivityPaused(android.app.Activity)
+androidx.compose.ui.text.AnnotationType: androidx.compose.ui.text.AnnotationType valueOf(java.lang.String)
+androidx.lifecycle.ReportFragment$LifecycleCallbacks: void onActivityPreDestroyed(android.app.Activity)
+androidx.room.RoomDatabase$JournalMode: androidx.room.RoomDatabase$JournalMode valueOf(java.lang.String)
+androidx.compose.ui.platform.AndroidComposeView: androidx.compose.ui.platform.AndroidClipboardManager getClipboardManager()
+kotlinx.serialization.json.JsonObject$Companion: kotlinx.serialization.KSerializer serializer()
+androidx.work.impl.background.systemjob.SystemJobService$Api31Impl: int getStopReason(android.app.job.JobParameters)
+androidx.core.view.accessibility.AccessibilityNodeInfoCompat$Api33Impl: void setUniqueId(android.view.accessibility.AccessibilityNodeInfo,java.lang.String)
+androidx.core.view.WindowInsetsCompat$Impl: void setOverriddenInsets(androidx.core.graphics.Insets[])
+androidx.core.view.WindowInsetsCompat$Impl: androidx.core.view.WindowInsetsCompat consumeDisplayCutout()
+androidx.core.view.WindowInsetsCompat$BuilderImpl20: androidx.core.view.WindowInsetsCompat build()
+androidx.activity.EdgeToEdgeApi26: void setUp(androidx.activity.SystemBarStyle,androidx.activity.SystemBarStyle,android.view.Window,android.view.View,boolean,boolean)
+androidx.core.view.WindowInsetsCompat$BuilderImpl29: void setSystemWindowInsets(androidx.core.graphics.Insets)
+androidx.compose.ui.window.PopupLayout: void setIsFocusable(boolean)
+androidx.work.impl.background.systemjob.SystemJobService$Api24Impl: android.net.Uri[] getTriggeredContentUris(android.app.job.JobParameters)
+androidx.compose.ui.window.PopupLayout: void setClippingEnabled(boolean)
+com.google.crypto.tink.shaded.protobuf.WireFormat$FieldType: com.google.crypto.tink.shaded.protobuf.WireFormat$FieldType valueOf(java.lang.String)
+androidx.core.view.WindowInsetsCompat$Impl28: WindowInsetsCompat$Impl28(androidx.core.view.WindowInsetsCompat,androidx.core.view.WindowInsetsCompat$Impl28)

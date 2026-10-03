@@ -47,7 +47,7 @@ class SecureLanChannel(
     private val handshakeTimeoutMillis: Long = HANDSHAKE_TIMEOUT_MILLIS,
     private val dataIdleTimeoutMillis: Int = DATA_IDLE_TIMEOUT_MILLIS,
     private val lookupSigningKey: suspend (remoteStaticX25519: ByteArray) -> ByteArray?
-) {
+) : TunnelMessageChannel {
     private var serverSocket: ServerSocket? = null
 
     companion object {
@@ -68,7 +68,7 @@ class SecureLanChannel(
                     if (server.isClosed) break else continue
                 }
                 launch(Dispatchers.IO) {
-                    val result = runCatching { handleIncomingConnection(client) }.getOrNull()
+                    val result = runCatching { processIncomingSocket(client) }.getOrNull()
                     if (result != null) trySend(result)
                 }
             }
@@ -79,7 +79,15 @@ class SecureLanChannel(
         }
     }
 
-    private suspend fun handleIncomingConnection(socket: Socket): IncomingMessage? = socket.use {
+    /**
+     * Обрабатывает ОДНО входящее соединение уже установленным сокетом: рукопожатие (роль ответчика),
+     * проверка подписи, расшифровка, снятие выравнивания. Сокет закрывается всегда ([use]).
+     * Возвращает `null` для любого сбоя и для фиктивных пакетов — вызывающий ничего не отвечает.
+     *
+     * Используется и LAN-слушателем ([incomingMessages]), и транспортом через релей: сокет, пришедший
+     * после ACCEPT/READY, — такая же «труба» до отправителя (RELAY_PROTOCOL.md §4.2), формат тот же.
+     */
+    override suspend fun processIncomingSocket(socket: Socket): IncomingMessage? = socket.use {
         val input = it.getInputStream()
         val output = it.getOutputStream()
         val handshakeDeadline = System.nanoTime() + handshakeTimeoutMillis * 1_000_000L
@@ -129,29 +137,7 @@ class SecureLanChannel(
             val body = FramePadding.pad(plaintext)
             Socket().use { socket ->
                 socket.connect(InetSocketAddress(host, port), timeoutMillis)
-                socket.soTimeout = timeoutMillis
-                val input = socket.getInputStream()
-                val output = socket.getOutputStream()
-
-                val initiatorSession = IkHandshake.startInitiator(keyManager, remoteStaticX25519)
-                FrameIo.writeHandshake(output, initiatorSession.message1, FrameIo.MESSAGE1_SIZE)
-
-                // Ожидается M2: ровно 112 байт (таймаут чтения — soTimeout выше).
-                val message2 = FrameIo.readExact(socket, input, FrameIo.MESSAGE2_SIZE)
-                val (mySignature, handshakeResult) = initiatorSession.consumeMessage2(
-                    message2, remoteSigningPublicKey, keyManager
-                ) ?: return@withContext false // подпись собеседника не сошлась — отменяем отправку
-
-                FrameIo.writeHandshake(output, mySignature, FrameIo.MESSAGE3_SIZE)
-
-                val sessionCipher = SessionCipher(handshakeResult.sendKey, handshakeResult.recvKey)
-                val sent = sessionCipher.encryptNext(body)
-                // Номер на провод не идёт, получатель подставит IMPLICIT_COUNTER: если это не первый
-                // пакет сессии, nonce не совпадёт — лучше отменить отправку (исключение -> false).
-                check(sent.counter == FrameIo.IMPLICIT_COUNTER) { "Ожидался первый пакет сессии" }
-                FrameIo.writeData(output, sent.ciphertext)
-                sessionCipher.wipe()
-                true
+                exchangeOverSocket(socket, remoteStaticX25519, remoteSigningPublicKey, body, timeoutMillis)
             }
         } catch (e: SocketTimeoutException) {
             false
@@ -159,6 +145,61 @@ class SecureLanChannel(
             // Собеседник оффлайн/недостижим — сообщение остаётся в очереди отправителя (п. 3.2).
             false
         }
+    }
+
+    /**
+     * То же, что [sendMessage], но по УЖЕ установленному сокету до собеседника (например, «трубе»
+     * через релей, этап 3). Рукопожатие, проверки и формат кадров те же; E2E-шифрование сохраняется,
+     * релей видит только непрозрачные байты. Сокет НЕ закрывается — им владеет вызывающий.
+     */
+    override suspend fun sendMessageOver(
+        socket: Socket,
+        remoteStaticX25519: ByteArray,
+        remoteSigningPublicKey: ByteArray,
+        plaintext: ByteArray,
+        timeoutMillis: Int // значение по умолчанию (5000) задано в TunnelMessageChannel
+    ): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val body = FramePadding.pad(plaintext)
+            exchangeOverSocket(socket, remoteStaticX25519, remoteSigningPublicKey, body, timeoutMillis)
+        } catch (e: SocketTimeoutException) {
+            false
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    /** Общая часть отправки: рукопожатие (инициатор) и один кадр данных по подключённому сокету. */
+    private fun exchangeOverSocket(
+        socket: Socket,
+        remoteStaticX25519: ByteArray,
+        remoteSigningPublicKey: ByteArray,
+        body: ByteArray,
+        timeoutMillis: Int
+    ): Boolean {
+        socket.soTimeout = timeoutMillis
+        val input = socket.getInputStream()
+        val output = socket.getOutputStream()
+
+        val initiatorSession = IkHandshake.startInitiator(keyManager, remoteStaticX25519)
+        FrameIo.writeHandshake(output, initiatorSession.message1, FrameIo.MESSAGE1_SIZE)
+
+        // Ожидается M2: ровно 112 байт (таймаут чтения — soTimeout выше).
+        val message2 = FrameIo.readExact(socket, input, FrameIo.MESSAGE2_SIZE)
+        val (mySignature, handshakeResult) = initiatorSession.consumeMessage2(
+            message2, remoteSigningPublicKey, keyManager
+        ) ?: return false // подпись собеседника не сошлась — отменяем отправку
+
+        FrameIo.writeHandshake(output, mySignature, FrameIo.MESSAGE3_SIZE)
+
+        val sessionCipher = SessionCipher(handshakeResult.sendKey, handshakeResult.recvKey)
+        val sent = sessionCipher.encryptNext(body)
+        // Номер на провод не идёт, получатель подставит IMPLICIT_COUNTER: если это не первый
+        // пакет сессии, nonce не совпадёт — лучше отменить отправку (исключение -> false).
+        check(sent.counter == FrameIo.IMPLICIT_COUNTER) { "Ожидался первый пакет сессии" }
+        FrameIo.writeData(output, sent.ciphertext)
+        sessionCipher.wipe()
+        return true
     }
 
     fun stop() {

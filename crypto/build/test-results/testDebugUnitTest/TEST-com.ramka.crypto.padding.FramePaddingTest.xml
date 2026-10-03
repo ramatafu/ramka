@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.ramka.crypto.padding.FramePaddingTest" tests="17" skipped="0" failures="0" errors="0" timestamp="2026-10-01T03:58:43.144Z" hostname="DESKTOP-EIGI3GP" time="0.09">
+  <properties/>
+  <testcase name="unpad result is independent copy" classname="com.ramka.crypto.padding.FramePaddingTest" time="0.01"/>
+  <testcase name="flags survive round trip" classname="com.ramka.crypto.padding.FramePaddingTest" time="0.001"/>
+  <testcase name="pad does not modify input" classname="com.ramka.crypto.padding.FramePaddingTest" time="0.0"/>
+  <testcase name="unpad rejects length larger than body" classname="com.ramka.crypto.padding.FramePaddingTest" time="0.0"/>
+  <testcase name="round trip for a range of sizes" classname="com.ramka.crypto.padding.FramePaddingTest" time="0.004"/>
+  <testcase name="max payload size fits exactly" classname="com.ramka.crypto.padding.FramePaddingTest" time="0.0"/>
+  <testcase name="unpad rejects unknown flags" classname="com.ramka.crypto.padding.FramePaddingTest" time="0.001"/>
+  <testcase name="pad rejects unknown flags" classname="com.ramka.crypto.padding.FramePaddingTest" time="0.001"/>
+  <testcase name="padded size is always a bucket or a multiple of the large step" classname="com.ramka.crypto.padding.FramePaddingTest" time="0.062"/>
+  <testcase name="unpad rejects too short input" classname="com.ramka.crypto.padding.FramePaddingTest" time="0.001"/>
+  <testcase name="unpad rejects negative length" classname="com.ramka.crypto.padding.FramePaddingTest" time="0.001"/>
+  <testcase name="bucket boundaries" classname="com.ramka.crypto.padding.FramePaddingTest" time="0.0"/>
+  <testcase name="unpad rejects non zero tail" classname="com.ramka.crypto.padding.FramePaddingTest" time="0.001"/>
+  <testcase name="pad rejects oversized payload" classname="com.ramka.crypto.padding.FramePaddingTest" time="0.001"/>
+  <testcase name="read ack with a few ids stays in the smallest bucket" classname="com.ramka.crypto.padding.FramePaddingTest" time="0.0"/>
+  <testcase name="unpad rejects non canonical size" classname="com.ramka.crypto.padding.FramePaddingTest" time="0.003"/>
+  <testcase name="ack and short text have identical padded size" classname="com.ramka.crypto.padding.FramePaddingTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

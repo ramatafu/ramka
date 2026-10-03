@@ -1,0 +1,16 @@
+-- Merging decision tree log ---
+manifest
+ADDED from C:\Users\Valuka\Desktop\ramka_2\storage\build\intermediates\tmp\ProcessLibraryManifest\debug\tempAndroidManifest7048874197174336378.xml:2:13-83
+INJECTED from C:\Users\Valuka\Desktop\ramka_2\storage\build\intermediates\tmp\ProcessLibraryManifest\debug\tempAndroidManifest7048874197174336378.xml:2:13-83
+	package
+		INJECTED from C:\Users\Valuka\Desktop\ramka_2\storage\build\intermediates\tmp\ProcessLibraryManifest\debug\tempAndroidManifest7048874197174336378.xml
+	xmlns:android
+		ADDED from C:\Users\Valuka\Desktop\ramka_2\storage\build\intermediates\tmp\ProcessLibraryManifest\debug\tempAndroidManifest7048874197174336378.xml:2:23-81
+uses-sdk
+INJECTED from C:\Users\Valuka\Desktop\ramka_2\storage\build\intermediates\tmp\ProcessLibraryManifest\debug\tempAndroidManifest7048874197174336378.xml reason: use-sdk injection requested
+INJECTED from C:\Users\Valuka\Desktop\ramka_2\storage\build\intermediates\tmp\ProcessLibraryManifest\debug\tempAndroidManifest7048874197174336378.xml
+INJECTED from C:\Users\Valuka\Desktop\ramka_2\storage\build\intermediates\tmp\ProcessLibraryManifest\debug\tempAndroidManifest7048874197174336378.xml
+	android:targetSdkVersion
+		INJECTED from C:\Users\Valuka\Desktop\ramka_2\storage\build\intermediates\tmp\ProcessLibraryManifest\debug\tempAndroidManifest7048874197174336378.xml
+	android:minSdkVersion
+		INJECTED from C:\Users\Valuka\Desktop\ramka_2\storage\build\intermediates\tmp\ProcessLibraryManifest\debug\tempAndroidManifest7048874197174336378.xml

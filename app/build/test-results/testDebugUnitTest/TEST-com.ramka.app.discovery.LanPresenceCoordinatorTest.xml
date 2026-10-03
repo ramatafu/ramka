@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.ramka.app.discovery.LanPresenceCoordinatorTest" tests="10" skipped="0" failures="0" errors="0" timestamp="2026-10-01T08:57:35.526Z" hostname="DESKTOP-EIGI3GP" time="1.949">
+  <properties/>
+  <testcase name="enabled at start registers once and starts discovery" classname="com.ramka.app.discovery.LanPresenceCoordinatorTest" time="0.112"/>
+  <testcase name="failing peer handler does not break discovery or the toggle" classname="com.ramka.app.discovery.LanPresenceCoordinatorTest" time="0.054"/>
+  <testcase name="rapid toggling never leaves two registrations alive" classname="com.ramka.app.discovery.LanPresenceCoordinatorTest" time="0.508"/>
+  <testcase name="random instance name is ephemeral and not a device name" classname="com.ramka.app.discovery.LanPresenceCoordinatorTest" time="0.015"/>
+  <testcase name="discovered peer triggers outbox processing only while enabled" classname="com.ramka.app.discovery.LanPresenceCoordinatorTest" time="0.32"/>
+  <testcase name="switching off stops discovery and unregisters" classname="com.ramka.app.discovery.LanPresenceCoordinatorTest" time="0.005"/>
+  <testcase name="switching back on registers again under a new name and restarts discovery" classname="com.ramka.app.discovery.LanPresenceCoordinatorTest" time="0.004"/>
+  <testcase name="discovery that completes by itself keeps advertising" classname="com.ramka.app.discovery.LanPresenceCoordinatorTest" time="0.313"/>
+  <testcase name="disabled at start does nothing at all" classname="com.ramka.app.discovery.LanPresenceCoordinatorTest" time="0.308"/>
+  <testcase name="discovery failure keeps advertising and the toggle still works" classname="com.ramka.app.discovery.LanPresenceCoordinatorTest" time="0.309"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

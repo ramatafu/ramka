@@ -1,21 +1,35 @@
-# Gradle
-.gradle/
-build/
-*/build/
+# --- Android ---
+*.iml
+.gradle
+/local.properties
+/.idea/caches
+/.idea/libraries
+/.idea/modules.xml
+/.idea/workspace.xml
+/.idea/navEditor.xml
+/.idea/assetWizardSettings.xml
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
 local.properties
 
-# Android Studio / IntelliJ
-.idea/
-*.iml
-.DS_Store
-captures/
+# --- Go Server ---
+# Игнорируем скомпилированные бинарники
+ramka-relay
+*.exe
+*.dll
+*.so
+*.dylib
 
-# Ключи подписи и локальные секреты — никогда не коммитить
-*.jks
-*.keystore
-keystore.properties
+# Игнорируем сертификаты и конфиги с секретами
+*.pem
+*.key
+*.crt
+config.json 
+# (Если хочешь выложить пример конфига, назови его config.example.json и добавь его в git)
 
-# ВАЖНО: schemas/ (экспорт схемы Room из storage/build.gradle.kts, ksp room.schemaLocation)
-# СОЗНАТЕЛЬНО НЕ игнорируется — эти JSON-файлы нужны в git для отслеживания эволюции
-# схемы БД между версиями и для будущих миграций. Если когда-нибудь здесь появится
-# паттерн вроде "schemas/" или "*/schemas/" — это ошибка, его нужно убрать.
+# --- Общие ---
+*.log
+.env

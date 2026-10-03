@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.ramka.domain.util.ActiveChatTrackerTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-10-01T08:47:51.314Z" hostname="DESKTOP-EIGI3GP" time="0.002">
+  <properties/>
+  <testcase name="shown chat is open and hidden chat is closed" classname="com.ramka.domain.util.ActiveChatTrackerTest" time="0.002"/>
+  <testcase name="nothing is open initially" classname="com.ramka.domain.util.ActiveChatTrackerTest" time="0.0"/>
+  <testcase name="hiding a stale chat does not close the newly shown one" classname="com.ramka.domain.util.ActiveChatTrackerTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

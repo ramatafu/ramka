@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.ramka.domain.usecase.HandleIncomingTextUseCaseTest" tests="8" skipped="0" failures="0" errors="0" timestamp="2026-10-01T08:47:50.136Z" hostname="DESKTOP-EIGI3GP" time="0.025">
+  <properties/>
+  <testcase name="open chat of another contact does not suppress the badge" classname="com.ramka.domain.usecase.HandleIncomingTextUseCaseTest" time="0.007"/>
+  <testcase name="first delivery is saved once with remoteMessageId and acknowledged" classname="com.ramka.domain.usecase.HandleIncomingTextUseCaseTest" time="0.003"/>
+  <testcase name="duplicate by remoteMessageId does not create a second record but is acknowledged again" classname="com.ramka.domain.usecase.HandleIncomingTextUseCaseTest" time="0.002"/>
+  <testcase name="duplicate message does not increment the unread badge again" classname="com.ramka.domain.usecase.HandleIncomingTextUseCaseTest" time="0.003"/>
+  <testcase name="new message increments the contact unread badge" classname="com.ramka.domain.usecase.HandleIncomingTextUseCaseTest" time="0.001"/>
+  <testcase name="message arriving while that chat is open does not increment the badge but is still saved and acknowledged" classname="com.ramka.domain.usecase.HandleIncomingTextUseCaseTest" time="0.002"/>
+  <testcase name="different messageIds from the same contact are all saved" classname="com.ramka.domain.usecase.HandleIncomingTextUseCaseTest" time="0.004"/>
+  <testcase name="same remoteMessageId from a different contact is a different message" classname="com.ramka.domain.usecase.HandleIncomingTextUseCaseTest" time="0.002"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.ramka.domain.util.RetryBackoffTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-10-01T08:47:51.394Z" hostname="DESKTOP-EIGI3GP" time="0.004">
+  <properties/>
+  <testcase name="negative attempt count is rejected" classname="com.ramka.domain.util.RetryBackoffTest" time="0.0"/>
+  <testcase name="very large attempt counts do not overflow and stay at the cap" classname="com.ramka.domain.util.RetryBackoffTest" time="0.0"/>
+  <testcase name="sequence starts at 30 seconds and doubles each attempt" classname="com.ramka.domain.util.RetryBackoffTest" time="0.0"/>
+  <testcase name="delay is capped at one hour" classname="com.ramka.domain.util.RetryBackoffTest" time="0.001"/>
+  <testcase name="sequence is monotonically non-decreasing" classname="com.ramka.domain.util.RetryBackoffTest" time="0.003"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

@@ -1,0 +1,540 @@
+diff --git a/app/src/main/java/com/ramka/app/di/AppModule.kt b/app/src/main/java/com/ramka/app/di/AppModule.kt
+--- a/app/src/main/java/com/ramka/app/di/AppModule.kt	2026-10-02 06:08:55.629558229 +0000
++++ b/app/src/main/java/com/ramka/app/di/AppModule.kt	2026-10-02 06:08:55.630764738 +0000
+@@ -1,13 +1,21 @@
+ package com.ramka.app.di
+ 
+ import android.content.Context
++import com.ramka.app.relay.AndroidLocalNetworkDetector
++import com.ramka.app.relay.LocalNetworkDetector
++import com.ramka.app.relay.RelayFormController
++import com.ramka.app.relay.RelaySettings
+ import com.ramka.crypto.keys.KeyManager
+ import com.ramka.crypto.securestorage.SecureKeyStore
+ import com.ramka.data.incoming.IncomingMessageProcessor
++import com.ramka.data.repository.CompositeTransportRepository
+ import com.ramka.data.repository.ContactRepositoryImpl
+ import com.ramka.data.repository.LanTransportRepository
+ import com.ramka.data.repository.MessageRepositoryImpl
+ import com.ramka.data.repository.OutboxRepositoryImpl
++import com.ramka.data.repository.RelayTransportRepository
++import com.ramka.domain.relay.RelayChecker
++import com.ramka.domain.relay.SingleRelayProvider
+ import com.ramka.domain.repository.ContactRepository
+ import com.ramka.domain.repository.MessageRepository
+ import com.ramka.domain.repository.OutboxRepository
+@@ -19,6 +27,9 @@
+ import com.ramka.domain.util.Jitter
+ import com.ramka.network.local.LanDiscoveryService
+ import com.ramka.network.local.SecureLanChannel
++import com.ramka.network.relay.KeyManagerRelayIdentity
++import com.ramka.network.relay.RelayClient
++import com.ramka.network.relay.TlsRelayConnector
+ import com.ramka.storage.db.RamkaDatabase
+ import dagger.Module
+ import dagger.Provides
+@@ -115,12 +126,72 @@
+             ?.signingPublicKey
+     }
+ 
++    /** LAN-транспорт — без изменений; наружу он отдаётся только через [CompositeTransportRepository]. */
+     @Provides
+     @Singleton
+-    fun provideTransportRepository(
++    fun provideLanTransportRepository(
+         secureLanChannel: SecureLanChannel,
+         appScope: CoroutineScope
+-    ): TransportRepository = LanTransportRepository(secureLanChannel, appScope)
++    ): LanTransportRepository = LanTransportRepository(secureLanChannel, appScope)
++
++    // ---- Домашний relay (этап 3) ----
++
++    /** Настройки relay: адрес/пин — SharedPreferences, токен — SecureKeyStore. */
++    @Provides
++    @Singleton
++    fun provideRelaySettings(
++        prefs: com.ramka.app.preferences.AppPreferences,
++        secureKeyStore: SecureKeyStore
++    ) = RelaySettings(prefs, secureKeyStore)
++
++    /** Сейчас — один relay из настроек; список серверов с failover = другая реализация RelayProvider. */
++    @Provides
++    @Singleton
++    fun provideRelayProvider(settings: RelaySettings) = SingleRelayProvider(settings)
++
++    @Provides
++    @Singleton
++    fun provideRelayClient(keyManager: KeyManager): RelayClient =
++        RelayClient(KeyManagerRelayIdentity(keyManager), TlsRelayConnector())
++
++    @Provides
++    fun provideRelayChecker(client: RelayClient): RelayChecker = client
++
++    @Provides
++    fun provideRelayFormController(settings: RelaySettings, checker: RelayChecker) =
++        RelayFormController(settings, checker)
++
++    @Provides
++    @Singleton
++    fun provideRelayTransportRepository(
++        secureLanChannel: SecureLanChannel,
++        relayClient: RelayClient,
++        relayProvider: SingleRelayProvider
++    ) = RelayTransportRepository(secureLanChannel, relayClient, relayProvider)
++
++    @Provides
++    @Singleton
++    fun provideLocalNetworkDetector(
++        @dagger.hilt.android.qualifiers.ApplicationContext ctx: Context
++    ): LocalNetworkDetector = AndroidLocalNetworkDetector(ctx)
++
++    /**
++     * Единственный TransportRepository для остального приложения (Outbox, ACK, приём):
++     * LAN и relay выбираются внутри. Пока relay выключен, поведение как до этапа 3.
++     */
++    @Provides
++    @Singleton
++    fun provideTransportRepository(
++        lan: LanTransportRepository,
++        relay: RelayTransportRepository,
++        relaySettings: RelaySettings,
++        localNetwork: LocalNetworkDetector
++    ): TransportRepository = CompositeTransportRepository(
++        lan = lan,
++        relay = relay,
++        relayEnabled = { relaySettings.config.value.activeEndpoint != null },
++        onLocalNetwork = localNetwork::isOnLocalNetwork
++    )
+ 
+     @Provides
+     @Singleton
+diff --git a/app/src/main/java/com/ramka/app/preferences/AppPreferences.kt b/app/src/main/java/com/ramka/app/preferences/AppPreferences.kt
+--- a/app/src/main/java/com/ramka/app/preferences/AppPreferences.kt	2026-10-02 06:08:55.632137064 +0000
++++ b/app/src/main/java/com/ramka/app/preferences/AppPreferences.kt	2026-10-02 06:08:55.637405883 +0000
+@@ -3,6 +3,7 @@
+ import android.content.Context
+ import com.ramka.app.background.BackgroundDeliveryPrefs
+ import com.ramka.app.discovery.MdnsPrefs
++import com.ramka.app.relay.RelayPrefs
+ 
+ /**
+  * Несекретные UI-флаги и настройки фоновой доставки. Намеренно обычный SharedPreferences,
+@@ -10,7 +11,7 @@
+  * ссылки; см. директиву v2) писан для криптографического материала, а не для булевых
+  * флагов, и смешивать их не стоит.
+  */
+-class AppPreferences(context: Context) : BackgroundDeliveryPrefs, MdnsPrefs {
++class AppPreferences(context: Context) : BackgroundDeliveryPrefs, MdnsPrefs, RelayPrefs {
+     private val prefs = context.getSharedPreferences("ramka_app_prefs", Context.MODE_PRIVATE)
+ 
+     var hasAskedNotificationPermission: Boolean
+@@ -33,11 +34,27 @@
+         get() = prefs.getBoolean(KEY_MDNS, true) // по умолчанию ВКЛ
+         set(value) = prefs.edit().putBoolean(KEY_MDNS, value).apply()
+ 
++    // Домашний relay (этап 3). Токен доступа здесь НЕ хранится: он лежит в SecureKeyStore (см. RelaySettings).
++    override var relayEnabled: Boolean
++        get() = prefs.getBoolean(KEY_RELAY_ENABLED, false) // по умолчанию ВЫКЛ
++        set(value) = prefs.edit().putBoolean(KEY_RELAY_ENABLED, value).apply()
++
++    override var relayAddress: String
++        get() = prefs.getString(KEY_RELAY_ADDRESS, "") ?: ""
++        set(value) = prefs.edit().putString(KEY_RELAY_ADDRESS, value).apply()
++
++    override var relayPin: String
++        get() = prefs.getString(KEY_RELAY_PIN, "") ?: ""
++        set(value) = prefs.edit().putString(KEY_RELAY_PIN, value).apply()
++
+     companion object {
+         private const val KEY_ASKED_NOTIFICATIONS = "asked_notification_permission"
+         private const val KEY_BACKGROUND_DELIVERY = "background_delivery_enabled"
+         private const val KEY_PERSISTENT_SERVICE = "persistent_service_enabled"
+         private const val KEY_BACKGROUND_HINT_SHOWN = "background_hint_shown"
+         private const val KEY_MDNS = "mdns_enabled"
++        private const val KEY_RELAY_ENABLED = "relay_enabled"
++        private const val KEY_RELAY_ADDRESS = "relay_address"
++        private const val KEY_RELAY_PIN = "relay_pin"
+     }
+ }
+diff --git a/app/src/main/java/com/ramka/app/ui/settings/SettingsScreen.kt b/app/src/main/java/com/ramka/app/ui/settings/SettingsScreen.kt
+--- a/app/src/main/java/com/ramka/app/ui/settings/SettingsScreen.kt	2026-10-02 06:08:55.649280204 +0000
++++ b/app/src/main/java/com/ramka/app/ui/settings/SettingsScreen.kt	2026-10-02 06:08:55.650513268 +0000
+@@ -1,16 +1,28 @@
+ package com.ramka.app.ui.settings
+ 
+ import androidx.compose.foundation.layout.*
++import androidx.compose.foundation.rememberScrollState
++import androidx.compose.foundation.text.KeyboardOptions
++import androidx.compose.foundation.verticalScroll
+ import androidx.compose.material.icons.Icons
+ import androidx.compose.material.icons.automirrored.filled.ArrowBack
+ import androidx.compose.material3.*
+ import androidx.compose.runtime.Composable
++import androidx.compose.runtime.collectAsState
++import androidx.compose.runtime.getValue
+ import androidx.compose.ui.Alignment
+ import androidx.compose.ui.Modifier
+ import androidx.compose.ui.platform.LocalContext
++import androidx.compose.ui.text.input.KeyboardType
++import androidx.compose.ui.text.input.PasswordVisualTransformation
+ import androidx.compose.ui.unit.dp
+ import androidx.hilt.navigation.compose.hiltViewModel
+ import com.ramka.app.background.OemSettingsLauncher
++import com.ramka.app.relay.RelayCheckUi
++import com.ramka.domain.relay.RelayAddressError
++import com.ramka.domain.relay.RelayConfigIssue
++import com.ramka.domain.relay.RelayFailure
++import com.ramka.domain.relay.RelayPinError
+ 
+ /**
+  * Настройки (ЭТАП B.8): «Фоновая доставка» (по умолчанию ВКЛ, управляет WorkManager) и
+@@ -33,7 +45,7 @@
+             )
+         }
+     ) { padding ->
+-        Column(Modifier.padding(padding).fillMaxSize().padding(16.dp)) {
++        Column(Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
+             SettingSwitchRow(
+                 title = "Фоновая доставка",
+                 description = "Периодически (не чаще раза в 15 минут) пытаться доставить ожидающие сообщения.",
+@@ -60,6 +72,8 @@
+                 enabled = true,
+                 onCheckedChange = viewModel::onMdnsChanged
+             )
++            Spacer(Modifier.height(24.dp))
++            RelaySection(viewModel)
+             Spacer(Modifier.height(16.dp))
+             TextButton(onClick = viewModel::openHintManually) {
+                 Text("Как разрешить фоновую работу")
+@@ -100,3 +114,134 @@
+         Switch(checked = checked, onCheckedChange = onCheckedChange, enabled = enabled)
+     }
+ }
++
++/**
++ * Домашний relay (этап 3): адрес `host:port` (IP или домен), токен доступа и пин сертификата.
++ * Relay общий для всех контактов и в QR-приглашение не попадает: оба собеседника вводят один и тот же.
++ */
++@Composable
++private fun RelaySection(viewModel: SettingsViewModel) {
++    val form by viewModel.relayForm.collectAsState()
++    val lastFailure by viewModel.relayLastFailure.collectAsState()
++    val errors = form.errors
++
++    Column(Modifier.fillMaxWidth()) {
++        SettingSwitchRow(
++            title = "Домашний relay",
++            description = "Доставка сообщений через ваш сервер ramka-relay, когда собеседник вне вашей " +
++                "сети. Сервер видит только зашифрованные байты и не может их прочитать. Приём работает, " +
++                "пока приложение запущено; чтобы получать сообщения в фоне, включите «Постоянный сервис».",
++            checked = form.enabled,
++            enabled = true,
++            onCheckedChange = viewModel::onRelayEnabledChanged
++        )
++        Spacer(Modifier.height(8.dp))
++        OutlinedTextField(
++            value = form.address,
++            onValueChange = viewModel::onRelayAddressChanged,
++            modifier = Modifier.fillMaxWidth(),
++            label = { Text("Адрес relay (host:port)") },
++            placeholder = { Text("relay.example.com:48766") },
++            singleLine = true,
++            isError = errors?.address != null,
++            supportingText = { errors?.address?.let { Text(addressErrorText(it)) } },
++            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri)
++        )
++        Spacer(Modifier.height(8.dp))
++        OutlinedTextField(
++            value = form.token,
++            onValueChange = viewModel::onRelayTokenChanged,
++            modifier = Modifier.fillMaxWidth(),
++            label = { Text("Токен доступа") },
++            singleLine = true,
++            visualTransformation = PasswordVisualTransformation(),
++            isError = errors?.token != null,
++            supportingText = { errors?.token?.let { Text(tokenErrorText(it)) } },
++            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
++        )
++        Spacer(Modifier.height(8.dp))
++        OutlinedTextField(
++            value = form.pin,
++            onValueChange = viewModel::onRelayPinChanged,
++            modifier = Modifier.fillMaxWidth(),
++            label = { Text("Пин сертификата (SHA-256)") },
++            supportingText = {
++                Text(
++                    errors?.pin?.let { pinErrorText(it) }
++                        ?: "64 hex-символа из журнала сервера. Для домена с сертификатом Let's Encrypt можно оставить пустым."
++                )
++            },
++            isError = errors?.pin != null,
++            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii)
++        )
++        Spacer(Modifier.height(8.dp))
++        Row(verticalAlignment = Alignment.CenterVertically) {
++            Button(onClick = viewModel::onRelaySave, enabled = form.dirty) { Text("Сохранить") }
++            Spacer(Modifier.width(8.dp))
++            OutlinedButton(
++                onClick = viewModel::onRelayCheck,
++                enabled = form.check != RelayCheckUi.Checking
++            ) { Text("Проверить подключение") }
++        }
++        Spacer(Modifier.height(8.dp))
++        when (val check = form.check) {
++            RelayCheckUi.Idle -> {
++                val failure = lastFailure
++                if (form.enabled && failure != null) {
++                    Text(
++                        "Последняя ошибка: ${failureText(failure)}",
++                        style = MaterialTheme.typography.bodyMedium,
++                        color = MaterialTheme.colorScheme.error
++                    )
++                }
++            }
++            RelayCheckUi.Checking -> Row(verticalAlignment = Alignment.CenterVertically) {
++                CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
++                Spacer(Modifier.width(8.dp))
++                Text("Проверяем подключение…", style = MaterialTheme.typography.bodyMedium)
++            }
++            RelayCheckUi.Ok -> Text(
++                "Подключение работает: сертификат, токен и протокол в порядке.",
++                style = MaterialTheme.typography.bodyMedium,
++                color = MaterialTheme.colorScheme.primary
++            )
++            is RelayCheckUi.Failed -> Text(
++                failureText(check.failure),
++                style = MaterialTheme.typography.bodyMedium,
++                color = MaterialTheme.colorScheme.error
++            )
++        }
++    }
++}
++
++private fun addressErrorText(error: RelayAddressError): String = when (error) {
++    RelayAddressError.EMPTY -> "Введите адрес relay"
++    RelayAddressError.FORBIDDEN_CHARACTERS -> "Только host или host:port, без https://, пути и пробелов"
++    RelayAddressError.BAD_HOST -> "Некорректное имя хоста или IP-адрес"
++    RelayAddressError.BAD_PORT -> "Порт должен быть числом от 1 до 65535"
++    RelayAddressError.IPV6_NEEDS_BRACKETS -> "IPv6-адрес указывается в квадратных скобках: [2001:db8::1]:48766"
++}
++
++private fun tokenErrorText(issue: RelayConfigIssue): String = when (issue) {
++    RelayConfigIssue.NO_TOKEN -> "Введите токен доступа"
++    RelayConfigIssue.BAD_TOKEN_LENGTH -> "Токен должен быть длиной от 16 до 64 байт"
++    RelayConfigIssue.NO_ADDRESS, RelayConfigIssue.PIN_REQUIRED_FOR_IP -> "Некорректный токен"
++}
++
++private fun pinErrorText(error: RelayPinError): String = when (error) {
++    RelayPinError.BAD_FORMAT -> "Пин — ровно 64 hex-символа (допускаются пробелы и двоеточия)"
++    RelayPinError.REQUIRED_FOR_IP -> "Для IP-адреса пин обязателен: сертификат проверить иначе нечем"
++}
++
++private fun failureText(failure: RelayFailure): String = when (failure) {
++    RelayFailure.UNREACHABLE -> "relay недоступен: проверьте адрес, порт, проброс порта и интернет"
++    RelayFailure.TLS -> "ошибка TLS: пин сертификата не совпал или сертификат недействителен"
++    RelayFailure.TLS13_UNSUPPORTED -> "это устройство не поддерживает TLS 1.3 (нужен Android 10 или новее)"
++    RelayFailure.AUTH -> "relay не принял токен доступа"
++    RelayFailure.PROTOCOL -> "неожиданный ответ relay: проверьте версии приложения и сервера"
++    RelayFailure.TARGET_OFFLINE -> "собеседник сейчас не подключён к relay"
++    RelayFailure.TIMEOUT -> "relay не ответил вовремя"
++    RelayFailure.BUSY -> "relay временно ограничил доступ (слишком много запросов или неверных токенов)"
++    RelayFailure.REPLACED -> "это устройство вытеснено другим устройством с теми же ключами"
++    RelayFailure.INTERNAL -> "внутренняя ошибка relay"
++}
+diff --git a/app/src/main/java/com/ramka/app/ui/settings/SettingsViewModel.kt b/app/src/main/java/com/ramka/app/ui/settings/SettingsViewModel.kt
+--- a/app/src/main/java/com/ramka/app/ui/settings/SettingsViewModel.kt	2026-10-02 06:08:55.642691762 +0000
++++ b/app/src/main/java/com/ramka/app/ui/settings/SettingsViewModel.kt	2026-10-02 06:08:55.643974099 +0000
+@@ -5,20 +5,26 @@
+ import androidx.compose.runtime.mutableStateOf
+ import androidx.compose.runtime.setValue
+ import androidx.lifecycle.ViewModel
++import androidx.lifecycle.viewModelScope
+ import com.ramka.app.background.BackgroundDeliveryController
+ import com.ramka.app.background.Oem
+ import com.ramka.app.background.OemDetector
+ import com.ramka.app.background.OemHintTexts
+ import com.ramka.app.discovery.LanVisibilityController
+ import com.ramka.app.preferences.AppPreferences
++import com.ramka.app.relay.RelayFormController
++import com.ramka.domain.relay.SingleRelayProvider
+ import dagger.hilt.android.lifecycle.HiltViewModel
++import kotlinx.coroutines.launch
+ import javax.inject.Inject
+ 
+ @HiltViewModel
+ class SettingsViewModel @Inject constructor(
+     private val controller: BackgroundDeliveryController,
+     private val lanVisibility: LanVisibilityController,
+-    prefs: AppPreferences
++    prefs: AppPreferences,
++    private val relayController: RelayFormController,
++    relayProvider: SingleRelayProvider
+ ) : ViewModel() {
+ 
+     val oem: Oem = OemDetector.detect(Build.MANUFACTURER, Build.FINGERPRINT)
+@@ -33,6 +39,23 @@
+     var showHint by mutableStateOf(false)
+         private set
+ 
++    // ---- Домашний relay (этап 3): вся логика в RelayFormController, здесь только проброс ----
++
++    /** Состояние формы relay (переключатель, поля, ошибки, результат проверки). */
++    val relayForm = relayController.state
++
++    /** Последняя ошибка при обращении к relay (null — исправен или обращений ещё не было). */
++    val relayLastFailure = relayProvider.lastFailure
++
++    fun onRelayEnabledChanged(enabled: Boolean) = relayController.onEnabledChanged(enabled)
++    fun onRelayAddressChanged(value: String) = relayController.onAddressChanged(value)
++    fun onRelayTokenChanged(value: String) = relayController.onTokenChanged(value)
++    fun onRelayPinChanged(value: String) = relayController.onPinChanged(value)
++    fun onRelaySave() = relayController.save()
++    fun onRelayCheck() {
++        viewModelScope.launch { relayController.check() }
++    }
++
+     init {
+         // Значение по умолчанию у главного тумблера — ВКЛ, поэтому «первое включение»
+         // на практике — первое открытие настроек с включённой фоновой доставкой.
+diff --git a/data/build.gradle.kts b/data/build.gradle.kts
+--- a/data/build.gradle.kts	2026-10-02 06:08:55.622668665 +0000
++++ b/data/build.gradle.kts	2026-10-02 06:08:55.623950843 +0000
+@@ -24,4 +24,7 @@
+     implementation(project(":network"))
+     implementation(project(":storage"))
+     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
++
++    // Unit-тесты транспортов (pure JVM, JUnit4 — та же версия, что в остальных модулях).
++    testImplementation("junit:junit:4.13.2")
+ }
+diff --git a/network/src/main/java/com/ramka/network/local/SecureLanChannel.kt b/network/src/main/java/com/ramka/network/local/SecureLanChannel.kt
+--- a/network/src/main/java/com/ramka/network/local/SecureLanChannel.kt	2026-10-02 06:08:55.612137063 +0000
++++ b/network/src/main/java/com/ramka/network/local/SecureLanChannel.kt	2026-10-02 06:08:55.617282257 +0000
+@@ -47,7 +47,7 @@
+     private val handshakeTimeoutMillis: Long = HANDSHAKE_TIMEOUT_MILLIS,
+     private val dataIdleTimeoutMillis: Int = DATA_IDLE_TIMEOUT_MILLIS,
+     private val lookupSigningKey: suspend (remoteStaticX25519: ByteArray) -> ByteArray?
+-) {
++) : TunnelMessageChannel {
+     private var serverSocket: ServerSocket? = null
+ 
+     companion object {
+@@ -68,7 +68,7 @@
+                     if (server.isClosed) break else continue
+                 }
+                 launch(Dispatchers.IO) {
+-                    val result = runCatching { handleIncomingConnection(client) }.getOrNull()
++                    val result = runCatching { processIncomingSocket(client) }.getOrNull()
+                     if (result != null) trySend(result)
+                 }
+             }
+@@ -79,7 +79,15 @@
+         }
+     }
+ 
+-    private suspend fun handleIncomingConnection(socket: Socket): IncomingMessage? = socket.use {
++    /**
++     * Обрабатывает ОДНО входящее соединение уже установленным сокетом: рукопожатие (роль ответчика),
++     * проверка подписи, расшифровка, снятие выравнивания. Сокет закрывается всегда ([use]).
++     * Возвращает `null` для любого сбоя и для фиктивных пакетов — вызывающий ничего не отвечает.
++     *
++     * Используется и LAN-слушателем ([incomingMessages]), и транспортом через релей: сокет, пришедший
++     * после ACCEPT/READY, — такая же «труба» до отправителя (RELAY_PROTOCOL.md §4.2), формат тот же.
++     */
++    override suspend fun processIncomingSocket(socket: Socket): IncomingMessage? = socket.use {
+         val input = it.getInputStream()
+         val output = it.getOutputStream()
+         val handshakeDeadline = System.nanoTime() + handshakeTimeoutMillis * 1_000_000L
+@@ -129,29 +137,7 @@
+             val body = FramePadding.pad(plaintext)
+             Socket().use { socket ->
+                 socket.connect(InetSocketAddress(host, port), timeoutMillis)
+-                socket.soTimeout = timeoutMillis
+-                val input = socket.getInputStream()
+-                val output = socket.getOutputStream()
+-
+-                val initiatorSession = IkHandshake.startInitiator(keyManager, remoteStaticX25519)
+-                FrameIo.writeHandshake(output, initiatorSession.message1, FrameIo.MESSAGE1_SIZE)
+-
+-                // Ожидается M2: ровно 112 байт (таймаут чтения — soTimeout выше).
+-                val message2 = FrameIo.readExact(socket, input, FrameIo.MESSAGE2_SIZE)
+-                val (mySignature, handshakeResult) = initiatorSession.consumeMessage2(
+-                    message2, remoteSigningPublicKey, keyManager
+-                ) ?: return@withContext false // подпись собеседника не сошлась — отменяем отправку
+-
+-                FrameIo.writeHandshake(output, mySignature, FrameIo.MESSAGE3_SIZE)
+-
+-                val sessionCipher = SessionCipher(handshakeResult.sendKey, handshakeResult.recvKey)
+-                val sent = sessionCipher.encryptNext(body)
+-                // Номер на провод не идёт, получатель подставит IMPLICIT_COUNTER: если это не первый
+-                // пакет сессии, nonce не совпадёт — лучше отменить отправку (исключение -> false).
+-                check(sent.counter == FrameIo.IMPLICIT_COUNTER) { "Ожидался первый пакет сессии" }
+-                FrameIo.writeData(output, sent.ciphertext)
+-                sessionCipher.wipe()
+-                true
++                exchangeOverSocket(socket, remoteStaticX25519, remoteSigningPublicKey, body, timeoutMillis)
+             }
+         } catch (e: SocketTimeoutException) {
+             false
+@@ -161,6 +147,61 @@
+         }
+     }
+ 
++    /**
++     * То же, что [sendMessage], но по УЖЕ установленному сокету до собеседника (например, «трубе»
++     * через релей, этап 3). Рукопожатие, проверки и формат кадров те же; E2E-шифрование сохраняется,
++     * релей видит только непрозрачные байты. Сокет НЕ закрывается — им владеет вызывающий.
++     */
++    override suspend fun sendMessageOver(
++        socket: Socket,
++        remoteStaticX25519: ByteArray,
++        remoteSigningPublicKey: ByteArray,
++        plaintext: ByteArray,
++        timeoutMillis: Int // значение по умолчанию (5000) задано в TunnelMessageChannel
++    ): Boolean = withContext(Dispatchers.IO) {
++        try {
++            val body = FramePadding.pad(plaintext)
++            exchangeOverSocket(socket, remoteStaticX25519, remoteSigningPublicKey, body, timeoutMillis)
++        } catch (e: SocketTimeoutException) {
++            false
++        } catch (e: Exception) {
++            false
++        }
++    }
++
++    /** Общая часть отправки: рукопожатие (инициатор) и один кадр данных по подключённому сокету. */
++    private fun exchangeOverSocket(
++        socket: Socket,
++        remoteStaticX25519: ByteArray,
++        remoteSigningPublicKey: ByteArray,
++        body: ByteArray,
++        timeoutMillis: Int
++    ): Boolean {
++        socket.soTimeout = timeoutMillis
++        val input = socket.getInputStream()
++        val output = socket.getOutputStream()
++
++        val initiatorSession = IkHandshake.startInitiator(keyManager, remoteStaticX25519)
++        FrameIo.writeHandshake(output, initiatorSession.message1, FrameIo.MESSAGE1_SIZE)
++
++        // Ожидается M2: ровно 112 байт (таймаут чтения — soTimeout выше).
++        val message2 = FrameIo.readExact(socket, input, FrameIo.MESSAGE2_SIZE)
++        val (mySignature, handshakeResult) = initiatorSession.consumeMessage2(
++            message2, remoteSigningPublicKey, keyManager
++        ) ?: return false // подпись собеседника не сошлась — отменяем отправку
++
++        FrameIo.writeHandshake(output, mySignature, FrameIo.MESSAGE3_SIZE)
++
++        val sessionCipher = SessionCipher(handshakeResult.sendKey, handshakeResult.recvKey)
++        val sent = sessionCipher.encryptNext(body)
++        // Номер на провод не идёт, получатель подставит IMPLICIT_COUNTER: если это не первый
++        // пакет сессии, nonce не совпадёт — лучше отменить отправку (исключение -> false).
++        check(sent.counter == FrameIo.IMPLICIT_COUNTER) { "Ожидался первый пакет сессии" }
++        FrameIo.writeData(output, sent.ciphertext)
++        sessionCipher.wipe()
++        return true
++    }
++
+     fun stop() {
+         serverSocket?.close()
+     }

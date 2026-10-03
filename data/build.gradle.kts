@@ -24,4 +24,7 @@ dependencies {
     implementation(project(":network"))
     implementation(project(":storage"))
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
+
+    // Unit-тесты транспортов (pure JVM, JUnit4 — та же версия, что в остальных модулях).
+    testImplementation("junit:junit:4.13.2")
 }
