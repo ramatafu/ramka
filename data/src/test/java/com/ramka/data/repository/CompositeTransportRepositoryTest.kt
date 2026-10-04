@@ -3,6 +3,9 @@ package com.ramka.data.repository
 import com.ramka.domain.model.Contact
 import com.ramka.domain.model.KeyVerificationStatus
 import com.ramka.domain.model.NetworkAddress
+import com.ramka.domain.relay.RelayAddress
+import com.ramka.domain.relay.RelayEntry
+import com.ramka.domain.relay.RelayPool
 import com.ramka.domain.repository.TransportRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -122,6 +125,69 @@ class CompositeTransportRepositoryTest {
             assertEquals(0, s.lan.calls)
             assertEquals(0, s.relay.calls)
         }
+    }
+
+    // ---- пул релеёв: флаг «relay включён» = RelayPool.isActive (так он подключён в AppModule) ----
+
+    private fun entry(id: String, token: String = "test-token-0123456789abcdef") =
+        RelayEntry(id, RelayAddress("$id.example.com", 48766), token, null)
+
+    private fun sendWithPool(pool: RelayPool, lanOk: Boolean = false, address: NetworkAddress? = lanAddress): Triple<Boolean, FakeTransport, FakeTransport> {
+        val lan = FakeTransport(lanOk)
+        val relay = FakeTransport(true)
+        val composite = CompositeTransportRepository(lan, relay, relayEnabled = { pool.isActive }, onLocalNetwork = { true })
+        val ok = runBlocking { composite.sendEncryptedPacket(contact(address), byteArrayOf(1)) }
+        return Triple(ok, lan, relay)
+    }
+
+    @Test
+    fun `пул пуст — relay не используется, LAN как раньше`() {
+        val (ok, lan, relay) = sendWithPool(RelayPool(enabled = true))
+        assertFalse(ok)
+        assertEquals(1, lan.calls)
+        assertEquals(0, relay.calls)
+    }
+
+    @Test
+    fun `пул выключен — relay не используется даже при настроенных релеях`() {
+        val (ok, lan, relay) = sendWithPool(RelayPool(enabled = false, entries = listOf(entry("a"), entry("b"))))
+        assertFalse(ok)
+        assertEquals(1, lan.calls)
+        assertEquals(0, relay.calls)
+    }
+
+    @Test
+    fun `пул включён, но все записи неполные — relay не используется`() {
+        val (ok, lan, relay) = sendWithPool(RelayPool(enabled = true, entries = listOf(entry("a", token = ""), entry("b", token = "short"))))
+        assertFalse(ok)
+        assertEquals(1, lan.calls)
+        assertEquals(0, relay.calls)
+    }
+
+    @Test
+    fun `пул включён и есть рабочая запись — LAN не вышел, запасной путь через relay`() {
+        val (ok, lan, relay) = sendWithPool(RelayPool(enabled = true, entries = listOf(entry("a", token = ""), entry("b"))))
+        assertTrue(ok)
+        assertEquals(1, lan.calls)
+        assertEquals(1, relay.calls)
+    }
+
+    @Test
+    fun `пул включён, у контакта нет LAN-адреса — сразу relay`() {
+        val (ok, lan, relay) = sendWithPool(RelayPool(enabled = true, entries = listOf(entry("a"))), address = null)
+        assertTrue(ok)
+        assertEquals(0, lan.calls)
+        assertEquals(1, relay.calls)
+    }
+
+    @Test
+    fun `удаление последней записи выключает relay`() {
+        val pool = RelayPool(enabled = true, entries = listOf(entry("a")))
+        val removed = (pool.remove("a") as com.ramka.domain.relay.RelayPoolResult.Changed).pool
+        val (ok, lan, relay) = sendWithPool(removed, lanOk = true)
+        assertTrue(ok) // LAN работает как прежде
+        assertEquals(1, lan.calls)
+        assertEquals(0, relay.calls)
     }
 
     @Test

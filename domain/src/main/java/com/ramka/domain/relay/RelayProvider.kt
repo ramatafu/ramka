@@ -2,11 +2,6 @@ package com.ramka.domain.relay
 
 import com.ramka.domain.model.Contact
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.map
 
 /** Причина неудачи при работе с релеем. Используется и для статуса в UI, и для [RelayProvider.report]. */
 enum class RelayFailure {
@@ -42,44 +37,39 @@ enum class RelayFailure {
 }
 
 /**
- * Выбор релея. Транспорт зависит от этого интерфейса, а не от одного адреса: сегодня
- * [SingleRelayProvider] отдаёт один сервер из настроек, завтра можно добавить реализацию со
- * списком серверов, приоритетами и автоматическим переключением без изменений в транспорте.
+ * Выбор релея. Транспорт зависит от этого интерфейса, а не от одного адреса: сейчас реализация —
+ * [PoolRelayProvider] (пул релеёв с приоритетами, паузами после ошибок и «залипанием»).
  */
 interface RelayProvider {
     /**
      * Релеи, на которых нужно держать регистрацию, чтобы ПРИНИМАТЬ сообщения. Пустой список —
-     * релей не используется. Каждое изменение (смена адреса, токена, выключение) эмитится заново.
+     * релей не используется. Эмитится при любом изменении набора; транспорт сравнивает НАБОРЫ, поэтому
+     * перестановка не рвёт рабочие соединения.
      */
     val ownRelays: Flow<List<RelayEndpoint>>
 
-    /** Релеи для ОТПРАВКИ контакту, по убыванию приоритета. Пустой список — релея нет. */
+    /** Релеи для ОТПРАВКИ контакту в порядке попыток. Пустой список — релея нет. */
     suspend fun relaysFor(contact: Contact): List<RelayEndpoint>
 
     /**
      * Обратная связь о результате обращения к релею: [failure] == null — релей исправен
-     * (включая ответ «получатель не в сети»). Реализация со списком серверов использует это
-     * для переключения; [SingleRelayProvider] лишь запоминает последний результат.
+     * (включая ответ «получатель не в сети»).
      */
     fun report(endpoint: RelayEndpoint, failure: RelayFailure?)
-}
 
-/** Единственный релей из настроек ([RelayConfigSource]). Отдаёт его только если он включён и настроен. */
-class SingleRelayProvider(private val source: RelayConfigSource) : RelayProvider {
+    /**
+     * Доставка контакту завершена через [endpoint]: [latencyMillis] — время попытки на этом релее,
+     * [fallback] — релей был не первым в очереди. По умолчанию ничего не делает.
+     */
+    fun reportDelivery(endpoint: RelayEndpoint, contact: Contact, latencyMillis: Long, fallback: Boolean) {}
 
-    private val lastFailureState = MutableStateFlow<RelayFailure?>(null)
-
-    /** Результат последнего обращения к релею (null — исправен или обращений не было). */
-    val lastFailure: StateFlow<RelayFailure?> = lastFailureState.asStateFlow()
-
-    override val ownRelays: Flow<List<RelayEndpoint>> =
-        source.config.map { listOfNotNull(it.activeEndpoint) }.distinctUntilChanged()
-
-    override suspend fun relaysFor(contact: Contact): List<RelayEndpoint> =
-        listOfNotNull(source.config.value.activeEndpoint)
-
-    override fun report(endpoint: RelayEndpoint, failure: RelayFailure?) {
-        lastFailureState.value = failure
+    /** Состояние регистрации на релее (приём). По умолчанию сводится к [report]. */
+    fun reportLink(endpoint: RelayEndpoint, state: RelayLinkState) {
+        when (state) {
+            RelayLinkState.Connected -> report(endpoint, null)
+            is RelayLinkState.Failed -> report(endpoint, state.failure)
+            RelayLinkState.Connecting, is RelayLinkState.Reachable -> Unit
+        }
     }
 }
 

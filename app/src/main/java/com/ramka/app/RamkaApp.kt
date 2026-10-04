@@ -5,6 +5,7 @@ import com.ramka.app.background.BackgroundDeliveryController
 import com.ramka.app.discovery.LanPresenceCoordinator
 import com.ramka.app.discovery.LanVisibilityController
 import com.ramka.data.incoming.IncomingMessageProcessor
+import com.ramka.domain.relay.RelayHealthMonitor
 import com.ramka.domain.usecase.ProcessOutboxUseCase
 import com.ramka.network.local.LanDiscoveryService
 import dagger.hilt.android.HiltAndroidApp
@@ -21,6 +22,7 @@ class RamkaApp : Application() {
     @Inject lateinit var appScope: CoroutineScope
     @Inject lateinit var backgroundDeliveryController: BackgroundDeliveryController
     @Inject lateinit var lanVisibilityController: LanVisibilityController
+    @Inject lateinit var relayHealthMonitor: RelayHealthMonitor
 
     override fun onCreate() {
         super.onCreate()
@@ -52,6 +54,10 @@ class RamkaApp : Application() {
         // Только планирование WorkManager: СТАРТ foreground-сервиса отсюда запрещён (процесс мог
         // быть поднят в фоне, а на Android 12+ это нельзя) — сервис стартует из MainActivity.onStart.
         backgroundDeliveryController.applyScheduling()
+
+        // Фоновая проверка релеёв (этап 3, пул): только пока пул релеёв включён и в нём есть рабочие записи —
+        // сразу при включении и далее раз в 5 минут (в режиме экономии батареи реже). Выключен — ни одного обращения.
+        relayHealthMonitor.start(appScope)
 
         // Триггер 3/3 (ручное «обновить») — в ContactsViewModel, вызывается по нажатию.
 

@@ -1,8 +1,10 @@
 package com.ramka.data.repository
 
 import com.ramka.domain.model.Contact
+import com.ramka.domain.relay.RelayClock
 import com.ramka.domain.relay.RelayEndpoint
 import com.ramka.domain.relay.RelayFailure
+import com.ramka.domain.relay.RelayLinkState
 import com.ramka.domain.relay.RelayProvider
 import com.ramka.domain.repository.TransportRepository
 import com.ramka.network.local.TunnelMessageChannel
@@ -11,28 +13,50 @@ import com.ramka.network.relay.RelayConnectionState
 import com.ramka.network.relay.RelayTunnelClient
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.SendChannel
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.launch
 import java.net.Socket
 
 /**
- * Транспорт через домашний релей (этап 3, RELAY_PROTOCOL.md).
+ * Бюджет времени отправки через релеи. Раньше каждый релей получал полный дедлайн (15 с), и при трёх
+ * мёртвых релеях сообщение висело в «отправляется» почти минуту.
+ *
+ * @property totalBudgetMillis сколько всего ищем рабочий релей (резолв, TLS, CONNECT → READY на всех
+ *   релеях вместе). Рукопожатие после установки «трубы» ограничено собственными таймаутами канала.
+ * @property firstAttemptMillis потолок для первого релея в очереди.
+ * @property fallbackAttemptMillis потолок для каждого следующего (запасного) релея: он короче, чтобы
+ *   мёртвый релей не съедал весь бюджет.
+ * @property minAttemptMillis если на попытку осталось меньше, её не начинаем.
+ */
+data class RelaySendConfig(
+    val totalBudgetMillis: Long = 25_000,
+    val firstAttemptMillis: Long = 15_000,
+    val fallbackAttemptMillis: Long = 8_000,
+    val minAttemptMillis: Long = 1_000
+)
+
+/**
+ * Транспорт через домашние релеи (этап 3, RELAY_PROTOCOL.md).
  *
  * Релей — «слепая труба»: он сводит двух онлайн-клиентов и перекладывает байты, а всё остальное
  * (IK-рукопожатие, проверка подписей, шифрование, выравнивание) выполняет тот же [TunnelMessageChannel],
  * что и в LAN. Релей не может прочитать или подделать сообщение.
  *
- * Какие релеи использовать, решает [RelayProvider] (сейчас один из настроек; список с
- * переключением добавляется новой реализацией провайдера, этот класс не меняется).
+ * Какие релеи и в каком порядке пробовать, решает [RelayProvider] ([com.ramka.domain.relay.PoolRelayProvider]
+ * учитывает приоритеты, паузы после ошибок и «залипание»); этот класс только идёт по списку в рамках бюджета
+ * времени и сообщает провайдеру итоги.
  */
 class RelayTransportRepository(
     private val tunnels: TunnelMessageChannel,
     private val client: RelayTunnelClient,
-    private val provider: RelayProvider
+    private val provider: RelayProvider,
+    private val clock: RelayClock = RelayClock.System,
+    private val sendConfig: RelaySendConfig = RelaySendConfig()
 ) : TransportRepository {
 
     override suspend fun sendEncryptedPacket(contact: Contact, packet: ByteArray): Boolean {
@@ -49,15 +73,26 @@ class RelayTransportRepository(
     }
 
     private suspend fun sendViaRelays(contact: Contact, packet: ByteArray): Boolean {
-        for (endpoint in provider.relaysFor(contact)) {
-            when (val result = client.connectTo(endpoint, contact.signingPublicKey)) {
+        val started = clock.nowMillis()
+        for ((index, endpoint) in provider.relaysFor(contact).withIndex()) {
+            val remaining = sendConfig.totalBudgetMillis - (clock.nowMillis() - started)
+            if (remaining < sendConfig.minAttemptMillis) break // бюджет исчерпан: Outbox повторит позже
+            val limit = if (index == 0) sendConfig.firstAttemptMillis else sendConfig.fallbackAttemptMillis
+            val attemptStarted = clock.nowMillis()
+
+            when (val result = client.connectTo(endpoint, contact.signingPublicKey, minOf(limit, remaining))) {
                 is RelayConnectResult.Connected -> {
                     provider.report(endpoint, null)
                     // Рукопожатие и отправка — как в LAN; итог (в т.ч. «подпись собеседника не сошлась») окончателен.
-                    return sendOverTunnel(result.socket, contact, packet)
+                    val delivered = sendOverTunnel(result.socket, contact, packet)
+                    if (delivered) {
+                        provider.reportDelivery(endpoint, contact, clock.nowMillis() - attemptStarted, fallback = index > 0)
+                    }
+                    return delivered
                 }
                 is RelayConnectResult.Failed -> {
-                    // «Получателя нет в сети» — это не поломка релея; со списком релеев пробуем следующий.
+                    // «Получателя нет в сети» — это не поломка релея; пробуем следующий (он мог быть
+                    // тем, где собеседник зарегистрирован).
                     provider.report(endpoint, result.failure.takeUnless { it == RelayFailure.TARGET_OFFLINE })
                 }
             }
@@ -86,32 +121,37 @@ class RelayTransportRepository(
     }
 
     /**
-     * Входящие через релей: пока релей включён и настроен, держится регистрация, на каждую «трубу»
-     * проводится рукопожатие в отдельной корутине (медленный отправитель не задерживает остальных).
-     * Смена или выключение релея в настройках пересоздаёт подписку.
+     * Входящие через релеи: регистрация на каждом релее из [RelayProvider.ownRelays], на каждую «трубу»
+     * рукопожатие в отдельной корутине (медленный отправитель не задерживает остальных).
+     *
+     * Набор релеёв сравнивается как МНОЖЕСТВО: перестановка списка не трогает рабочие соединения, смена
+     * одного релея (адрес, токен, пин) перезапускает только его, выключение пула отменяет всё.
      */
-    @OptIn(ExperimentalCoroutinesApi::class)
-    override fun incomingPackets(): Flow<Pair<ByteArray, ByteArray>> =
-        provider.ownRelays.flatMapLatest { endpoints -> receiveFrom(endpoints) }
-
-    private fun receiveFrom(endpoints: List<RelayEndpoint>): Flow<Pair<ByteArray, ByteArray>> = channelFlow {
-        for (endpoint in endpoints) {
-            launch {
-                client.incoming(endpoint) { state -> reportState(endpoint, state) }.collect { tunnel ->
-                    launch(Dispatchers.IO) {
-                        val message = runCatching { tunnels.processIncomingSocket(tunnel) }.getOrNull()
-                        if (message != null) send(message.senderStaticX25519 to message.plaintext)
-                    }
-                }
+    override fun incomingPackets(): Flow<Pair<ByteArray, ByteArray>> = channelFlow {
+        val registrations = HashMap<RelayEndpoint, Job>()
+        provider.ownRelays.collect { endpoints ->
+            val wanted = endpoints.toSet()
+            for (gone in registrations.keys.filter { it !in wanted }) registrations.remove(gone)?.cancel()
+            for (endpoint in wanted) {
+                if (endpoint !in registrations) registrations[endpoint] = launch { register(endpoint, this@channelFlow) }
             }
         }
     }
 
-    private fun reportState(endpoint: RelayEndpoint, state: RelayConnectionState) {
-        when (state) {
-            RelayConnectionState.Connecting -> Unit
-            RelayConnectionState.Registered -> provider.report(endpoint, null)
-            is RelayConnectionState.Failed -> provider.report(endpoint, state.failure)
+    /** Одна регистрация на одном релее; живёт, пока её не отменят (смена набора, выключение, остановка приёма). */
+    private suspend fun register(endpoint: RelayEndpoint, out: SendChannel<Pair<ByteArray, ByteArray>>) = coroutineScope {
+        provider.reportLink(endpoint, RelayLinkState.Connecting)
+        client.incoming(endpoint) { state -> provider.reportLink(endpoint, state.toLinkState()) }.collect { tunnel ->
+            launch(Dispatchers.IO) {
+                val message = runCatching { tunnels.processIncomingSocket(tunnel) }.getOrNull()
+                if (message != null) out.send(message.senderStaticX25519 to message.plaintext)
+            }
         }
+    }
+
+    private fun RelayConnectionState.toLinkState(): RelayLinkState = when (this) {
+        RelayConnectionState.Connecting -> RelayLinkState.Connecting
+        RelayConnectionState.Registered -> RelayLinkState.Connected
+        is RelayConnectionState.Failed -> RelayLinkState.Failed(failure, retryInMillis)
     }
 }

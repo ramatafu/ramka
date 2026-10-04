@@ -13,7 +13,7 @@ import com.ramka.app.background.OemHintTexts
 import com.ramka.app.discovery.LanVisibilityController
 import com.ramka.app.preferences.AppPreferences
 import com.ramka.app.relay.RelayFormController
-import com.ramka.domain.relay.SingleRelayProvider
+import com.ramka.domain.relay.PoolRelayProvider
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -24,7 +24,7 @@ class SettingsViewModel @Inject constructor(
     private val lanVisibility: LanVisibilityController,
     prefs: AppPreferences,
     private val relayController: RelayFormController,
-    relayProvider: SingleRelayProvider
+    relayProvider: PoolRelayProvider
 ) : ViewModel() {
 
     val oem: Oem = OemDetector.detect(Build.MANUFACTURER, Build.FINGERPRINT)

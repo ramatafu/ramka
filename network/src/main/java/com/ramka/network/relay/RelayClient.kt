@@ -50,8 +50,12 @@ sealed interface RelayConnectionState {
 
 /** Клиентская часть протокола релея; интерфейс нужен транспорту и тестам. */
 interface RelayTunnelClient {
-    /** Отправка: CONNECT к получателю с данным Ed25519-ключом; при успехе возвращает «трубу» (§4.2). */
-    suspend fun connectTo(endpoint: RelayEndpoint, targetSigningPublicKey: ByteArray): RelayConnectResult
+    /**
+     * Отправка: CONNECT к получателю с данным Ed25519-ключом; при успехе возвращает «трубу» (§4.2).
+     * @param budgetMillis сколько времени всего отводится на резолв, TLS и CONNECT → READY; null — значение из
+     *   [RelayClientConfig.connectDeadlineMillis]. Транспорт даёт запасным релеям меньший бюджет.
+     */
+    suspend fun connectTo(endpoint: RelayEndpoint, targetSigningPublicKey: ByteArray, budgetMillis: Long? = null): RelayConnectResult
 
     /**
      * Приём: держит REGISTER на релее (с переподключением) и эмитит по одной «трубе» на каждое входящее
@@ -99,7 +103,7 @@ class RelayClient(
 
     // ---- Отправка (§4.2) ----------------------------------------------------------------
 
-    override suspend fun connectTo(endpoint: RelayEndpoint, targetSigningPublicKey: ByteArray): RelayConnectResult =
+    override suspend fun connectTo(endpoint: RelayEndpoint, targetSigningPublicKey: ByteArray, budgetMillis: Long?): RelayConnectResult =
         withContext(Dispatchers.IO) {
             val target = try {
                 RelayProtocol.routingId(targetSigningPublicKey)
@@ -109,8 +113,11 @@ class RelayClient(
             val holder = SocketHolder()
             try {
                 guarded<RelayConnectResult>(holder) {
-                    val deadline = System.nanoTime() + config.connectDeadlineMillis * 1_000_000L
-                    val socket = connector.connect(endpoint, config.connectTimeoutMillis)
+                    val budget = (budgetMillis ?: config.connectDeadlineMillis).coerceAtLeast(1L)
+                    val deadline = System.nanoTime() + budget * 1_000_000L
+                    // TCP-подключение и TLS-рукопожатие делят бюджет пополам, чтобы вместе не вылезти за него.
+                    val connectTimeout = minOf(config.connectTimeoutMillis.toLong(), maxOf(1L, budget / 2)).toInt()
+                    val socket = connector.connect(endpoint, connectTimeout)
                     holder.socket = socket
                     RelayProtocol.writeFrame(
                         socket.getOutputStream(), RelayProtocol.CONNECT,

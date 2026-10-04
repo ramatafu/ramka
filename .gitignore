@@ -1,35 +1,17 @@
-# --- Android ---
+.gradle/
+build/
+.idea/
 *.iml
-.gradle
-/local.properties
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
-.DS_Store
-/build
-/captures
-.externalNativeBuild
-.cxx
+*.apk
+*.dm
+*.patch
+*.jpg
+*.zip
 local.properties
-
-# --- Go Server ---
-# Игнорируем скомпилированные бинарники
-ramka-relay
-*.exe
-*.dll
-*.so
-*.dylib
-
-# Игнорируем сертификаты и конфиги с секретами
-*.pem
-*.key
-*.crt
-config.json 
-# (Если хочешь выложить пример конфига, назови его config.example.json и добавь его в git)
-
-# --- Общие ---
-*.log
+app/release/
 .env
+pool-step2/
+fix-round2/
+relay-guide/
+captures/
+.cxx/

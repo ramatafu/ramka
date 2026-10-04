@@ -7,6 +7,7 @@ import com.ramka.domain.relay.RelayPin
 import com.ramka.domain.relay.RelayPool
 import com.ramka.domain.relay.RelayPoolCodec
 import com.ramka.domain.relay.RelayPoolResult
+import com.ramka.domain.relay.RelayPoolSource
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -29,11 +30,11 @@ class RelayPoolSettings(
     private val prefs: RelayPrefs,
     private val secrets: KeyValueStore,
     private val idGenerator: () -> String = { UUID.randomUUID().toString() }
-) {
+) : RelayPoolSource {
     private val lock = Any()
     private val state = MutableStateFlow(load())
 
-    val pool: StateFlow<RelayPool> = state.asStateFlow()
+    override val pool: StateFlow<RelayPool> = state.asStateFlow()
 
     /** Новый уникальный id для записи пула. */
     fun newEntryId(): String = idGenerator()

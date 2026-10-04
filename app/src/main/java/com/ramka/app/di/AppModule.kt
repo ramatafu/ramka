@@ -5,6 +5,7 @@ import android.util.Log
 import com.ramka.app.relay.AndroidLocalNetworkDetector
 import com.ramka.app.relay.LocalNetworkDetector
 import com.ramka.app.relay.RelayFormController
+import com.ramka.app.relay.RelayPoolSettings
 import com.ramka.app.relay.RelaySettings
 import com.ramka.crypto.keys.KeyManager
 import com.ramka.crypto.securestorage.SecureKeyStore
@@ -15,8 +16,9 @@ import com.ramka.data.repository.LanTransportRepository
 import com.ramka.data.repository.MessageRepositoryImpl
 import com.ramka.data.repository.OutboxRepositoryImpl
 import com.ramka.data.repository.RelayTransportRepository
+import com.ramka.domain.relay.PoolRelayProvider
 import com.ramka.domain.relay.RelayChecker
-import com.ramka.domain.relay.SingleRelayProvider
+import com.ramka.domain.relay.RelayHealthMonitor
 import com.ramka.domain.repository.ContactRepository
 import com.ramka.domain.repository.MessageRepository
 import com.ramka.domain.repository.OutboxRepository
@@ -144,18 +146,32 @@ object AppModule {
 
     // ---- Домашний relay (этап 3) ----
 
-    /** Настройки relay: адрес/пин — SharedPreferences, токен — SecureKeyStore. */
+    /** Пул релеёв (источник правды): один документ в SecureKeyStore; здесь же миграция со старых одиночных настроек. */
     @Provides
     @Singleton
-    fun provideRelaySettings(
+    fun provideRelayPoolSettings(
         prefs: com.ramka.app.preferences.AppPreferences,
         secureKeyStore: SecureKeyStore
-    ) = RelaySettings(prefs, secureKeyStore)
+    ) = RelayPoolSettings(prefs, secureKeyStore)
 
-    /** Сейчас — один relay из настроек; список серверов с failover = другая реализация RelayProvider. */
+    /** Переходный мост «один релей» для старого экрана настроек; заменяется на шаге 3. */
     @Provides
     @Singleton
-    fun provideRelayProvider(settings: RelaySettings) = SingleRelayProvider(settings)
+    fun provideRelaySettings(pool: RelayPoolSettings) = RelaySettings(pool)
+
+    /** Пул релеёв с приоритетами, паузами после ошибок и «залипанием»; пул из одного релея — частный случай. */
+    @Provides
+    @Singleton
+    fun providePoolRelayProvider(pool: RelayPoolSettings) = PoolRelayProvider(pool)
+
+    /** Фоновая проверка релеёв раз в 5 минут (запускается из RamkaApp). */
+    @Provides
+    @Singleton
+    fun provideRelayHealthMonitor(
+        pool: RelayPoolSettings,
+        provider: PoolRelayProvider,
+        checker: RelayChecker
+    ) = RelayHealthMonitor(pool, provider, checker)
 
     @Provides
     @Singleton
@@ -174,7 +190,7 @@ object AppModule {
     fun provideRelayTransportRepository(
         secureLanChannel: SecureLanChannel,
         relayClient: RelayClient,
-        relayProvider: SingleRelayProvider
+        relayProvider: PoolRelayProvider
     ) = RelayTransportRepository(secureLanChannel, relayClient, relayProvider)
 
     @Provides
@@ -192,12 +208,12 @@ object AppModule {
     fun provideTransportRepository(
         lan: LanTransportRepository,
         relay: RelayTransportRepository,
-        relaySettings: RelaySettings,
+        relayPool: RelayPoolSettings,
         localNetwork: LocalNetworkDetector
     ): TransportRepository = CompositeTransportRepository(
         lan = lan,
         relay = relay,
-        relayEnabled = { relaySettings.config.value.activeEndpoint != null },
+        relayEnabled = { relayPool.pool.value.isActive },
         onLocalNetwork = localNetwork::isOnLocalNetwork
     )
 
