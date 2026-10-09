@@ -26,8 +26,9 @@ data class RelayMonitorConfig(
  * [PoolRelayProvider]. Благодаря этому экран показывает актуальный статус, а релей, который ожил, возвращается
  * в очередь, не дожидаясь отправки сообщения.
  *
- * Пул выключен или пуст — проверок нет вообще (к серверам приложение не обращается). Правка набора релеёв
- * запускает проверку заново; перестановка без смены набора — нет.
+ * Пул выключен или пуст — проверок нет вообще (к серверам приложение не обращается), а проверка, которая шла
+ * в момент выключения, отменяется (`collectLatest`). Правка набора релеёв запускает проверку заново;
+ * перестановка без смены набора — нет.
  */
 class RelayHealthMonitor(
     private val source: RelayPoolSource,
@@ -38,8 +39,20 @@ class RelayHealthMonitor(
 ) {
     private data class Plan(val endpoints: Set<RelayEndpoint>, val batterySaver: Boolean)
 
-    /** Запускает наблюдение за пулом в [scope]; отмена возвращённого [Job] останавливает проверки. */
-    fun start(scope: CoroutineScope): Job = scope.launch {
+    private val startLock = Any()
+    private var running: Job? = null
+
+    /**
+     * Запускает наблюдение за пулом в [scope] (в приложении — один раз, в appScope). Повторный вызов, пока
+     * наблюдение работает, ничего не запускает и возвращает тот же [Job]: проверки не удваиваются. Отмена
+     * [Job] останавливает всё; следующий вызов запустит наблюдение заново.
+     */
+    fun start(scope: CoroutineScope): Job = synchronized(startLock) {
+        running?.takeIf { it.isActive }?.let { return it }
+        launchWatching(scope).also { running = it }
+    }
+
+    private fun launchWatching(scope: CoroutineScope): Job = scope.launch {
         source.pool
             .map { pool -> Plan(pool.activeEntries.mapNotNull { it.endpointOrNull }.toSet(), pool.batterySaver) }
             .distinctUntilChanged()

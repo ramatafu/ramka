@@ -4,9 +4,7 @@ import android.content.Context
 import android.util.Log
 import com.ramka.app.relay.AndroidLocalNetworkDetector
 import com.ramka.app.relay.LocalNetworkDetector
-import com.ramka.app.relay.RelayFormController
 import com.ramka.app.relay.RelayPoolSettings
-import com.ramka.app.relay.RelaySettings
 import com.ramka.crypto.keys.KeyManager
 import com.ramka.crypto.securestorage.SecureKeyStore
 import com.ramka.data.incoming.IncomingMessageProcessor
@@ -67,10 +65,6 @@ object AppModule {
         @dagger.hilt.android.qualifiers.ApplicationContext ctx: Context,
         secureKeyStore: SecureKeyStore
     ): RamkaDatabase {
-        // Пароль SQLCipher — случайные 32 байта, генерируются один раз и хранятся не в
-        // открытом виде, а завёрнутыми ключом из Android Keystore (см. SecureKeyStore /
-        // EncryptedSharedPreferences). Сам пароль никогда не логируется и не покидает
-        // этот метод в открытом виде за пределы вызова RamkaDatabase.build().
         var passphrase = secureKeyStore.getBytes(DB_PASSPHRASE_KEY)
         if (passphrase == null) {
             passphrase = ByteArray(32).also { SecureRandom().nextBytes(it) }
@@ -111,8 +105,6 @@ object AppModule {
     @Singleton
     fun provideAppScope(): CoroutineScope = CoroutineScope(
         SupervisorJob() + CoroutineExceptionHandler { _, e ->
-            // Страховочная сеть: необработанное исключение в фоновой корутине (приём, ACK, Outbox)
-            // не должно убивать приложение. Пишем в журнал (без содержимого сообщений), чтобы причина не терялась.
             Log.e("ramka", "Необработанное исключение в appScope", e)
         }
     )
@@ -128,15 +120,11 @@ object AppModule {
         keyManager: KeyManager,
         contactRepository: ContactRepository
     ): SecureLanChannel = SecureLanChannel(keyManager, LAN_PORT) { remoteStaticX25519 ->
-        // Сопоставление отправителя с локальным контактом по X25519-ключу, чтобы найти
-        // его Ed25519-ключ для проверки подписи транскрипта. Неизвестный отправитель —
-        // null, соединение отклоняется в SecureLanChannel до завершения рукопожатия.
         contactRepository.observeContacts().first()
             .firstOrNull { it.publicKey.contentEquals(remoteStaticX25519) }
             ?.signingPublicKey
     }
 
-    /** LAN-транспорт — без изменений; наружу он отдаётся только через [CompositeTransportRepository]. */
     @Provides
     @Singleton
     fun provideLanTransportRepository(
@@ -145,19 +133,6 @@ object AppModule {
     ): LanTransportRepository = LanTransportRepository(secureLanChannel, appScope)
 
     // ---- Домашний relay (этап 3) ----
-
-    /** Пул релеёв (источник правды): один документ в SecureKeyStore; здесь же миграция со старых одиночных настроек. */
-    @Provides
-    @Singleton
-    fun provideRelayPoolSettings(
-        prefs: com.ramka.app.preferences.AppPreferences,
-        secureKeyStore: SecureKeyStore
-    ) = RelayPoolSettings(prefs, secureKeyStore)
-
-    /** Переходный мост «один релей» для старого экрана настроек; заменяется на шаге 3. */
-    @Provides
-    @Singleton
-    fun provideRelaySettings(pool: RelayPoolSettings) = RelaySettings(pool)
 
     /** Пул релеёв с приоритетами, паузами после ошибок и «залипанием»; пул из одного релея — частный случай. */
     @Provides
@@ -180,10 +155,6 @@ object AppModule {
 
     @Provides
     fun provideRelayChecker(client: RelayClient): RelayChecker = client
-
-    @Provides
-    fun provideRelayFormController(settings: RelaySettings, checker: RelayChecker) =
-        RelayFormController(settings, checker)
 
     @Provides
     @Singleton

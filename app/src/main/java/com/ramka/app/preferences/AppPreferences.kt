@@ -3,15 +3,10 @@ package com.ramka.app.preferences
 import android.content.Context
 import com.ramka.app.background.BackgroundDeliveryPrefs
 import com.ramka.app.discovery.MdnsPrefs
-import com.ramka.app.relay.RelayPrefs
+import com.ramka.app.relay.LegacyRelaySnapshot
+import com.ramka.app.relay.RelaySecrets
 
-/**
- * Несекретные UI-флаги и настройки фоновой доставки. Намеренно обычный SharedPreferences,
- * а не [com.ramka.crypto.securestorage.SecureKeyStore] — контракт KeyValueStore (копии, не
- * ссылки; см. директиву v2) писан для криптографического материала, а не для булевых
- * флагов, и смешивать их не стоит.
- */
-class AppPreferences(context: Context) : BackgroundDeliveryPrefs, MdnsPrefs, RelayPrefs {
+class AppPreferences(context: Context) : BackgroundDeliveryPrefs, MdnsPrefs {
     private val prefs = context.getSharedPreferences("ramka_app_prefs", Context.MODE_PRIVATE)
 
     var hasAskedNotificationPermission: Boolean
@@ -19,11 +14,11 @@ class AppPreferences(context: Context) : BackgroundDeliveryPrefs, MdnsPrefs, Rel
         set(value) = prefs.edit().putBoolean(KEY_ASKED_NOTIFICATIONS, value).apply()
 
     override var backgroundDeliveryEnabled: Boolean
-        get() = prefs.getBoolean(KEY_BACKGROUND_DELIVERY, true) // по умолчанию ВКЛ
+        get() = prefs.getBoolean(KEY_BACKGROUND_DELIVERY, true)
         set(value) = prefs.edit().putBoolean(KEY_BACKGROUND_DELIVERY, value).apply()
 
     override var persistentServiceEnabled: Boolean
-        get() = prefs.getBoolean(KEY_PERSISTENT_SERVICE, false) // по умолчанию ВЫКЛ
+        get() = prefs.getBoolean(KEY_PERSISTENT_SERVICE, false)
         set(value) = prefs.edit().putBoolean(KEY_PERSISTENT_SERVICE, value).apply()
 
     override var backgroundHintShown: Boolean
@@ -31,21 +26,26 @@ class AppPreferences(context: Context) : BackgroundDeliveryPrefs, MdnsPrefs, Rel
         set(value) = prefs.edit().putBoolean(KEY_BACKGROUND_HINT_SHOWN, value).apply()
 
     override var mdnsEnabled: Boolean
-        get() = prefs.getBoolean(KEY_MDNS, true) // по умолчанию ВКЛ
+        get() = prefs.getBoolean(KEY_MDNS, true)
         set(value) = prefs.edit().putBoolean(KEY_MDNS, value).apply()
 
-    // Домашний relay (этап 3). Токен доступа здесь НЕ хранится: он лежит в SecureKeyStore (см. RelaySettings).
-    override var relayEnabled: Boolean
-        get() = prefs.getBoolean(KEY_RELAY_ENABLED, false) // по умолчанию ВЫКЛ
-        set(value) = prefs.edit().putBoolean(KEY_RELAY_ENABLED, value).apply()
+    fun legacyRelaySnapshot(secrets: RelaySecrets): LegacyRelaySnapshot? {
+        val enabled = prefs.getBoolean(KEY_RELAY_ENABLED, false)
+        val address = prefs.getString(KEY_RELAY_ADDRESS, "")?.takeIf { it.isNotBlank() }
+        val pin = prefs.getString(KEY_RELAY_PIN, "")?.takeIf { it.isNotBlank() }
+        val token = secrets.get(ALIAS_LEGACY_TOKEN)?.takeIf { it.isNotBlank() }
+        if (address == null && token == null && pin == null) return null
+        return LegacyRelaySnapshot(enabled, address, token, pin)
+    }
 
-    override var relayAddress: String
-        get() = prefs.getString(KEY_RELAY_ADDRESS, "") ?: ""
-        set(value) = prefs.edit().putString(KEY_RELAY_ADDRESS, value).apply()
-
-    override var relayPin: String
-        get() = prefs.getString(KEY_RELAY_PIN, "") ?: ""
-        set(value) = prefs.edit().putString(KEY_RELAY_PIN, value).apply()
+    fun clearLegacyRelay(secrets: RelaySecrets) {
+        prefs.edit()
+            .remove(KEY_RELAY_ENABLED)
+            .remove(KEY_RELAY_ADDRESS)
+            .remove(KEY_RELAY_PIN)
+            .apply()
+        secrets.remove(ALIAS_LEGACY_TOKEN)
+    }
 
     companion object {
         private const val KEY_ASKED_NOTIFICATIONS = "asked_notification_permission"
@@ -56,5 +56,6 @@ class AppPreferences(context: Context) : BackgroundDeliveryPrefs, MdnsPrefs, Rel
         private const val KEY_RELAY_ENABLED = "relay_enabled"
         private const val KEY_RELAY_ADDRESS = "relay_address"
         private const val KEY_RELAY_PIN = "relay_pin"
+        const val ALIAS_LEGACY_TOKEN = "relay_token"
     }
 }

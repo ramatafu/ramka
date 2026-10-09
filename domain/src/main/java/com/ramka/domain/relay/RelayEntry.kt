@@ -40,16 +40,18 @@ data class RelayEntry(
 
     companion object {
         const val MAX_LABEL_LENGTH = 40
+        /** Токен доступа: 16..64 байта в UTF-8 (RELAY_PROTOCOL.md §2). */
+        const val TOKEN_MIN_BYTES = 16
+        const val TOKEN_MAX_BYTES = 64
     }
 }
 
 /**
- * Общая проверка реквизитов релея (одинакова для [RelayEntry] и переходного [RelayConfig]):
- * токен 16..64 байта UTF-8 (§2), для IP-литерала обязателен пин (§1).
+ * Проверка реквизитов релея: токен 16..64 байта UTF-8 (§2), для IP-литерала обязателен пин (§1).
  */
 internal fun relayCredentialsIssue(address: RelayAddress, token: String, pinSha256: String?): RelayConfigIssue? {
     if (token.isEmpty()) return RelayConfigIssue.NO_TOKEN
-    if (token.toByteArray(Charsets.UTF_8).size !in RelayConfig.TOKEN_MIN_BYTES..RelayConfig.TOKEN_MAX_BYTES) {
+    if (token.toByteArray(Charsets.UTF_8).size !in RelayEntry.TOKEN_MIN_BYTES..RelayEntry.TOKEN_MAX_BYTES) {
         return RelayConfigIssue.BAD_TOKEN_LENGTH
     }
     if (address.isIpLiteral && pinSha256 == null) return RelayConfigIssue.PIN_REQUIRED_FOR_IP
