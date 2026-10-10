@@ -8,8 +8,7 @@ class RelayPoolMigratorTest {
 
     private val good = LegacyRelaySnapshot(
         enabled = true,
-        host = "relay.example.com",
-        port = 443,
+        address = "relay.example.com:443",
         token = "x".repeat(32),
         pin = "ab".repeat(32)
     )
@@ -30,22 +29,19 @@ class RelayPoolMigratorTest {
 
     @Test
     fun `повреждённое старое не мигрирует`() {
-        assertNull(RelayPoolMigrator.migrate(good.copy(host = null)))
-        assertNull(RelayPoolMigrator.migrate(good.copy(host = " ")))
-        assertNull(RelayPoolMigrator.migrate(good.copy(port = null)))
+        assertNull(RelayPoolMigrator.migrate(good.copy(address = null)))
+        assertNull(RelayPoolMigrator.migrate(good.copy(address = " ")))
         assertNull(RelayPoolMigrator.migrate(good.copy(token = null)))
-        assertNull(RelayPoolMigrator.migrate(good.copy(token = "short")))          // < 16 байт
-        assertNull(RelayPoolMigrator.migrate(good.copy(host = "not a host!!")))
-        // IP без пина мигрировать не должен
-        assertNull(RelayPoolMigrator.migrate(good.copy(host = "203.0.113.7", pin = null)))
-        // IP с битым пином тоже
-        assertNull(RelayPoolMigrator.migrate(good.copy(host = "203.0.113.7", pin = "zz")))
+        assertNull(RelayPoolMigrator.migrate(good.copy(token = "short")))
+        assertNull(RelayPoolMigrator.migrate(good.copy(address = "not a host!!")))
+        assertNull(RelayPoolMigrator.migrate(good.copy(address = "203.0.113.7:443", pin = null)))
+        assertNull(RelayPoolMigrator.migrate(good.copy(address = "203.0.113.7:443", pin = "zz")))
     }
 
     @Test
     fun `повторный запуск миграции на очищенном снимке безопасен`() {
         val first = RelayPoolMigrator.migrate(good)
-        assertNull(RelayPoolMigrator.migrate(null)) // снимок уже очищен вызывающим
+        assertNull(RelayPoolMigrator.migrate(null))
         assertEquals(RelayPoolMigrator.LEGACY_ENTRY_ID, first!!.id)
     }
 }
