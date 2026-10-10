@@ -43,6 +43,18 @@ class MessageRepositoryImpl(private val dao: MessageDao) : MessageRepository {
 
     override suspend fun findIncomingByRemoteId(contactId: String, remoteMessageId: String): Message? =
         dao.findIncomingByRemoteId(contactId, remoteMessageId)?.toDomain()
+
+    override suspend fun updateFileProgress(localId: String, progress: Int) {
+        dao.updateFileProgress(localId, progress.coerceIn(0, 100))
+    }
+
+    override suspend fun updateFileUri(localId: String, uri: String) {
+        dao.updateFileUri(localId, uri)
+    }
+
+    override suspend fun failInterruptedFileTransfers() {
+        dao.failInterruptedFileTransfers()
+    }
 }
 
 private fun MessageEntity.toDomain(): Message = Message(
@@ -50,7 +62,13 @@ private fun MessageEntity.toDomain(): Message = Message(
     contactId = contactId,
     direction = MessageDirection.valueOf(direction),
     body = when (bodyType) {
-        "TEXT" -> MessageBody.Text(bodyText.orEmpty())
+        "FILE" -> MessageBody.File(
+            fileName = fileName.orEmpty(),
+            fileSize = fileSize ?: 0L,
+            mimeType = fileMimeType ?: "application/octet-stream",
+            uri = fileUri,
+            progress = fileProgress
+        )
         else -> MessageBody.Text(bodyText.orEmpty())
     },
     status = MessageStatus.valueOf(status),
@@ -64,11 +82,19 @@ private fun Message.toEntity(): MessageEntity = MessageEntity(
     localId = localId,
     contactId = contactId,
     direction = direction.name,
-    bodyType = when (body) { is MessageBody.Text -> "TEXT" },
+    bodyType = when (body) {
+        is MessageBody.Text -> "TEXT"
+        is MessageBody.File -> "FILE"
+    },
     bodyText = (body as? MessageBody.Text)?.text,
     status = status.name,
     localCreatedAtEpochMillis = localCreatedAtEpochMillis,
     deleteAfterReadSeconds = deleteAfterReadSeconds,
     remoteMessageId = remoteMessageId,
-    readAckSent = readAckSent
+    readAckSent = readAckSent,
+    fileName = (body as? MessageBody.File)?.fileName,
+    fileSize = (body as? MessageBody.File)?.fileSize,
+    fileMimeType = (body as? MessageBody.File)?.mimeType,
+    fileUri = (body as? MessageBody.File)?.uri,
+    fileProgress = (body as? MessageBody.File)?.progress ?: 0
 )

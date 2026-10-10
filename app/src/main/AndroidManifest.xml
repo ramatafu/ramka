@@ -17,15 +17,7 @@
     <!-- API 34+: разрешение под тип foreground-сервиса specialUse (см. <service> ниже и DEVIATIONS.md, «ЭТАП B.8») -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
 
-    <!-- ШАГ 7.1: звонки (WebRTC). CAMERA уже объявлено выше (QR) — повторно не дублируется. -->
-    <uses-permission android:name="android.permission.RECORD_AUDIO" />
-    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
-    <!-- Bluetooth-гарнитура: до API 30 хватает BLUETOOTH, с API 31+ нужен runtime BLUETOOTH_CONNECT -->
-    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
-    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
-
     <uses-feature android:name="android.hardware.camera" android:required="false" />
-    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
 
     <application
         android:name=".RamkaApp"
@@ -43,6 +35,21 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!--
+            FileProvider (этап 6.4): отдаёт другим приложениям файлы из чата при открытии по ACTION_VIEW.
+            Не экспортируется; права выдаются только на конкретный Uri и только на чтение
+            (FLAG_GRANT_READ_URI_PERMISSION). Доступные каталоги перечислены в res/xml/file_paths.xml.
+        -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
 
         <!--
             Постоянный сервис доставки (опциональный, по умолчанию ВЫКЛ — под-тумблер в настройках).

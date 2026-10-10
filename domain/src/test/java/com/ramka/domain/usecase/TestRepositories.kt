@@ -45,6 +45,23 @@ internal class StubMessageRepository(
     override suspend fun findIncomingByRemoteId(contactId: String, remoteMessageId: String): Message? =
         all().firstOrNull { it.contactId == contactId && it.remoteMessageId == remoteMessageId }
 
+    override suspend fun updateFileProgress(localId: String, progress: Int) = replace(localId) {
+        val body = it.body as? com.ramka.domain.model.MessageBody.File ?: return@replace it
+        it.copy(body = body.copy(progress = progress))
+    }
+    override suspend fun updateFileUri(localId: String, uri: String) = replace(localId) {
+        val body = it.body as? com.ramka.domain.model.MessageBody.File ?: return@replace it
+        it.copy(body = body.copy(uri = uri))
+    }
+    override suspend fun failInterruptedFileTransfers() = synchronized(store) {
+        for (i in store.indices) {
+            val m = store[i]
+            if (m.body is com.ramka.domain.model.MessageBody.File && m.status == MessageStatus.SENDING) {
+                store[i] = m.copy(status = MessageStatus.FAILED)
+            }
+        }
+    }
+
     private fun replace(localId: String, change: (Message) -> Message) = synchronized(store) {
         val i = store.indexOfFirst { it.localId == localId }
         if (i >= 0) store[i] = change(store[i])

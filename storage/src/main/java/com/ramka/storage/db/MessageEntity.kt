@@ -17,13 +17,19 @@ data class MessageEntity(
     @PrimaryKey val localId: String,
     val contactId: String,
     val direction: String, // OUTGOING | INCOMING
-    val bodyType: String,  // TEXT (позже IMAGE)
+    val bodyType: String,  // TEXT | FILE
     val bodyText: String?,
     val status: String,
     val localCreatedAtEpochMillis: Long,
     val deleteAfterReadSeconds: Long?,
     val remoteMessageId: String? = null,
-    val readAckSent: Boolean = false
+    val readAckSent: Boolean = false,
+    // Только для bodyType = FILE (этап 6.4, миграция 3 -> 4); у TEXT — null / 0.
+    val fileName: String? = null,
+    val fileSize: Long? = null,
+    val fileMimeType: String? = null,
+    val fileUri: String? = null,
+    val fileProgress: Int = 0
 )
 
 @Dao
@@ -54,6 +60,15 @@ interface MessageDao {
 
     @Query("UPDATE messages SET readAckSent = 1 WHERE localId = :localId")
     suspend fun markReadAckSent(localId: String)
+
+    @Query("UPDATE messages SET fileProgress = :progress WHERE localId = :localId")
+    suspend fun updateFileProgress(localId: String, progress: Int)
+
+    @Query("UPDATE messages SET fileUri = :uri WHERE localId = :localId")
+    suspend fun updateFileUri(localId: String, uri: String)
+
+    @Query("UPDATE messages SET status = 'FAILED' WHERE bodyType = 'FILE' AND status = 'SENDING'")
+    suspend fun failInterruptedFileTransfers()
 
     @Query("DELETE FROM messages WHERE localId = :localId")
     suspend fun delete(localId: String)

@@ -8,6 +8,7 @@ import com.ramka.domain.repository.MessageRepository
 import com.ramka.domain.repository.TransportRepository
 import com.ramka.domain.usecase.AttemptDeliveryUseCase
 import com.ramka.domain.usecase.DelayedAckSender
+import com.ramka.domain.usecase.HandleIncomingFileUseCase
 import com.ramka.domain.usecase.HandleIncomingTextUseCase
 import com.ramka.domain.util.ActiveChatTracker
 import com.ramka.domain.util.Jitter
@@ -35,6 +36,8 @@ class IncomingMessageProcessor(
     private val activeChat: ActiveChatTracker = ActiveChatTracker(),
     /** Источник случайной задержки перед DELIVERED-ACK (этап 2.5, джиттер). */
     ackJitter: Jitter = Jitter(),
+    /** Приём файлов (этап 6.4); null — файловые пакеты молча отбрасываются, как раньше. */
+    private val handleIncomingFile: HandleIncomingFileUseCase? = null,
     /**
      * Вызывается ПОСЛЕ сохранения НОВОГО (не дублирующего) входящего текстового
      * сообщения — единственная точка интеграции с уведомлениями (ЭТАП B.7). На
@@ -75,6 +78,23 @@ class IncomingMessageProcessor(
             is AppMessage.Text -> handleIncomingTextMessage(scope, contact, appMessage)
             is AppMessage.DeliveredAck -> advanceStatus(appMessage.messageLocalId, MessageStatus.DELIVERED)
             is AppMessage.ReadAck -> appMessage.messageLocalIds.forEach { advanceStatus(it, MessageStatus.READ) }
+            is AppMessage.FileMeta -> handleIncomingFile?.onMeta(
+                contact.localId, appMessage, System.currentTimeMillis()
+            ) { senderMessageId -> acknowledgeDelivered(scope, contact, senderMessageId) }
+            is AppMessage.FileChunk -> handleIncomingFile?.onChunk(
+                contact.localId,
+                appMessage,
+                { senderMessageId -> acknowledgeDelivered(scope, contact, senderMessageId) },
+                // Файл принят целиком: то же уведомление, что и о новом тексте (фиксированный текст, без имени файла).
+                { saved -> onIncomingTextSaved(saved) }
+            )
+        }
+    }
+
+    /** DELIVERED-ACK best-effort, отдельной корутиной и с джиттером — ровно как для текста. */
+    private fun acknowledgeDelivered(scope: CoroutineScope, contact: Contact, senderMessageId: String) {
+        scope.launch {
+            ackSender.send(contact.localId, AppMessage.DeliveredAck(senderMessageId).encode())
         }
     }
 

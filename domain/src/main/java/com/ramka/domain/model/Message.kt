@@ -34,7 +34,28 @@ enum class MessageDirection { OUTGOING, INCOMING }
 
 sealed class MessageBody {
     data class Text(val text: String) : MessageBody()
-    // Изображения — этап 6.
+
+    /**
+     * Файловое сообщение (этап 6). Направление и время берутся из [Message]
+     * (direction / localCreatedAtEpochMillis) — здесь только данные файла.
+     *
+     * @property fileSize размер в байтах.
+     * @property uri локальный URI файла: file:// (исходящий — копия в filesDir) или
+     *   content:// (принятый — запись в MediaStore); null, пока файл не получен целиком.
+     * @property progress ход передачи, 0..100; UI сам ограничивает значение диапазоном.
+     *   Живое значение приходит из FileTransferTracker, в БД — последнее сохранённое.
+     *
+     * Статус файлового сообщения: SENDING — идёт передача (исходящая или входящая),
+     * FAILED — передача оборвалась, дальше как у текста (SENT/DELIVERED/READ).
+     * Входящий полностью принятый файл — DELIVERED, как и входящий текст.
+     */
+    data class File(
+        val fileName: String,
+        val fileSize: Long,
+        val mimeType: String,
+        val uri: String? = null,
+        val progress: Int = 0
+    ) : MessageBody()
 }
 
 /** Статусы доставки. Никогда не сопровождаются точным временем на UI. */

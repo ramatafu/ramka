@@ -80,4 +80,57 @@ class AppMessageTest {
     fun `read ack with no ids decodes to null`() {
         assertNull(AppMessage.decode(byteArrayOf(2)))
     }
+
+    // --- файлы (этап 6.4) ---
+
+    private fun meta(name: String = "отчёт.pdf", mime: String = "application/pdf") =
+        AppMessage.FileMeta(uuid(), name, 123_456_789_012L, 7, 65_490, mime)
+
+    @Test
+    fun `file meta round-trips with unicode name and large size`() {
+        val original = meta()
+        assertEquals(original, AppMessage.decode(original.encode()))
+    }
+
+    @Test
+    fun `file meta with empty name and mime round-trips`() {
+        val original = meta(name = "", mime = "")
+        assertEquals(original, AppMessage.decode(original.encode()))
+    }
+
+    @Test
+    fun `file meta too short or with mime length overflowing decodes to null`() {
+        assertNull(AppMessage.decode(byteArrayOf(3) + ByteArray(10)))
+        val good = meta().encode()
+        good[1 + 36 + 16] = 0xFF.toByte() // mimeLen больше остатка
+        assertNull(AppMessage.decode(good))
+    }
+
+    @Test
+    fun `file meta with non-positive chunk size or negative values decodes to null`() {
+        val encoded = AppMessage.FileMeta(uuid(), "a", 10, 1, 0, "x/y").encode()
+        assertNull(AppMessage.decode(encoded))
+        val negative = AppMessage.FileMeta(uuid(), "a", -1, 1, 5, "x/y").encode()
+        assertNull(AppMessage.decode(negative))
+    }
+
+    @Test
+    fun `file chunk round-trips including binary data`() {
+        val data = ByteArray(1000) { (it * 7).toByte() }
+        val original = AppMessage.FileChunk(uuid(), 41, data)
+        assertEquals(original, AppMessage.decode(original.encode()))
+    }
+
+    @Test
+    fun `file chunk overhead constant matches the encoding`() {
+        val chunk = AppMessage.FileChunk(uuid(), 0, ByteArray(100))
+        assertEquals(AppMessage.FILE_CHUNK_OVERHEAD + 100, chunk.encode().size)
+    }
+
+    @Test
+    fun `file chunk truncated or with negative index decodes to null`() {
+        assertNull(AppMessage.decode(byteArrayOf(4) + uuid().toByteArray()))
+        val negative = byteArrayOf(4) + uuid().toByteArray() + byteArrayOf(-1, -1, -1, -1) + byteArrayOf(1)
+        assertNull(AppMessage.decode(negative))
+    }
 }

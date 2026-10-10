@@ -10,7 +10,7 @@ import net.sqlcipher.database.SupportFactory
 
 @Database(
     entities = [ContactEntity::class, MessageEntity::class, OutboxEntity::class],
-    version = 3,
+    version = 4,
     exportSchema = true
 )
 abstract class RamkaDatabase : RoomDatabase() {
@@ -60,6 +60,20 @@ abstract class RamkaDatabase : RoomDatabase() {
         }
 
         /**
+         * v3 -> v4: файловые сообщения (этап 6.4) — пять колонок в `messages`. У существующих
+         * (текстовых) строк file* = NULL, fileProgress = 0: переписка не теряется.
+         */
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `messages` ADD COLUMN `fileName` TEXT")
+                db.execSQL("ALTER TABLE `messages` ADD COLUMN `fileSize` INTEGER")
+                db.execSQL("ALTER TABLE `messages` ADD COLUMN `fileMimeType` TEXT")
+                db.execSQL("ALTER TABLE `messages` ADD COLUMN `fileUri` TEXT")
+                db.execSQL("ALTER TABLE `messages` ADD COLUMN `fileProgress` INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
+        /**
          * Пароль БД — случайный ключ, сгенерированный один раз и хранящийся
          * в [com.ramka.crypto.securestorage.SecureKeyStore] (вызывающая сторона
          * передаёт его сюда, чтобы storage-модуль не зависел от crypto напрямую).
@@ -68,7 +82,7 @@ abstract class RamkaDatabase : RoomDatabase() {
             val factory = SupportFactory(passphrase)
             return Room.databaseBuilder(context, RamkaDatabase::class.java, "ramka.db")
                 .openHelperFactory(factory)
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                 .build()
         }
     }

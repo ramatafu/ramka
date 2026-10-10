@@ -5,7 +5,10 @@ import com.ramka.app.background.BackgroundDeliveryController
 import com.ramka.app.discovery.LanPresenceCoordinator
 import com.ramka.app.discovery.LanVisibilityController
 import com.ramka.data.incoming.IncomingMessageProcessor
+import android.util.Log
 import com.ramka.domain.relay.RelayHealthMonitor
+import com.ramka.domain.repository.IncomingFileStore
+import com.ramka.domain.repository.MessageRepository
 import com.ramka.domain.usecase.ProcessOutboxUseCase
 import com.ramka.network.local.LanDiscoveryService
 import dagger.hilt.android.HiltAndroidApp
@@ -23,6 +26,8 @@ class RamkaApp : Application() {
     @Inject lateinit var backgroundDeliveryController: BackgroundDeliveryController
     @Inject lateinit var lanVisibilityController: LanVisibilityController
     @Inject lateinit var relayHealthMonitor: RelayHealthMonitor
+    @Inject lateinit var messageRepository: MessageRepository
+    @Inject lateinit var incomingFileStore: IncomingFileStore
 
     override fun onCreate() {
         super.onCreate()
@@ -30,7 +35,18 @@ class RamkaApp : Application() {
         com.ramka.app.notifications.RamkaNotifications.ensureChannel(this)
 
         // Единственная на всё приложение точка приёма и сохранения входящих сообщений.
-        incomingMessageProcessor.start(appScope)
+        // Сначала помечаем FAILED файловые передачи, оставшиеся в SENDING от прошлого процесса
+        // (этап 6.4), и только потом запускаем приём — иначе пометка могла бы задеть передачу,
+        // начавшуюся уже в этом процессе. Сбой пометки приём не блокирует.
+        appScope.launch {
+            try {
+                messageRepository.failInterruptedFileTransfers()
+                incomingFileStore.discardAll() // осиротевшие временные файлы прерванных приёмов
+            } catch (e: Exception) {
+                Log.w("ramka", "Не удалось пометить прерванные передачи: ${e.javaClass.simpleName}")
+            }
+            incomingMessageProcessor.start(appScope)
+        }
 
         // mDNS (вариант B из п. 3.6, дополнение к ручному вводу IP:port) — только пока включён
         // тумблер в настройках (этап 2.5, по умолчанию ВКЛ). Включено: сервис вещается под

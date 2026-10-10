@@ -23,6 +23,11 @@ import com.ramka.domain.repository.OutboxRepository
 import com.ramka.domain.repository.TransportRepository
 import com.ramka.domain.usecase.AttemptDeliveryUseCase
 import com.ramka.domain.usecase.DelayedAckSender
+import com.ramka.domain.repository.IncomingFileStore
+import com.ramka.domain.usecase.FileTransferManager
+import com.ramka.domain.usecase.HandleIncomingFileUseCase
+import com.ramka.domain.usecase.SendFileUseCase
+import com.ramka.domain.util.FileTransferTracker
 import com.ramka.domain.usecase.ProcessOutboxUseCase
 import com.ramka.domain.usecase.SendReadAckUseCase
 import com.ramka.domain.util.Jitter
@@ -190,14 +195,32 @@ object AppModule {
 
     @Provides
     @Singleton
+    fun provideIncomingFileStore(store: com.ramka.app.files.AndroidIncomingFileStore): IncomingFileStore = store
+
+    @Provides
+    @Singleton
+    fun provideHandleIncomingFileUseCase(
+        messageRepository: MessageRepository,
+        contactRepository: ContactRepository,
+        store: IncomingFileStore,
+        tracker: FileTransferTracker,
+        activeChat: com.ramka.domain.util.ActiveChatTracker
+    ) = HandleIncomingFileUseCase(messageRepository, contactRepository, store, tracker) { activeChat.isOpen(it) }
+
+    @Provides
+    @Singleton
     fun provideIncomingMessageProcessor(
         @dagger.hilt.android.qualifiers.ApplicationContext ctx: Context,
         contactRepository: ContactRepository,
         messageRepository: MessageRepository,
         transportRepository: TransportRepository,
         activeChat: com.ramka.domain.util.ActiveChatTracker,
-        jitter: Jitter
-    ): IncomingMessageProcessor = IncomingMessageProcessor(contactRepository, messageRepository, transportRepository, activeChat, jitter) {
+        jitter: Jitter,
+        handleIncomingFile: HandleIncomingFileUseCase
+    ): IncomingMessageProcessor = IncomingMessageProcessor(
+        contactRepository, messageRepository, transportRepository, activeChat, jitter,
+        handleIncomingFile = handleIncomingFile
+    ) {
         com.ramka.app.notifications.RamkaNotifications.showNewMessageNotification(ctx)
     }
 
@@ -214,6 +237,30 @@ object AppModule {
         attemptDelivery: AttemptDeliveryUseCase,
         jitter: Jitter
     ): ProcessOutboxUseCase = ProcessOutboxUseCase(outboxRepository, messageRepository, attemptDelivery, jitter)
+
+    /** Живой прогресс передач файлов (этап 6.4): один на всё приложение — его читают и отправитель, и UI. */
+    @Provides
+    @Singleton
+    fun provideFileTransferTracker() = FileTransferTracker()
+
+    @Provides
+    @Singleton
+    fun provideSendFileUseCase(
+        messageRepository: MessageRepository,
+        tracker: FileTransferTracker,
+        attemptDelivery: AttemptDeliveryUseCase
+    ): SendFileUseCase = SendFileUseCase(
+        messageRepository,
+        tracker,
+        { contactId, payload -> attemptDelivery(contactId, payload) }
+    )
+
+    @Provides
+    @Singleton
+    fun provideFileTransferManager(
+        appScope: CoroutineScope,
+        sendFile: SendFileUseCase
+    ) = FileTransferManager(appScope, sendFile)
 
     /** Единый источник джиттера (этап 2.5): границы — в PrivacyTimingConfig, по умолчанию ВКЛ. */
     @Provides

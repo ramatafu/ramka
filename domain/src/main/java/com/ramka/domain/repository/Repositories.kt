@@ -33,6 +33,19 @@ interface MessageRepository {
     suspend fun incomingWithoutReadAck(contactId: String): List<Message>
     /** Уже сохранённое входящее сообщение с таким remoteMessageId — для идемпотентности приёма (дубликат не создаёт вторую запись). */
     suspend fun findIncomingByRemoteId(contactId: String, remoteMessageId: String): Message?
+
+    // --- Файловые сообщения (этап 6.4); для текстовых сообщений ничего не делают ---
+
+    /** Сохраняет прогресс файлового сообщения (0..100). Живой прогресс идёт через FileTransferTracker. */
+    suspend fun updateFileProgress(localId: String, progress: Int)
+    /** Сохраняет Uri файла: file:// у исходящего, content:// MediaStore у принятого. */
+    suspend fun updateFileUri(localId: String, uri: String)
+    /**
+     * Все файловые сообщения в статусе SENDING помечает FAILED. Вызывается один раз при старте
+     * процесса, пока приём ещё не запущен: активных передач в этот момент быть не может, значит,
+     * такие записи остались от прерванной передачи (убитый процесс).
+     */
+    suspend fun failInterruptedFileTransfers()
 }
 
 /** Абстракция транспорта: не знает про UI и БД, только отправляет/принимает зашифрованные пакеты. */
