@@ -21,8 +21,14 @@ android {
     }
 
     buildTypes {
+        debug {
+            // КРИТИЧЕСКИ ВАЖНО: отключаем обфускацию для отладки!
+            isMinifyEnabled = false
+            isShrinkResources = false
+        }
         release {
             isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
@@ -75,6 +81,10 @@ dependencies {
     implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
 
     implementation("com.journeyapps:zxing-android-embedded:4.3.0")
+
+    // ШАГ 7.1 — база под аудио/видео звонки (WebRTC). Только зависимость: PeerConnection,
+    // SDP и сигнализация появятся в следующих шагах. Пакет остаётся org.webrtc.*.
+    implementation("io.getstream:stream-webrtc-android:1.1.3")
 
     // ЭТАП B.2 — периодический sweep очереди недоставленных сообщений, не чаще
     // раза в 15 минут (ровно минимальный интервал, который платформа разрешает
