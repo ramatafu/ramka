@@ -111,7 +111,6 @@ fun RelayListScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            // Доступна всегда: инструкция нужна как раз тем, кто ещё не настроил сервер.
             TextButton(onClick = onOpenRelayGuide) { Text("Как настроить relay-сервер") }
         }
     }

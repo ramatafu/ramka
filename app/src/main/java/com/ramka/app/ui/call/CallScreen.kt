@@ -280,6 +280,7 @@ fun RemoteVideoView(
     )
 }
 
+// КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ: Правильный жизненный цикл для Compose
 @Composable
 fun WebRTCVideoView(
     track: VideoTrack?,
@@ -288,13 +289,11 @@ fun WebRTCVideoView(
     mirror: Boolean = false,
 ) {
     val context = LocalContext.current
-    
-    // Создаем экземпляр рендерера ОДИН раз при первой композиции.
-    // Это предотвращает уничтожение и пересоздание поверхности при рекомпозиции.
+    // 1. Создаем рендерер ОДИН раз, пока существует этот Composable
     val renderer = remember { SurfaceViewRenderer(context) }
 
-    // Инициализируем его при изменении eglBaseContext или mirror
-    DisposableEffect(eglBaseContext, mirror) {
+    // 2. Инициализируем и освобождаем рендерер ОДИН раз за жизненный цикл экрана
+    DisposableEffect(Unit) {
         renderer.init(eglBaseContext, null)
         renderer.setMirror(mirror)
         renderer.setEnableHardwareScaler(true)
@@ -305,7 +304,7 @@ fun WebRTCVideoView(
         }
     }
 
-    // Привязываем видеопоток к рендереру
+    // 3. Привязываем видеопоток. Перезапускается ТОЛЬКО если изменился сам трек
     DisposableEffect(track) {
         track?.addSink(renderer)
         onDispose {
@@ -313,7 +312,7 @@ fun WebRTCVideoView(
         }
     }
 
-    // Встраиваем Android View в Compose
+    // 4. Встраиваем в Compose
     AndroidView(
         factory = { renderer },
         modifier = modifier

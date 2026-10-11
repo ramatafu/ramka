@@ -18,24 +18,14 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 
-/** Состояние бейджа релея в списке. */
 sealed interface RelayBadgeState {
-    /** Пул выключен: приложение к релеям не обращается. */
     object Disabled : RelayBadgeState
-
-    /** Данных нет: запись неполная или проверок ещё не было. */
     object Unknown : RelayBadgeState
-
-    /** Идёт подключение или регистрация. */
     object Checking : RelayBadgeState
-
-    /** Релей доступен (приём держится или фоновая проверка прошла). */
     object Ok : RelayBadgeState
-
     data class Error(val failure: RelayFailure) : RelayBadgeState
 }
 
-/** Одна карточка списка: запись, её статус и доступность кнопок перестановки. */
 data class RelayListItem(
     val entry: RelayEntry,
     val status: RelayBadgeState,
@@ -49,11 +39,9 @@ data class RelayListUiState(
     val toggleAvailable: Boolean,
     val toggleHint: String?
 ) {
-    /** Больше [RelayPool.MAX_ENTRIES] релеёв в пул не добавить. */
     val canAdd: Boolean get() = items.size < RelayPool.MAX_ENTRIES
 }
 
-/** Статус бейджа из флага пула, записи и состояния связи, которое сообщает провайдер. */
 internal fun relayBadgeFor(poolEnabled: Boolean, entry: RelayEntry, link: RelayLinkState?): RelayBadgeState = when {
     !poolEnabled -> RelayBadgeState.Disabled
     entry.issue != null -> RelayBadgeState.Unknown
@@ -64,7 +52,6 @@ internal fun relayBadgeFor(poolEnabled: Boolean, entry: RelayEntry, link: RelayL
     else -> RelayBadgeState.Unknown
 }
 
-/** Список релеёв: обёртка над [RelayPoolController] и публичными статусами [PoolRelayProvider]. */
 @HiltViewModel
 class RelayListViewModel @Inject constructor(
     private val controller: RelayPoolController,
@@ -72,13 +59,11 @@ class RelayListViewModel @Inject constructor(
     private val provider: PoolRelayProvider
 ) : ViewModel() {
 
-    /** Поток состояния для экрана. Создаётся при первом обращении (в тестах используется [current]). */
     val state: StateFlow<RelayListUiState> by lazy {
         combine(store.pool, provider.connectionStates) { pool, links -> build(pool, links) }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), current())
     }
 
-    /** Мгновенный снимок состояния. */
     fun current(): RelayListUiState = build(store.pool.value, provider.connectionStates.value)
 
     fun onEnabledChanged(enabled: Boolean) {

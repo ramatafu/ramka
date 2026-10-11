@@ -8,6 +8,7 @@ import android.util.Log
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.ramka.app.webrtc.IceServersConfig
 import com.ramka.app.webrtc.createAnswerSdp
 import com.ramka.app.webrtc.createOfferSdp
 import com.ramka.app.webrtc.setLocalSdp
@@ -48,38 +49,6 @@ import org.webrtc.VideoTrack
 import java.util.UUID
 import javax.inject.Inject
 
-/**
- * Логика звонка (шаг 7.3 — аудио, шаг 7.4 — видео поверх неё): только локальные ICE-кандидаты (без STUN/TURN),
- * сигналинг — через [CallSignaling] поверх существующего TransportRepository.
- *
- * ## Видео (7.4)
- * Видео включается только при `withVideo = true` И выданном CAMERA И найденной камере; иначе звонок остаётся
- * чисто аудио (видеоресурсы не создаются). ViewModel не держит View: наружу отдаются [localVideoTrack] и
- * [remoteVideoTrack], а SurfaceViewRenderer создаёт и освобождает сам экран (см. WebRTCVideoView).
- * Камера работает, только пока экран на виду и своё видео включено (см. [onUiStopped]/[onUiStarted], [toggleVideo]).
- * Корневой [EglBase] — общий на приложение (WebRtcModule) и здесь НЕ закрывается.
- *
- * ## Время жизни
- * ViewModel привязана к Activity (см. RamkaNavHost), а не к экрану звонка: входящий offer приходит,
- * когда экрана ещё нет, а состояние звонка должно переживать переходы между экранами. Пока Activity
- * жива, входящие звонки принимаются. Приём при убитой/свёрнутой Activity (уведомление, foreground-сервис)
- * в 7.3 не реализован.
- *
- * ## Потоки
- * Все изменения состояния идут через одну последовательную очередь ([post]): команды пользователя, сигналы
- * собеседника, колбэки libwebrtc (они приходят на своих потоках) и таймеры выполняются строго по одной,
- * в порядке поступления. Поэтому нет гонок вида «answer пришёл раньше, чем применился local description»
- * или «hangup посреди createOffer».
- *
- * ## Порядок сигналов
- * Offer/answer ставятся в очередь сигналинга ДО setLocalDescription: кандидаты начинают появляться после
- * него, а очередь сигналинга — FIFO, значит получатель увидит offer раньше своих кандидатов.
- * Кандидаты собеседника, пришедшие до применения remote description, копятся и добавляются после него.
- *
- * ## Освобождение
- * [teardown] закрывает PeerConnection, освобождает AudioTrack/AudioSource, возвращает режим звука и
- * отменяет таймеры; вызывается на любом завершении (свой hangup, hangup собеседника, ошибка, onCleared).
- */
 @HiltViewModel
 class CallViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -93,24 +62,16 @@ class CallViewModel @Inject constructor(
     override val state: StateFlow<CallState> = _state.asStateFlow()
 
     private val _peerName = MutableStateFlow<String?>(null)
-
-    /** Псевдоним собеседника для экрана звонка (null — ещё не известен). */
     val peerName: StateFlow<String?> = _peerName.asStateFlow()
 
     private val _localVideoTrack = MutableStateFlow<VideoTrack?>(null)
-
-    /** Своя камера (null — видео не используется). Трек принадлежит ViewModel: экран его не освобождает. */
     val localVideoTrack: StateFlow<VideoTrack?> = _localVideoTrack.asStateFlow()
 
     private val _remoteVideoTrack = MutableStateFlow<VideoTrack?>(null)
-
-    /** Видео собеседника (null — ещё не пришло или звонок без видео). Трек принадлежит PeerConnection. */
     val remoteVideoTrack: StateFlow<VideoTrack?> = _remoteVideoTrack.asStateFlow()
 
-    /** EGL-контекст для SurfaceViewRenderer экрана: он обязан совпадать с контекстом кодеков и захвата. */
     val eglBaseContext: EglBase.Context get() = eglBase.eglBaseContext
 
-    // ---- текущий звонок (трогается только из очереди команд, кроме onCleared) ----
     private var callId: String? = null
     private var peerContactId: String? = null
     private var isCaller = false
@@ -120,14 +81,13 @@ class CallViewModel @Inject constructor(
     private var muted = false
     private var timeoutJob: Job? = null
 
-    // ---- видео (7.4); так же трогается только из очереди команд, кроме releaseMedia из onCleared ----
-    private var callHasVideo = false // в SDP есть видео-секция (у звонящего — своя камера работает, у отвечающего — offer.withVideo)
+    private var callHasVideo = false
     private var videoCapturer: CameraVideoCapturer? = null
     private var surfaceTextureHelper: SurfaceTextureHelper? = null
     private var videoSource: VideoSource? = null
     private var videoTrack: VideoTrack? = null
-    private var videoEnabled = false // пользователь не выключил свою камеру
-    private var uiStopped = false // экран не на виду — камеру держать нельзя (Android 11+ всё равно отберёт)
+    private var videoEnabled = false
+    private var uiStopped = false
     private var capturing = false
 
     private var peerConnection: PeerConnection? = null
@@ -143,7 +103,6 @@ class CallViewModel @Inject constructor(
                 try {
                     command()
                 } catch (e: Exception) {
-                    // Своя отмена (ViewModel очищена) — выходим; чужое исключение одной команды цикл не убивает.
                     currentCoroutineContext().ensureActive()
                     Log.w(TAG, "Сбой обработки команды звонка: ${e.javaClass.simpleName}")
                 }
@@ -158,12 +117,8 @@ class CallViewModel @Inject constructor(
         commands.trySend(block)
     }
 
-    // =================================================================== CallManager
-
     override fun startCall(contactId: String, withVideo: Boolean) = post { doStartCall(contactId, withVideo) }
-
     override fun answerCall(contactId: String, withVideo: Boolean) = post { doAnswerCall(contactId, withVideo) }
-
     override fun rejectCall() = post { doRejectCall() }
 
     override fun endCall() = post {
@@ -184,7 +139,6 @@ class CallViewModel @Inject constructor(
         (_state.value as? CallState.Connected)?.let { _state.value = it.copy(isMuted = muted) }
     }
 
-    /** Включает/выключает передачу своего видео; при выключении камера останавливается (гаснет индикатор), трек остаётся. */
     override fun toggleVideo() = post {
         val track = videoTrack ?: return@post
         videoEnabled = !videoEnabled
@@ -193,19 +147,16 @@ class CallViewModel @Inject constructor(
         (_state.value as? CallState.Connected)?.let { _state.value = it.copy(isVideoEnabled = videoEnabled) }
     }
 
-    /** Экран звонка ушёл с переднего плана: останавливаем камеру, звонок и аудио продолжаются. */
     fun onUiStopped() = post {
         uiStopped = true
         updateCapture()
     }
 
-    /** Экран звонка вернулся: камера снова включается, если пользователь её не выключал. */
     fun onUiStarted() = post {
         uiStopped = false
         updateCapture()
     }
 
-    /** Экран звонка закрыт после [CallState.Ended]/[CallState.Error] — возвращаемся в [CallState.Idle]. */
     fun acknowledgeFinished() = post {
         if (_state.value is CallState.Ended || _state.value is CallState.Error) {
             _state.value = CallState.Idle
@@ -213,15 +164,12 @@ class CallViewModel @Inject constructor(
         }
     }
 
-    // =================================================================== исходящий
-
     private suspend fun doStartCall(contactId: String, withVideo: Boolean) {
         if (!isFree()) return
         if (!hasMicPermission()) {
             _state.value = CallState.Error(MSG_NO_MIC)
             return
         }
-        // Видео только при выданном CAMERA; без него звонок просто остаётся аудио.
         val wantVideo = withVideo && hasCameraPermission()
         if (withVideo && !wantVideo) Log.i(TAG, "Нет разрешения CAMERA: звонок начат как аудио")
 
@@ -230,7 +178,6 @@ class CallViewModel @Inject constructor(
         _state.value = CallState.Dialing(contactId, withVideo = wantVideo)
         try {
             val pc = openMedia(id, withLocalVideo = wantVideo)
-            // callHasVideo уже учитывает, нашлась ли камера: offer честно сообщает, что видео нет.
             if (callHasVideo != wantVideo) _state.value = CallState.Dialing(contactId, withVideo = callHasVideo)
             val offer = pc.createOfferSdp(mediaConstraints(video = callHasVideo))
             val sent = signaling.sendOffer(contactId, id, offer.description, withVideo = callHasVideo)
@@ -242,8 +189,6 @@ class CallViewModel @Inject constructor(
         }
     }
 
-    // =================================================================== входящий
-
     private suspend fun handleSignal(signal: CallSignaling.Signal) {
         val contactId = signal.contactId
         when (val message = signal.message) {
@@ -251,16 +196,15 @@ class CallViewModel @Inject constructor(
             is AppMessage.CallAnswer -> if (isCurrent(contactId, message.callId)) onRemoteAnswer(message)
             is AppMessage.CallIceCandidate -> if (isCurrent(contactId, message.callId)) onRemoteCandidate(message)
             is AppMessage.CallEnd -> if (isCurrent(contactId, message.callId)) onRemoteEnd(message)
-            else -> Unit // сигналинг отдаёт только Call*; остальное игнорируем
+            else -> Unit
         }
     }
 
-    /** Сигнал принадлежит текущему звонку и пришёл от его собеседника (чужой контакт не может ни завершить, ни подменить звонок). */
     private fun isCurrent(contactId: String, signalCallId: String): Boolean =
         signalCallId == callId && contactId == peerContactId
 
     private suspend fun onRemoteOffer(contactId: String, offer: AppMessage.CallOffer) {
-        if (offer.callId == callId) return // повтор уже известного звонка
+        if (offer.callId == callId) return
         if (!isFree()) {
             signaling.sendEnd(contactId, offer.callId, AppMessage.CallEnd.Reason.BUSY)
             return
@@ -283,12 +227,11 @@ class CallViewModel @Inject constructor(
 
         timeoutJob?.cancel()
         pendingOffer = null
-        // Свою камеру можно включить только если звонящий предложил видео-секцию: без неё в answer её не добавить.
         val sendVideo = withVideo && offer.withVideo && hasCameraPermission()
-        _state.value = CallState.Dialing(contactId, withVideo = offer.withVideo) // «соединяемся»
+        _state.value = CallState.Dialing(contactId, withVideo = offer.withVideo)
         try {
             val pc = openMedia(id, withLocalVideo = sendVideo)
-            callHasVideo = offer.withVideo // видео собеседника примем, даже если своё не шлём
+            callHasVideo = offer.withVideo
             pc.setRemoteSdp(SessionDescription(SessionDescription.Type.OFFER, offer.sdp))
             remoteDescriptionSet = true
             flushRemoteCandidates(pc)
@@ -307,8 +250,6 @@ class CallViewModel @Inject constructor(
         teardown(AppMessage.CallEnd.Reason.REJECTED)
         _state.value = CallState.Ended
     }
-
-    // =================================================================== сигналы собеседника
 
     private suspend fun onRemoteAnswer(answer: AppMessage.CallAnswer) {
         val pc = peerConnection ?: return
@@ -339,7 +280,7 @@ class CallViewModel @Inject constructor(
     }
 
     private fun onRemoteEnd(end: AppMessage.CallEnd) {
-        teardown(null) // собеседник уже знает; своего End не шлём
+        teardown(null)
         _state.value = when (end.reason) {
             AppMessage.CallEnd.Reason.HANGUP -> CallState.Ended
             AppMessage.CallEnd.Reason.REJECTED -> CallState.Error(MSG_REJECTED)
@@ -347,10 +288,8 @@ class CallViewModel @Inject constructor(
         }
     }
 
-    // =================================================================== состояние соединения
-
     private fun onConnectionState(id: String, newState: PeerConnection.PeerConnectionState) {
-        if (id != callId) return // событие устаревшего PeerConnection
+        if (id != callId) return
         when (newState) {
             PeerConnection.PeerConnectionState.CONNECTED -> {
                 val peer = peerContactId ?: return
@@ -364,7 +303,6 @@ class CallViewModel @Inject constructor(
                     )
                 }
             }
-            // DISCONNECTED бывает кратковременным (ICE восстановится сам) — ждём либо CONNECTED, либо FAILED.
             PeerConnection.PeerConnectionState.FAILED -> failCall(id, MSG_CONNECTION_LOST, null)
             else -> Unit
         }
@@ -372,6 +310,14 @@ class CallViewModel @Inject constructor(
 
     private inner class PcObserver(private val id: String) : PeerConnection.Observer {
         override fun onIceCandidate(candidate: IceCandidate) {
+            val type = when {
+                candidate.sdp.contains("typ host") -> "HOST (Локальный)"
+                candidate.sdp.contains("typ srflx") -> "SRFLX (STUN/Публичный)"
+                candidate.sdp.contains("typ relay") -> "RELAY (TURN/Ретрансляция) ⭐"
+                else -> "UNKNOWN"
+            }
+            Log.d(TAG, "📤 onIceCandidate: type=$type, sdpMid=${candidate.sdpMid}, sdp=${candidate.sdp}")
+            
             post {
                 if (id != callId) return@post
                 val peer = peerContactId ?: return@post
@@ -380,17 +326,33 @@ class CallViewModel @Inject constructor(
         }
 
         override fun onConnectionChange(newState: PeerConnection.PeerConnectionState) {
+            Log.d(TAG, "🔗 onConnectionChange (PeerConnection): $newState")
             post { onConnectionState(id, newState) }
         }
 
-        override fun onSignalingChange(newState: PeerConnection.SignalingState) = Unit
-        override fun onIceConnectionChange(newState: PeerConnection.IceConnectionState) = Unit
+        override fun onIceConnectionChange(newState: PeerConnection.IceConnectionState) {
+            Log.d(TAG, "🔄 onIceConnectionChange (ICE): $newState")
+            if (newState == PeerConnection.IceConnectionState.FAILED) {
+                Log.e(TAG, "❌ ICE соединение ПРОВАЛИЛОСЬ! Проверь TURN, STUN и сеть.")
+            } else if (newState == PeerConnection.IceConnectionState.CONNECTED) {
+                Log.i(TAG, "✅ ICE соединение УСПЕШНО установлено!")
+            }
+        }
+
+        override fun onIceGatheringChange(newState: PeerConnection.IceGatheringState) {
+            Log.d(TAG, "📡 onIceGatheringChange: $newState")
+        }
+
+        override fun onSignalingChange(newState: PeerConnection.SignalingState) {
+            Log.d(TAG, "📝 onSignalingChange: $newState")
+        }
+
         override fun onIceConnectionReceivingChange(receiving: Boolean) = Unit
-        override fun onIceGatheringChange(newState: PeerConnection.IceGatheringState) = Unit
         override fun onIceCandidatesRemoved(candidates: Array<out IceCandidate>) = Unit
-        /** Unified Plan: удалённые треки приходят сюда, а не в onAddStream. */
+        
         override fun onAddTrack(receiver: RtpReceiver, mediaStreams: Array<out MediaStream>) {
             val track = receiver.track() as? VideoTrack ?: return
+            Log.d(TAG, "🎥 onAddTrack: получен удаленный видеотрек")
             post {
                 if (id == callId) _remoteVideoTrack.value = track
             }
@@ -399,10 +361,11 @@ class CallViewModel @Inject constructor(
         override fun onAddStream(stream: MediaStream) = Unit
         override fun onRemoveStream(stream: MediaStream) = Unit
         override fun onDataChannel(channel: DataChannel) = Unit
-        override fun onRenegotiationNeeded() = Unit
+        
+        override fun onRenegotiationNeeded() {
+            Log.d(TAG, "🔄 onRenegotiationNeeded")
+        }
     }
-
-    // =================================================================== ресурсы
 
     private suspend fun begin(id: String, contactId: String, caller: Boolean) {
         callId = id
@@ -422,17 +385,16 @@ class CallViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Создаёт PeerConnection и локальный аудиотрек (и, если [withLocalVideo], видеотрек с камеры).
-     * Только локальные кандидаты: список ICE-серверов пуст.
-     */
     private fun openMedia(id: String, withLocalVideo: Boolean): PeerConnection {
         val factory = factoryProvider.get()
-        val config = PeerConnection.RTCConfiguration(emptyList()).apply {
+        val rtcConfig = PeerConnection.RTCConfiguration(IceServersConfig.iceServers()).apply {
+            iceTransportsType = PeerConnection.IceTransportsType.ALL
+            bundlePolicy = PeerConnection.BundlePolicy.MAXBUNDLE
+            rtcpMuxPolicy = PeerConnection.RtcpMuxPolicy.REQUIRE
             sdpSemantics = PeerConnection.SdpSemantics.UNIFIED_PLAN
             continualGatheringPolicy = PeerConnection.ContinualGatheringPolicy.GATHER_CONTINUALLY
         }
-        val pc = factory.createPeerConnection(config, PcObserver(id))
+        val pc = factory.createPeerConnection(rtcConfig, PcObserver(id))
             ?: throw IllegalStateException("createPeerConnection вернул null")
         peerConnection = pc
 
@@ -454,12 +416,6 @@ class CallViewModel @Inject constructor(
         mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveVideo", video.toString()))
     }
 
-    // =================================================================== видео (7.4)
-
-    /**
-     * Камера -> VideoSource -> VideoTrack -> PeerConnection. false — камеры нет или она не открылась:
-     * звонок продолжается как аудио, частично созданное освобождается.
-     */
     private fun startLocalVideo(factory: PeerConnectionFactory, pc: PeerConnection): Boolean {
         try {
             val capturer = createCameraCapturer() ?: run {
@@ -469,7 +425,7 @@ class CallViewModel @Inject constructor(
             videoCapturer = capturer
             val helper = SurfaceTextureHelper.create(CAPTURE_THREAD_NAME, eglBase.eglBaseContext)
             surfaceTextureHelper = helper
-            val source = factory.createVideoSource(false) // false — не демонстрация экрана
+            val source = factory.createVideoSource(false)
             videoSource = source
             capturer.initialize(helper, context, source.capturerObserver)
             val track = factory.createVideoTrack(VIDEO_TRACK_ID, source)
@@ -487,7 +443,6 @@ class CallViewModel @Inject constructor(
         }
     }
 
-    /** Фронтальная камера, если есть, иначе любая. Camera2 — единственный API (minSdk проекта это позволяет). */
     private fun createCameraCapturer(): CameraVideoCapturer? {
         val enumerator = Camera2Enumerator(context)
         val names = enumerator.deviceNames
@@ -498,7 +453,6 @@ class CallViewModel @Inject constructor(
         return null
     }
 
-    /** Приводит захват к желаемому: камера снимает только пока есть видеотрек, он включён и экран на виду. */
     private fun updateCapture() {
         val capturer = videoCapturer ?: return
         val shouldCapture = videoTrack != null && videoEnabled && !uiStopped
@@ -511,7 +465,7 @@ class CallViewModel @Inject constructor(
             }
         } else if (!shouldCapture && capturing) {
             try {
-                capturer.stopCapture() // блокирует до остановки потока камеры; обычно миллисекунды
+                capturer.stopCapture()
             } catch (e: InterruptedException) {
                 Thread.currentThread().interrupt()
             }
@@ -519,7 +473,6 @@ class CallViewModel @Inject constructor(
         }
     }
 
-    /** Первый шаг освобождения: камера перестаёт слать кадры в трек, пока PeerConnection ещё жив. */
     private fun stopVideoCapture() {
         val capturer = videoCapturer ?: return
         if (!capturing) return
@@ -531,12 +484,8 @@ class CallViewModel @Inject constructor(
         capturing = false
     }
 
-    /**
-     * Порядок важен: сначала камера (stopCapture + dispose), потом трек и источник, в конце SurfaceTextureHelper,
-     * в который камера отдавала кадры. EglBase не трогаем — он общий на приложение.
-     */
     private fun releaseVideo() {
-        _localVideoTrack.value = null // экран снимет sink и освободит свой renderer до dispose трека
+        _localVideoTrack.value = null
         _remoteVideoTrack.value = null
         videoCapturer?.let { capturer ->
             if (capturing) {
@@ -575,10 +524,6 @@ class CallViewModel @Inject constructor(
         previousAudioMode = null
     }
 
-    /**
-     * Единая точка освобождения. [notifyPeer] != null — сообщить собеседнику причиной завершения
-     * (сигналинг живёт в appScope, поэтому End уйдёт и после закрытия экрана).
-     */
     private fun teardown(notifyPeer: AppMessage.CallEnd.Reason?) {
         timeoutJob?.cancel()
         timeoutJob = null
@@ -586,7 +531,7 @@ class CallViewModel @Inject constructor(
         val id = callId
         val peer = peerContactId
         if (id != null) {
-            signaling.cancelCall(id) // неотправленные offer/кандидаты больше не нужны
+            signaling.cancelCall(id)
             if (notifyPeer != null && peer != null) signaling.sendEnd(peer, id, notifyPeer)
         }
 
@@ -609,7 +554,7 @@ class CallViewModel @Inject constructor(
             runCatching { pc.dispose() }
         }
         peerConnection = null
-        releaseVideo() // после pc: трек больше не используется отправителем
+        releaseVideo()
         audioTrack?.let { track ->
             runCatching { track.setEnabled(false) }
             runCatching { track.dispose() }
@@ -620,17 +565,13 @@ class CallViewModel @Inject constructor(
         exitCommunicationAudioMode()
     }
 
-    /** [notifyPeer] = false, когда собеседник заведомо недоступен: лишний End только задержал бы очередь сигналинга. */
     private fun failCall(id: String, message: String, cause: Exception?, notifyPeer: Boolean = true) {
-        if (id != callId) return // звонок уже завершён другим путём
+        if (id != callId) return
         if (cause != null) Log.w(TAG, "Звонок завершён с ошибкой: ${cause.javaClass.simpleName}")
         teardown(if (notifyPeer) AppMessage.CallEnd.Reason.HANGUP else null)
         _state.value = CallState.Error(message)
     }
 
-    // =================================================================== таймеры и проверки
-
-    /** Если сигнал (offer/answer) не ушёл — звонок обречён; результат применяется только к своему звонку. */
     private fun watchDelivery(id: String, sent: Deferred<Boolean>, failureMessage: String, notifyPeer: Boolean) {
         viewModelScope.launch {
             if (!sent.await()) post { failCall(id, failureMessage, null, notifyPeer) }
@@ -651,7 +592,7 @@ class CallViewModel @Inject constructor(
             delay(INCOMING_TIMEOUT_MS)
             post {
                 if (id == callId && _state.value is CallState.Incoming) {
-                    teardown(AppMessage.CallEnd.Reason.HANGUP) // пропущенный: звонящий увидит завершение
+                    teardown(AppMessage.CallEnd.Reason.HANGUP)
                     _state.value = CallState.Ended
                 }
             }
@@ -668,7 +609,6 @@ class CallViewModel @Inject constructor(
         ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
 
     override fun onCleared() {
-        // ViewModel привязана к Activity: уничтожение Activity = выход из приложения. Освобождаем синхронно.
         val id = callId
         val peer = peerContactId
         if (id != null && peer != null) {
@@ -691,17 +631,12 @@ class CallViewModel @Inject constructor(
         private const val STREAM_ID = "ramka-stream"
         private const val CAPTURE_THREAD_NAME = "ramka-capture"
 
-        // 640x480@30 — запас по CPU/нагреву на слабых телефонах; по локальной сети канала хватает с избытком.
         private const val CAPTURE_WIDTH = 640
         private const val CAPTURE_HEIGHT = 480
         private const val CAPTURE_FPS = 30
 
-        /** Сколько ждать установки соединения (ICE) после обмена offer/answer. */
         private const val CONNECT_TIMEOUT_MS = 40_000L
-
-        /** Сколько звонит входящий, пока пользователь не ответил. */
         private const val INCOMING_TIMEOUT_MS = 45_000L
-
         private const val MAX_PENDING_CANDIDATES = 100
 
         const val MSG_NO_MIC = "Для звонков необходим доступ к микрофону"
@@ -709,7 +644,7 @@ class CallViewModel @Inject constructor(
         private const val MSG_START_FAILED = "Не удалось начать звонок"
         private const val MSG_ANSWER_FAILED = "Не удалось принять звонок"
         private const val MSG_CONNECT_FAILED = "Не удалось установить соединение"
-        private const val MSG_CONNECT_TIMEOUT = "Не удалось соединиться. Звонки работают только в одной локальной сети"
+        private const val MSG_CONNECT_TIMEOUT = "Не удалось соединиться. Проверьте интернет; за строгим NAT/файрволом без TURN звонок может не пройти"
         private const val MSG_CONNECTION_LOST = "Соединение потеряно"
         private const val MSG_REJECTED = "Звонок отклонён"
         private const val MSG_BUSY = "Абонент занят"

@@ -1,0 +1,5 @@
+R_DEF: Internal format may change without notice
+local
+color ramka_background
+style Theme.Ramka
+xml file_paths
