@@ -48,6 +48,8 @@ fun ChatScreen(
     onBack: () -> Unit,
     /** Кнопка «Позвонить» (шаг 7.3): навигация на экран звонка этого контакта. */
     onCall: () -> Unit = {},
+    /** Кнопка «Видеозвонок» (шаг 7.4): тот же экран звонка, но с камерой. */
+    onVideoCall: () -> Unit = {},
     viewModel: ChatViewModel = hiltViewModel()
 ) {
     val contact by viewModel.contact.collectAsState()
@@ -111,6 +113,9 @@ fun ChatScreen(
                 },
                 // Глиф вместо иконки — как у кнопки вложения (📎): в material-icons-core нет нужных значков.
                 actions = {
+                    IconButton(onClick = onVideoCall, enabled = contact != null) {
+                        Text("📹", style = MaterialTheme.typography.titleLarge)
+                    }
                     IconButton(onClick = onCall, enabled = contact != null) {
                         Text("📞", style = MaterialTheme.typography.titleLarge)
                     }

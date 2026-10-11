@@ -29,11 +29,11 @@ object Routes {
     const val RELAY_GUIDE = "relay_guide"
     const val RELAY_LIST = "relay_list"
     const val RELAY_EDIT = "relay_edit/{entryId}"
-    const val CALL = "call/{contactId}"
+    const val CALL = "call/{contactId}?video={video}"
 
     fun chat(contactId: String) = "chat/$contactId"
 
-    fun call(contactId: String) = "call/$contactId"
+    fun call(contactId: String, video: Boolean = false) = "call/$contactId?video=$video"
 
     /** null — добавление новой записи (в путь подставляется [RelayEditViewModel.NEW_ENTRY]). */
     fun relayEdit(entryId: String?) = "relay_edit/${entryId ?: RelayEditViewModel.NEW_ENTRY}"
@@ -69,15 +69,27 @@ fun RamkaNavHost() {
             ChatScreen(
                 contactId = contactId,
                 onBack = { navController.popBackStack() },
-                onCall = { navController.navigate(Routes.call(contactId)) }
+                onCall = { navController.navigate(Routes.call(contactId)) },
+                onVideoCall = { navController.navigate(Routes.call(contactId, video = true)) }
             )
         }
         composable(
             route = Routes.CALL,
-            arguments = listOf(navArgument("contactId") { type = NavType.StringType })
+            arguments = listOf(
+                navArgument("contactId") { type = NavType.StringType },
+                navArgument("video") {
+                    type = NavType.BoolType
+                    defaultValue = false
+                }
+            )
         ) { backStackEntry ->
             val contactId = backStackEntry.arguments?.getString("contactId").orEmpty()
-            CallScreen(contactId = contactId, onClose = { navController.popBackStack() })
+            val startWithVideo = backStackEntry.arguments?.getBoolean("video") ?: false
+            CallScreen(
+                contactId = contactId,
+                startWithVideo = startWithVideo,
+                onClose = { navController.popBackStack() }
+            )
         }
         composable(Routes.QR) {
             QrScreen(onDone = { navController.popBackStack() })

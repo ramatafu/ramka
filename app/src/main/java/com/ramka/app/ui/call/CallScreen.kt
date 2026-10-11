@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -32,55 +33,64 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.ramka.domain.call.CallState
 import kotlinx.coroutines.delay
+import org.webrtc.EglBase
+import org.webrtc.RendererCommon
+import org.webrtc.SurfaceViewRenderer
+import org.webrtc.VideoTrack
 
-/**
- * Экран звонка (шаг 7.3, только аудио). Маршрут `call/{contactId}`.
- *
- * Открывается двумя путями: из чата (звонка ещё нет — запрашиваем микрофон и начинаем исходящий) и
- * автоматически по входящему звонку (состояние [CallState.Incoming] — показываем «Принять/Отклонить»).
- * Состояние и логика — в [CallViewModel] (одна на Activity); здесь только отображение и запрос разрешения.
- */
 @Composable
 fun CallScreen(
     contactId: String,
     onClose: () -> Unit,
+    startWithVideo: Boolean = false,
     viewModel: CallViewModel = activityCallViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
     val peerName by viewModel.peerName.collectAsState()
+    val localTrack by viewModel.localVideoTrack.collectAsState()
+    val remoteTrack by viewModel.remoteVideoTrack.collectAsState()
     val context = LocalContext.current
 
     var deniedMessage by remember { mutableStateOf<String?>(null) }
-    var afterPermission by remember { mutableStateOf<(() -> Unit)?>(null) }
-    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+    var afterPermission by remember { mutableStateOf<((cameraGranted: Boolean) -> Unit)?>(null) }
+    
+    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
         val action = afterPermission
         afterPermission = null
-        if (granted) {
-            action?.invoke()
+        if (result[Manifest.permission.RECORD_AUDIO] == true) {
+            action?.invoke(result[Manifest.permission.CAMERA] == true)
         } else {
             deniedMessage = CallViewModel.MSG_NO_MIC
-            // Входящий без микрофона принять нельзя — отклоняем, иначе он завис бы до таймаута.
             if (state is CallState.Incoming) viewModel.rejectCall()
         }
     }
-    val withMicPermission: (() -> Unit) -> Unit = { action ->
-        val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
-            PackageManager.PERMISSION_GRANTED
-        if (granted) {
-            action()
+    
+    val withCallPermissions: (video: Boolean, action: (cameraGranted: Boolean) -> Unit) -> Unit = { video, action ->
+        fun granted(permission: String) =
+            ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
+        val micOk = granted(Manifest.permission.RECORD_AUDIO)
+        val camOk = granted(Manifest.permission.CAMERA)
+        if (micOk && (!video || camOk)) {
+            action(camOk)
         } else {
             afterPermission = action
-            permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+            val missing = buildList {
+                if (!micOk) add(Manifest.permission.RECORD_AUDIO)
+                if (video && !camOk) add(Manifest.permission.CAMERA)
+            }
+            permissionLauncher.launch(missing.toTypedArray())
         }
     }
 
-    // Исходящий звонок: экран открыт из чата, активного звонка нет. rememberSaveable — чтобы поворот экрана
-    // после завершения звонка не начал новый.
     var started by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(contactId) {
         if (started) return@LaunchedEffect
@@ -88,13 +98,13 @@ fun CallScreen(
         val current = viewModel.state.value
         when {
             current is CallState.Idle || current is CallState.Ended || current is CallState.Error ->
-                withMicPermission { viewModel.startCall(contactId, withVideo = false) }
-            // Идёт звонок с другим контактом — не подменяем его экраном этого контакта.
+                withCallPermissions(startWithVideo) { cameraGranted ->
+                    viewModel.startCall(contactId, withVideo = startWithVideo && cameraGranted)
+                }
             current.contactIdOrNull() != contactId -> onClose()
         }
     }
 
-    // Итог звонка показываем недолго и закрываем экран.
     LaunchedEffect(state) {
         when (state) {
             is CallState.Ended -> { delay(800); onClose() }
@@ -106,20 +116,42 @@ fun CallScreen(
         if (deniedMessage != null) { delay(2_500); onClose() }
     }
 
-    // После закрытия возвращаем ViewModel в Idle, чтобы следующий звонок начался с чистого состояния.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_STOP -> viewModel.onUiStopped()
+                Lifecycle.Event.ON_START -> viewModel.onUiStarted()
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            viewModel.onUiStarted()
+        }
+    }
+
     DisposableEffect(Unit) { onDispose { viewModel.acknowledgeFinished() } }
 
-    // Пока звонок идёт, «Назад» не должен оставить его без экрана и без кнопки завершения.
     BackHandler(enabled = state is CallState.Dialing || state is CallState.Connected || state is CallState.Incoming) {}
 
     CallContent(
         state = state,
         peerName = peerName,
         extraMessage = deniedMessage,
-        onAnswer = { withMicPermission { viewModel.answerCall(contactId, withVideo = false) } },
+        localVideoTrack = localTrack,
+        remoteVideoTrack = remoteTrack,
+        eglBaseContext = viewModel.eglBaseContext,
+        onAnswer = { withVideo ->
+            withCallPermissions(withVideo) { cameraGranted ->
+                viewModel.answerCall(contactId, withVideo = withVideo && cameraGranted)
+            }
+        },
         onReject = viewModel::rejectCall,
         onEndCall = viewModel::endCall,
         onToggleMute = viewModel::toggleMute,
+        onToggleVideo = viewModel::toggleVideo,
         onClose = onClose,
     )
 }
@@ -131,52 +163,80 @@ private fun CallState.contactIdOrNull(): String? = when (this) {
     else -> null
 }
 
-/** Отображение без логики (state hoisting): удобно для превью и для видео-версии в 7.4. */
 @Composable
 fun CallContent(
     state: CallState,
     peerName: String?,
     extraMessage: String? = null,
-    onAnswer: () -> Unit = {},
+    localVideoTrack: VideoTrack? = null,
+    remoteVideoTrack: VideoTrack? = null,
+    eglBaseContext: EglBase.Context? = null,
+    onAnswer: (withVideo: Boolean) -> Unit = {},
     onReject: () -> Unit = {},
     onEndCall: () -> Unit = {},
     onToggleMute: () -> Unit = {},
+    onToggleVideo: () -> Unit = {},
     onClose: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val isMuted = (state as? CallState.Connected)?.isMuted ?: false
+    val isVideoEnabled = (state as? CallState.Connected)?.isVideoEnabled ?: false
+    val showRemote = remoteVideoTrack != null && eglBaseContext != null
+    val showLocal = localVideoTrack != null && eglBaseContext != null
 
     Box(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
-        Column(
-            modifier = Modifier.align(Alignment.Center).padding(horizontal = 32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Text(
-                text = peerName ?: "…",
-                style = MaterialTheme.typography.headlineMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                textAlign = TextAlign.Center,
+        if (showRemote) {
+            RemoteVideoView(
+                track = remoteVideoTrack,
+                eglBaseContext = eglBaseContext!!,
+                modifier = Modifier.fillMaxSize(),
             )
-            Text(
-                text = extraMessage ?: statusText(state),
-                style = MaterialTheme.typography.bodyLarge,
-                color = if (state is CallState.Error || extraMessage != null) {
-                    MaterialTheme.colorScheme.error
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                },
-                textAlign = TextAlign.Center,
+        } else {
+            Column(
+                modifier = Modifier.align(Alignment.Center).padding(horizontal = 32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Text(
+                    text = peerName ?: "…",
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    textAlign = TextAlign.Center,
+                )
+                Text(
+                    text = extraMessage ?: statusText(state),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = if (state is CallState.Error || extraMessage != null) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                    textAlign = TextAlign.Center,
+                )
+            }
+        }
+
+        if (showLocal) {
+            LocalVideoView(
+                track = localVideoTrack,
+                eglBaseContext = eglBaseContext!!,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(16.dp)
+                    .size(width = 110.dp, height = 150.dp),
             )
         }
 
         CallControls(
             state = state,
             isMuted = isMuted,
+            isVideoEnabled = isVideoEnabled,
+            canToggleVideo = localVideoTrack != null,
             onAnswer = onAnswer,
             onReject = onReject,
             onEndCall = onEndCall,
             onToggleMute = onToggleMute,
+            onToggleVideo = onToggleVideo,
             onClose = onClose,
             modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(24.dp),
         )
@@ -186,54 +246,91 @@ fun CallContent(
 private fun statusText(state: CallState): String = when (state) {
     is CallState.Idle -> "Подготовка…"
     is CallState.Dialing -> "Соединение…"
-    is CallState.Incoming ->
-        if (state.withVideo) "Входящий звонок\nВидео пока не поддерживается — разговор будет голосовым" else "Входящий звонок"
+    is CallState.Incoming -> if (state.withVideo) "Входящий видеозвонок" else "Входящий звонок"
     is CallState.Connected -> "Разговор"
     is CallState.Ended -> "Звонок завершён"
     is CallState.Error -> state.message
 }
 
-/** Заглушка превью собственной камеры (позже — SurfaceViewRenderer/VideoTrack, шаг 7.4). */
 @Composable
-fun LocalVideoView(modifier: Modifier = Modifier) {
-    VideoPlaceholder(label = "Вы", modifier = modifier)
-}
-
-/** Заглушка видео собеседника (позже — SurfaceViewRenderer/VideoTrack, шаг 7.4). */
-@Composable
-fun RemoteVideoView(modifier: Modifier = Modifier) {
-    VideoPlaceholder(label = "Собеседник", modifier = modifier, rounded = false)
-}
-
-@Composable
-private fun VideoPlaceholder(
-    label: String,
+fun LocalVideoView(
+    track: VideoTrack?,
+    eglBaseContext: EglBase.Context,
     modifier: Modifier = Modifier,
-    rounded: Boolean = true,
 ) {
-    val shape = if (rounded) RoundedCornerShape(12.dp) else RoundedCornerShape(0.dp)
-    Box(
+    WebRTCVideoView(
+        track = track,
+        eglBaseContext = eglBaseContext,
+        mirror = true,
+        modifier = modifier.clip(RoundedCornerShape(12.dp))
+    )
+}
+
+@Composable
+fun RemoteVideoView(
+    track: VideoTrack?,
+    eglBaseContext: EglBase.Context,
+    modifier: Modifier = Modifier,
+) {
+    WebRTCVideoView(
+        track = track,
+        eglBaseContext = eglBaseContext,
+        mirror = false,
         modifier = modifier
-            .clip(shape)
-            .background(MaterialTheme.colorScheme.surfaceVariant),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+    )
+}
+
+@Composable
+fun WebRTCVideoView(
+    track: VideoTrack?,
+    eglBaseContext: EglBase.Context,
+    modifier: Modifier = Modifier,
+    mirror: Boolean = false,
+) {
+    val context = LocalContext.current
+    
+    // Создаем экземпляр рендерера ОДИН раз при первой композиции.
+    // Это предотвращает уничтожение и пересоздание поверхности при рекомпозиции.
+    val renderer = remember { SurfaceViewRenderer(context) }
+
+    // Инициализируем его при изменении eglBaseContext или mirror
+    DisposableEffect(eglBaseContext, mirror) {
+        renderer.init(eglBaseContext, null)
+        renderer.setMirror(mirror)
+        renderer.setEnableHardwareScaler(true)
+        renderer.setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_FILL)
+        
+        onDispose {
+            renderer.release()
+        }
     }
+
+    // Привязываем видеопоток к рендереру
+    DisposableEffect(track) {
+        track?.addSink(renderer)
+        onDispose {
+            track?.removeSink(renderer)
+        }
+    }
+
+    // Встраиваем Android View в Compose
+    AndroidView(
+        factory = { renderer },
+        modifier = modifier
+    )
 }
 
 @Composable
 private fun CallControls(
     state: CallState,
     isMuted: Boolean,
-    onAnswer: () -> Unit,
+    isVideoEnabled: Boolean,
+    canToggleVideo: Boolean,
+    onAnswer: (withVideo: Boolean) -> Unit,
     onReject: () -> Unit,
     onEndCall: () -> Unit,
     onToggleMute: () -> Unit,
+    onToggleVideo: () -> Unit,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -245,15 +342,24 @@ private fun CallControls(
         when (state) {
             is CallState.Incoming -> {
                 DangerButton(text = "Отклонить", onClick = onReject)
-                Button(onClick = onAnswer) { Text("Принять") }
+                if (state.withVideo) {
+                    FilledTonalButton(onClick = { onAnswer(false) }) { Text("Голос") }
+                    Button(onClick = { onAnswer(true) }) { Text("Видео") }
+                } else {
+                    Button(onClick = { onAnswer(false) }) { Text("Принять") }
+                }
             }
             is CallState.Dialing -> DangerButton(text = "Завершить", onClick = onEndCall)
             is CallState.Connected -> {
                 FilledTonalButton(onClick = onToggleMute) {
                     Text(if (isMuted) "Микрофон выкл." else "Микрофон")
                 }
+                if (canToggleVideo) {
+                    FilledTonalButton(onClick = onToggleVideo) {
+                        Text(if (isVideoEnabled) "Камера" else "Камера выкл.")
+                    }
+                }
                 DangerButton(text = "Завершить", onClick = onEndCall)
-                // Кнопка камеры вернётся в шаге 7.4 вместе с видео.
             }
             is CallState.Ended, is CallState.Error -> FilledTonalButton(onClick = onClose) { Text("Закрыть") }
             is CallState.Idle -> DangerButton(text = "Отмена", onClick = onClose)
