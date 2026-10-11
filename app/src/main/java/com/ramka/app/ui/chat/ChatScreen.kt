@@ -46,6 +46,8 @@ import java.util.*
 fun ChatScreen(
     contactId: String,
     onBack: () -> Unit,
+    /** Кнопка «Позвонить» (шаг 7.3): навигация на экран звонка этого контакта. */
+    onCall: () -> Unit = {},
     viewModel: ChatViewModel = hiltViewModel()
 ) {
     val contact by viewModel.contact.collectAsState()
@@ -105,6 +107,12 @@ fun ChatScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Назад")
+                    }
+                },
+                // Глиф вместо иконки — как у кнопки вложения (📎): в material-icons-core нет нужных значков.
+                actions = {
+                    IconButton(onClick = onCall, enabled = contact != null) {
+                        Text("📞", style = MaterialTheme.typography.titleLarge)
                     }
                 }
                 // Намеренно нет индикатора «онлайн» / «был в сети» — запрет п. 3.5/8.1.

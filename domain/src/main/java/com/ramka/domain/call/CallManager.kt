@@ -3,7 +3,7 @@ package com.ramka.domain.call
 import kotlinx.coroutines.flow.StateFlow
 
 /**
- * Контракт управления звонком (шаг 7.1 — только интерфейс; реализация на WebRTC будет позже).
+ * Контракт управления звонком (шаг 7.1 — интерфейс; шаг 7.3 — реализация на WebRTC в :app, CallViewModel).
  *
  * Интерфейс намеренно не зависит от Android и org.webrtc, чтобы :domain оставался чистым JVM-модулем.
  */
@@ -18,7 +18,10 @@ interface CallManager {
     /** Принять входящий звонок от [contactId]; [withVideo] — отвечать ли с видео. */
     fun answerCall(contactId: String, withVideo: Boolean)
 
-    /** Завершить текущий звонок (или отклонить входящий). */
+    /** Отклонить входящий звонок ([CallState.Incoming]); в любом другом состоянии ничего не делает. */
+    fun rejectCall()
+
+    /** Завершить текущий звонок (входящий, который ещё не принят, — отклоняет, как [rejectCall]). */
     fun endCall()
 
     /** Включить/выключить микрофон. */

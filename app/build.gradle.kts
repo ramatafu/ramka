@@ -13,16 +13,20 @@ android {
         applicationId = "com.ramka.app"
         minSdk = 26
         targetSdk = 34
-        // Единственный источник правды для версии — gradle.properties
-        // (RAMKA_VERSION_CODE/RAMKA_VERSION_NAME), чтобы не редактировать build-скрипт
-        // на каждый релиз.
         versionCode = (project.findProperty("RAMKA_VERSION_CODE") as String).toInt()
         versionName = project.findProperty("RAMKA_VERSION_NAME") as String
     }
 
     buildTypes {
+        // КРИТИЧЕСКИ ВАЖНО: отключаем обфускацию для debug-сборки!
+        // Без этого R8 ломает нативные привязки SQLCipher (ошибка mNativeHandle).
+        debug {
+            isMinifyEnabled = false
+            isShrinkResources = false
+        }
         release {
             isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
@@ -41,11 +45,6 @@ android {
         kotlinCompilerExtensionVersion = "1.5.14"
     }
 
-    // Bouncy Castle (bcprov-jdk18on) — multi-release jar, публикует OSGi-манифест под
-    // META-INF/versions/9/; при наличии более чем одного bc*-jdk18on артефакта на
-    // classpath (сейчас только bcprov, но это защита на будущее) Gradle находит два
-    // одинаковых пути и падает на merge — сам файл на работу приложения не влияет,
-    // это метаданные OSGi-бандла, безопасно исключить один из дублей.
     packaging {
         resources {
             excludes += "/META-INF/versions/9/OSGI-INF/MANIFEST.MF"
@@ -75,23 +74,11 @@ dependencies {
     implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
 
     implementation("com.journeyapps:zxing-android-embedded:4.3.0")
-
-    // ЭТАП B.2 — периодический sweep очереди недоставленных сообщений, не чаще
-    // раза в 15 минут (ровно минимальный интервал, который платформа разрешает
-    // для PeriodicWorkRequest — совпадение неслучайное, тут и рассчитано).
-    // Единственная новая зависимость в этом этапе, названа в тексте задачи явно.
-    // ВЕРСИЯ ЗАФИКСИРОВАНА НА 2.9.1, А НЕ ПОСЛЕДНЕЙ: начиная с 2.10.0 сам WorkManager
-    // собирается под compileSdk 35 и по правилам AAR-метаданных требует того же от
-    // потребителя — а весь проект сидит на compileSdk 34/AGP 8.5.2. 2.9.1 — последний
-    // стабильный патч, всё ещё совместимый с текущим compileSdk, без необходимости
-    // поднимать AGP и рисковать совместимостью остальных модулей ради одной задачи.
     implementation("androidx.work:work-runtime-ktx:2.9.1")
-
-    // Flow/StateFlow и корутины используются в app напрямую (LanPresenceCoordinator, RamkaApp); версия как в
-    // остальных модулях, раньше шла только транзитивно.
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
 
-    // Unit-тесты (pure JVM, JUnit4) чистой логики: OemDetector, BackgroundDeliveryController.
-    // Android SDK/Robolectric не нужны — тесты не трогают android.* классы.
+    // WebRTC для звонков. Версия 1.3.10 стабильна и совместима с compileSdk 34.
+    implementation("io.getstream:stream-webrtc-android:1.3.10")
+
     testImplementation("junit:junit:4.13.2")
 }

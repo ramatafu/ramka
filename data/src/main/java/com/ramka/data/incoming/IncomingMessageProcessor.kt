@@ -39,6 +39,12 @@ class IncomingMessageProcessor(
     /** Приём файлов (этап 6.4); null — файловые пакеты молча отбрасываются, как раньше. */
     private val handleIncomingFile: HandleIncomingFileUseCase? = null,
     /**
+     * Сигналы звонков (этап 7.3: CallOffer/CallAnswer/CallIceCandidate/CallEnd) передаются сюда вместе с
+     * localId отправителя; чат их не трогает. Нужен именно хук, а не вторая подписка на
+     * `incomingPackets()`: каждая подписка открывает свой серверный сокет. По умолчанию — no-op.
+     */
+    private val onCallSignal: (contactId: String, message: AppMessage) -> Unit = { _, _ -> },
+    /**
      * Вызывается ПОСЛЕ сохранения НОВОГО (не дублирующего) входящего текстового
      * сообщения — единственная точка интеграции с уведомлениями (ЭТАП B.7). На
      * дубликат по remoteMessageId НЕ вызывается — дубликат не должен спамить
@@ -88,6 +94,10 @@ class IncomingMessageProcessor(
                 // Файл принят целиком: то же уведомление, что и о новом тексте (фиксированный текст, без имени файла).
                 { saved -> onIncomingTextSaved(saved) }
             )
+            is AppMessage.CallOffer,
+            is AppMessage.CallAnswer,
+            is AppMessage.CallIceCandidate,
+            is AppMessage.CallEnd -> onCallSignal(contact.localId, appMessage)
         }
     }
 

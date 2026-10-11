@@ -1,9 +1,10 @@
 package com.ramka.domain.call
 
 /**
- * Состояние звонка (шаг 7.1 — только модель, без реализации).
+ * Состояние звонка.
  *
- * Жизненный цикл: [Idle] -> [Dialing] -> [Connected] -> [Ended] (или [Error] на любом шаге).
+ * Жизненный цикл исходящего: [Idle] -> [Dialing] -> [Connected] -> [Ended] (или [Error] на любом шаге).
+ * Входящего: [Idle] -> [Incoming] -> [Dialing] (отвечаем, ждём установки соединения) -> [Connected] -> [Ended].
  * Звонок идентифицируется contactId контакта (строка — как в остальных моделях :domain).
  */
 sealed class CallState {
@@ -11,8 +12,14 @@ sealed class CallState {
     /** Звонка нет. */
     data object Idle : CallState()
 
-    /** Исходящий вызов: ждём ответа/установки соединения. */
+    /** Исходящий вызов (или принятый входящий): ждём ответа/установки соединения. */
     data class Dialing(
+        val contactId: String,
+        val withVideo: Boolean,
+    ) : CallState()
+
+    /** Входящий звонок от [contactId]: ждём, примет его пользователь или отклонит (шаг 7.3). */
+    data class Incoming(
         val contactId: String,
         val withVideo: Boolean,
     ) : CallState()

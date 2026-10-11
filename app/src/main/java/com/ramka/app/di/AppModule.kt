@@ -31,6 +31,7 @@ import com.ramka.domain.util.FileTransferTracker
 import com.ramka.domain.usecase.ProcessOutboxUseCase
 import com.ramka.domain.usecase.SendReadAckUseCase
 import com.ramka.domain.util.Jitter
+import com.ramka.network.call.CallSignaling
 import com.ramka.network.local.LanDiscoveryService
 import com.ramka.network.local.SecureLanChannel
 import com.ramka.network.relay.KeyManagerRelayIdentity
@@ -216,13 +217,27 @@ object AppModule {
         transportRepository: TransportRepository,
         activeChat: com.ramka.domain.util.ActiveChatTracker,
         jitter: Jitter,
-        handleIncomingFile: HandleIncomingFileUseCase
+        handleIncomingFile: HandleIncomingFileUseCase,
+        callSignaling: CallSignaling
     ): IncomingMessageProcessor = IncomingMessageProcessor(
         contactRepository, messageRepository, transportRepository, activeChat, jitter,
-        handleIncomingFile = handleIncomingFile
+        handleIncomingFile = handleIncomingFile,
+        onCallSignal = callSignaling::onIncoming
     ) {
         com.ramka.app.notifications.RamkaNotifications.showNewMessageNotification(ctx)
     }
+
+    /**
+     * Сигналинг звонков (этап 7.3): отправка идёт через тот же TransportRepository, приём — через
+     * IncomingMessageProcessor (единственный подписчик на входящие). Рабочий цикл живёт в appScope.
+     */
+    @Provides
+    @Singleton
+    fun provideCallSignaling(
+        contactRepository: ContactRepository,
+        transportRepository: TransportRepository,
+        appScope: CoroutineScope
+    ): CallSignaling = CallSignaling(contactRepository, transportRepository, appScope)
 
     @Provides
     fun provideAttemptDeliveryUseCase(
