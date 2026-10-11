@@ -17,8 +17,10 @@ import com.ramka.app.ui.qr.QrScreen
 import com.ramka.app.ui.relay.RelayEditViewModel
 import com.ramka.app.ui.relay.RelayEditScreen
 import com.ramka.app.ui.relay.RelayListScreen
+import com.ramka.app.ui.relay.TurnGuideScreen
 import com.ramka.app.ui.relayguide.RelayGuideScreen
 import com.ramka.app.ui.settings.SettingsScreen
+import com.ramka.app.ui.settings.TurnSettingsScreen
 import com.ramka.domain.call.CallState
 
 object Routes {
@@ -27,6 +29,8 @@ object Routes {
     const val QR = "qr"
     const val SETTINGS = "settings"
     const val RELAY_GUIDE = "relay_guide"
+    const val TURN_GUIDE = "turn_guide"
+    const val TURN_SETTINGS = "turn_settings"
     const val RELAY_LIST = "relay_list"
     const val RELAY_EDIT = "relay_edit/{entryId}"
     const val CALL = "call/{contactId}?video={video}"
@@ -97,7 +101,8 @@ fun RamkaNavHost() {
         composable(Routes.SETTINGS) {
             SettingsScreen(
                 onBack = { navController.popBackStack() },
-                onOpenRelays = { navController.navigate(Routes.RELAY_LIST) }
+                onOpenRelays = { navController.navigate(Routes.RELAY_LIST) },
+                onOpenTurnSettings = { navController.navigate(Routes.TURN_SETTINGS) }
             )
         }
         composable(Routes.RELAY_LIST) {
@@ -105,7 +110,8 @@ fun RamkaNavHost() {
                 onBack = { navController.popBackStack() },
                 onAddRelay = { navController.navigate(Routes.relayEdit(null)) },
                 onEditRelay = { id -> navController.navigate(Routes.relayEdit(id)) },
-                onOpenRelayGuide = { navController.navigate(Routes.RELAY_GUIDE) }
+                onOpenRelayGuide = { navController.navigate(Routes.RELAY_GUIDE) },
+                onOpenTurnGuide = { navController.navigate(Routes.TURN_GUIDE) }
             )
         }
         composable(
@@ -122,6 +128,12 @@ fun RamkaNavHost() {
         }
         composable(Routes.RELAY_GUIDE) {
             RelayGuideScreen(onBack = { navController.popBackStack() })
+        }
+        composable(Routes.TURN_GUIDE) {
+            TurnGuideScreen(onBack = { navController.popBackStack() })
+        }
+        composable(Routes.TURN_SETTINGS) {
+            TurnSettingsScreen(onBack = { navController.popBackStack() })
         }
     }
 }

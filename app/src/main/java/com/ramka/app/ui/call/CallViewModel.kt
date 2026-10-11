@@ -8,7 +8,7 @@ import android.util.Log
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.ramka.app.webrtc.IceServersConfig
+import com.ramka.app.data.TurnSettingsDataStore
 import com.ramka.app.webrtc.createAnswerSdp
 import com.ramka.app.webrtc.createOfferSdp
 import com.ramka.app.webrtc.setLocalSdp
@@ -29,6 +29,7 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.webrtc.AudioSource
 import org.webrtc.AudioTrack
@@ -55,7 +56,8 @@ class CallViewModel @Inject constructor(
     private val factoryProvider: dagger.Lazy<PeerConnectionFactory>,
     private val eglBase: EglBase,
     private val signaling: CallSignaling,
-    private val contactRepository: ContactRepository
+    private val contactRepository: ContactRepository,
+    private val turnSettings: TurnSettingsDataStore
 ) : ViewModel(), CallManager {
 
     private val _state = MutableStateFlow<CallState>(CallState.Idle)
@@ -385,9 +387,36 @@ class CallViewModel @Inject constructor(
         }
     }
 
-    private fun openMedia(id: String, withLocalVideo: Boolean): PeerConnection {
+    /**
+     * ICE-серверы для звонка: STUN есть всегда; TURN (UDP и резервный TCP) добавляется, только если он
+     * включён и настроен на экране «Настройки TURN-сервера». Логин и пароль в лог не попадают.
+     */
+    private suspend fun buildIceServers(): List<PeerConnection.IceServer> {
+        val servers = mutableListOf(PeerConnection.IceServer.builder(STUN_URL).createIceServer())
+        val settings = try {
+            turnSettings.settings.first()
+        } catch (e: Exception) {
+            currentCoroutineContext().ensureActive()
+            Log.w(TAG, "Не удалось прочитать настройки TURN: ${e.javaClass.simpleName}")
+            null
+        }
+        if (settings != null && settings.isUsable) {
+            for (url in settings.iceUrls()) {
+                servers += PeerConnection.IceServer.builder(url)
+                    .setUsername(settings.username)
+                    .setPassword(settings.password)
+                    .createIceServer()
+            }
+            Log.d(TAG, "ICE: STUN + TURN (UDP и TCP)")
+        } else {
+            Log.d(TAG, "ICE: только STUN (TURN выключен или не настроен)")
+        }
+        return servers
+    }
+
+    private suspend fun openMedia(id: String, withLocalVideo: Boolean): PeerConnection {
         val factory = factoryProvider.get()
-        val rtcConfig = PeerConnection.RTCConfiguration(IceServersConfig.iceServers()).apply {
+        val rtcConfig = PeerConnection.RTCConfiguration(buildIceServers()).apply {
             iceTransportsType = PeerConnection.IceTransportsType.ALL
             bundlePolicy = PeerConnection.BundlePolicy.MAXBUNDLE
             rtcpMuxPolicy = PeerConnection.RtcpMuxPolicy.REQUIRE
@@ -630,6 +659,7 @@ class CallViewModel @Inject constructor(
         private const val VIDEO_TRACK_ID = "ramka-video"
         private const val STREAM_ID = "ramka-stream"
         private const val CAPTURE_THREAD_NAME = "ramka-capture"
+        private const val STUN_URL = "stun:stun.l.google.com:19302"
 
         private const val CAPTURE_WIDTH = 640
         private const val CAPTURE_HEIGHT = 480

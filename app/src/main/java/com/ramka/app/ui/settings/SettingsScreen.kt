@@ -25,6 +25,7 @@ import com.ramka.app.background.OemSettingsLauncher
 fun SettingsScreen(
     onBack: () -> Unit,
     onOpenRelays: () -> Unit,
+    onOpenTurnSettings: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
@@ -72,6 +73,10 @@ fun SettingsScreen(
             Spacer(Modifier.height(24.dp))
             OutlinedButton(onClick = onOpenRelays, modifier = Modifier.fillMaxWidth()) {
                 Text("Релеи: ${relayPool.entries.size}")
+            }
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(onClick = onOpenTurnSettings, modifier = Modifier.fillMaxWidth()) {
+                Text("Настройки TURN-сервера")
             }
             Spacer(Modifier.height(16.dp))
             TextButton(onClick = viewModel::openHintManually) {

@@ -22,7 +22,8 @@ import javax.inject.Singleton
  * кадры остаются в GPU-текстурах. Живёт столько же, сколько процесс: фабрика держит его контекст внутри
  * кодеков, поэтому закрывать его после отдельного звонка нельзя (следующий звонок получил бы мёртвый контекст).
  *
- * ICE-серверы (STUN/TURN) задаются в IceServersConfig и передаются в RTCConfiguration в CallViewModel.
+ * ICE-серверы (STUN всегда, TURN из настроек пользователя — TurnSettingsDataStore) собираются в CallViewModel
+ * при каждом звонке и передаются в RTCConfiguration.
  */
 @Module
 @InstallIn(SingletonComponent::class)

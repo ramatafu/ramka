@@ -44,6 +44,7 @@ fun RelayListScreen(
     onAddRelay: () -> Unit,
     onEditRelay: (String) -> Unit,
     onOpenRelayGuide: () -> Unit,
+    onOpenTurnGuide: () -> Unit,
     viewModel: RelayListViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
@@ -112,6 +113,7 @@ fun RelayListScreen(
                 )
             }
             TextButton(onClick = onOpenRelayGuide) { Text("Как настроить relay-сервер") }
+            TextButton(onClick = onOpenTurnGuide) { Text("Как настроить TURN-сервер для звонков") }
         }
     }
 
