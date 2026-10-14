@@ -82,4 +82,6 @@ dependencies {
     implementation("io.getstream:stream-webrtc-android:1.3.10")
 
     testImplementation("junit:junit:4.13.2")
+    // org.json в юнит-тестах: в android.jar он заглушка, а TurnServerCodec пользуется JSONArray/JSONObject.
+    testImplementation("org.json:json:20240303")
 }

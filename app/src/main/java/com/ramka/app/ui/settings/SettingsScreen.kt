@@ -25,7 +25,8 @@ import com.ramka.app.background.OemSettingsLauncher
 fun SettingsScreen(
     onBack: () -> Unit,
     onOpenRelays: () -> Unit,
-    onOpenTurnSettings: () -> Unit,
+    onOpenTurnServers: () -> Unit,
+    onOpenSpeedTest: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
@@ -75,8 +76,12 @@ fun SettingsScreen(
                 Text("Релеи: ${relayPool.entries.size}")
             }
             Spacer(Modifier.height(8.dp))
-            OutlinedButton(onClick = onOpenTurnSettings, modifier = Modifier.fillMaxWidth()) {
-                Text("Настройки TURN-сервера")
+            OutlinedButton(onClick = onOpenTurnServers, modifier = Modifier.fillMaxWidth()) {
+                Text("TURN-серверы")
+            }
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(onClick = onOpenSpeedTest, modifier = Modifier.fillMaxWidth()) {
+                Text("Проверить скорость интернета")
             }
             Spacer(Modifier.height(16.dp))
             TextButton(onClick = viewModel::openHintManually) {

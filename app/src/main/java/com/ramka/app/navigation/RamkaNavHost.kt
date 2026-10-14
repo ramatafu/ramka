@@ -20,7 +20,10 @@ import com.ramka.app.ui.relay.RelayListScreen
 import com.ramka.app.ui.relay.TurnGuideScreen
 import com.ramka.app.ui.relayguide.RelayGuideScreen
 import com.ramka.app.ui.settings.SettingsScreen
-import com.ramka.app.ui.settings.TurnSettingsScreen
+import com.ramka.app.ui.speedtest.SpeedTestScreen
+import com.ramka.app.ui.turn.TurnServerEditScreen
+import com.ramka.app.ui.turn.TurnServerEditViewModel
+import com.ramka.app.ui.turn.TurnServerListScreen
 import com.ramka.domain.call.CallState
 
 object Routes {
@@ -30,7 +33,10 @@ object Routes {
     const val SETTINGS = "settings"
     const val RELAY_GUIDE = "relay_guide"
     const val TURN_GUIDE = "turn_guide"
-    const val TURN_SETTINGS = "turn_settings"
+    const val TURN_SERVERS = "turn_servers"
+    const val TURN_SERVER_ADD = "turn_server_add"
+    const val TURN_SERVER_EDIT = "turn_server_edit/{id}"
+    const val SPEED_TEST = "speed_test"
     const val RELAY_LIST = "relay_list"
     const val RELAY_EDIT = "relay_edit/{entryId}"
     const val CALL = "call/{contactId}?video={video}"
@@ -38,6 +44,8 @@ object Routes {
     fun chat(contactId: String) = "chat/$contactId"
 
     fun call(contactId: String, video: Boolean = false) = "call/$contactId?video=$video"
+
+    fun turnServerEdit(id: String) = "turn_server_edit/$id"
 
     /** null — добавление новой записи (в путь подставляется [RelayEditViewModel.NEW_ENTRY]). */
     fun relayEdit(entryId: String?) = "relay_edit/${entryId ?: RelayEditViewModel.NEW_ENTRY}"
@@ -102,7 +110,8 @@ fun RamkaNavHost() {
             SettingsScreen(
                 onBack = { navController.popBackStack() },
                 onOpenRelays = { navController.navigate(Routes.RELAY_LIST) },
-                onOpenTurnSettings = { navController.navigate(Routes.TURN_SETTINGS) }
+                onOpenTurnServers = { navController.navigate(Routes.TURN_SERVERS) },
+                onOpenSpeedTest = { navController.navigate(Routes.SPEED_TEST) }
             )
         }
         composable(Routes.RELAY_LIST) {
@@ -132,8 +141,24 @@ fun RamkaNavHost() {
         composable(Routes.TURN_GUIDE) {
             TurnGuideScreen(onBack = { navController.popBackStack() })
         }
-        composable(Routes.TURN_SETTINGS) {
-            TurnSettingsScreen(onBack = { navController.popBackStack() })
+        composable(Routes.TURN_SERVERS) {
+            TurnServerListScreen(
+                onBack = { navController.popBackStack() },
+                onAddServer = { navController.navigate(Routes.TURN_SERVER_ADD) },
+                onEditServer = { id -> navController.navigate(Routes.turnServerEdit(id)) }
+            )
+        }
+        composable(Routes.SPEED_TEST) {
+            SpeedTestScreen(onBack = { navController.popBackStack() })
+        }
+        composable(Routes.TURN_SERVER_ADD) {
+            TurnServerEditScreen(onBack = { navController.popBackStack() })
+        }
+        composable(
+            route = Routes.TURN_SERVER_EDIT,
+            arguments = listOf(navArgument(TurnServerEditViewModel.ARG_ID) { type = NavType.StringType })
+        ) {
+            TurnServerEditScreen(onBack = { navController.popBackStack() })
         }
     }
 }

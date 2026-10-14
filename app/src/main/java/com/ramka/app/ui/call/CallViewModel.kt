@@ -29,7 +29,6 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.webrtc.AudioSource
 import org.webrtc.AudioTrack
@@ -318,11 +317,13 @@ class CallViewModel @Inject constructor(
                 candidate.sdp.contains("typ relay") -> "RELAY (TURN/Ретрансляция) ⭐"
                 else -> "UNKNOWN"
             }
-            Log.d(TAG, "📤 onIceCandidate: type=$type, sdpMid=${candidate.sdpMid}, sdp=${candidate.sdp}")
+            // ИЗМЕНЕНИЕ: Убрали candidate.sdp из лога, чтобы не светить IP-адреса и порты
+            Log.d(TAG, "📤 onIceCandidate: type=$type, sdpMid=${candidate.sdpMid}, mLineIndex=${candidate.sdpMLineIndex}")
             
             post {
                 if (id != callId) return@post
                 val peer = peerContactId ?: return@post
+                // candidate.sdp здесь остается, чтобы звонок работал корректно
                 signaling.sendIceCandidate(peer, id, candidate.sdpMid.orEmpty(), candidate.sdpMLineIndex, candidate.sdp)
             }
         }
@@ -388,28 +389,31 @@ class CallViewModel @Inject constructor(
     }
 
     /**
-     * ICE-серверы для звонка: STUN есть всегда; TURN (UDP и резервный TCP) добавляется, только если он
-     * включён и настроен на экране «Настройки TURN-сервера». Логин и пароль в лог не попадают.
+     * ICE-серверы для звонка: публичный STUN есть всегда; для каждого включённого TURN-сервера из списка
+     * (по порядку приоритета) добавляются основной адрес и, для `turn:`, резервный `?transport=tcp`.
+     * Пустой список — только STUN (P2P). Логины и пароли в лог не попадают.
      */
     private suspend fun buildIceServers(): List<PeerConnection.IceServer> {
         val servers = mutableListOf(PeerConnection.IceServer.builder(STUN_URL).createIceServer())
-        val settings = try {
-            turnSettings.settings.first()
+        val turnServers = try {
+            turnSettings.activeServers()
         } catch (e: Exception) {
             currentCoroutineContext().ensureActive()
-            Log.w(TAG, "Не удалось прочитать настройки TURN: ${e.javaClass.simpleName}")
-            null
+            Log.w(TAG, "Не удалось прочитать список TURN: ${e.javaClass.simpleName}")
+            emptyList()
         }
-        if (settings != null && settings.isUsable) {
-            for (url in settings.iceUrls()) {
+        for (turn in turnServers) {
+            for (url in turn.iceUrls) {
                 servers += PeerConnection.IceServer.builder(url)
-                    .setUsername(settings.username)
-                    .setPassword(settings.password)
+                    .setUsername(turn.username)
+                    .setPassword(turn.password)
                     .createIceServer()
             }
-            Log.d(TAG, "ICE: STUN + TURN (UDP и TCP)")
+        }
+        if (turnServers.isEmpty()) {
+            Log.d(TAG, "ICE: только STUN (TURN-серверы не добавлены или выключены)")
         } else {
-            Log.d(TAG, "ICE: только STUN (TURN выключен или не настроен)")
+            Log.d(TAG, "ICE: STUN + TURN-серверов: ${turnServers.size}")
         }
         return servers
     }

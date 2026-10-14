@@ -161,6 +161,8 @@ private fun TurnCodeBlock(code: String) {
 internal object TurnGuideContent {
 
     const val PLACEHOLDER_IP = "YOUR_SERVER_IP"
+    const val PLACEHOLDER_LOGIN = "ВАШ_ЛОГИН"
+    const val PLACEHOLDER_PASSWORD = "ВАШ_ПАРОЛЬ"
     const val TURN_PORT = 3478
     const val MIN_PORT = 49152
     const val MAX_PORT = 65535
@@ -181,14 +183,14 @@ internal object TurnGuideContent {
         fingerprint
         lt-cred-mech
         realm=ramka
-        user=ramka:ramka123
+        user=$PLACEHOLDER_LOGIN:$PLACEHOLDER_PASSWORD
         no-multicast-peers
     """.trimIndent()
 
     private val appFields: String = """
         Адрес сервера: turn:$PLACEHOLDER_IP:$TURN_PORT
-        Логин: ramka
-        Пароль: ramka123
+        Логин: $PLACEHOLDER_LOGIN
+        Пароль: $PLACEHOLDER_PASSWORD
     """.trimIndent()
 
     val steps: List<GuideStep> = listOf(
@@ -238,12 +240,13 @@ internal object TurnGuideContent {
                 GuideBlock.Paragraph("Вставьте базовый конфиг:"),
                 GuideBlock.Command(serverConfig),
                 GuideBlock.Paragraph(
-                    "Замените $PLACEHOLDER_IP на публичный IP вашего сервера. " +
+                    "Замените $PLACEHOLDER_IP на публичный IP вашего сервера, а $PLACEHOLDER_LOGIN и " +
+                        "$PLACEHOLDER_PASSWORD — на придуманные вами логин и пароль. " +
                         "Сохраните файл: Ctrl+O, Enter, затем Ctrl+X."
                 ),
                 GuideBlock.Note(
-                    "Логин ramka и пароль ramka123 — пример. Лучше придумать свой пароль: любой, кто знает " +
-                        "адрес и пароль, сможет гонять через ваш сервер свой трафик. " +
+                    "Пароль придумайте длинный и случайный: любой, кто знает адрес, логин и пароль, " +
+                        "сможет гонять через ваш сервер свой трафик. " +
                         "Если у VPS публичный адрес не на самом интерфейсе (бывает в облаках с внутренней " +
                         "сетью), в external-ip указывается пара «публичный/внутренний»: 1.2.3.4/10.0.0.5."
                 )

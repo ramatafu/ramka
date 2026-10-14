@@ -15,3 +15,10 @@ fix-round2/
 relay-guide/
 captures/
 .cxx/
+
+# Build artifacts
+build_OLD_APP/
+build_OLD_ROOT/
+app/build_OLD_APP/
+*.apk
+
