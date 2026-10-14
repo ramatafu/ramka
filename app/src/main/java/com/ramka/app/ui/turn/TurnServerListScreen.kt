@@ -52,6 +52,7 @@ fun TurnServerListScreen(
     onBack: () -> Unit,
     onAddServer: () -> Unit,
     onEditServer: (String) -> Unit,
+    onOpenTurnGuide: () -> Unit,
     viewModel: TurnServerListViewModel = hiltViewModel()
 ) {
     val servers by viewModel.servers.collectAsState()
@@ -74,6 +75,15 @@ fun TurnServerListScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Назад")
+                    }
+                },
+                actions = {
+                    TextButton(onClick = onOpenTurnGuide) {
+                        Text(
+                            "!",
+                            style = MaterialTheme.typography.titleLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
             )
