@@ -21,7 +21,6 @@ import javax.inject.Inject
 data class TurnServerEditState(
     val url: String = "",
     val username: String = "",
-    /** При редактировании пароль не подгружается: пустое поле означает «не менять». */
     val password: String = "",
     val isEditing: Boolean = false,
     val isLoading: Boolean = false,
@@ -68,7 +67,15 @@ class TurnServerEditViewModel @Inject constructor(
                 _state.update { it.copy(isLoading = false, finished = true) }
             } else {
                 loadedEntry = entry
-                _state.update { it.copy(url = entry.url, username = entry.username, isLoading = false) }
+                // ИСПРАВЛЕНИЕ: загружаем пароль через публичный метод getPassword
+                val password = try {
+                    store.getPassword(entry.id) ?: ""
+                } catch (e: Exception) {
+                    currentCoroutineContext().ensureActive()
+                    Log.w(TAG, "Не удалось прочитать пароль TURN-сервера: ${e.javaClass.simpleName}")
+                    ""
+                }
+                _state.update { it.copy(url = entry.url, username = entry.username, password = password, isLoading = false) }
             }
         }
     }

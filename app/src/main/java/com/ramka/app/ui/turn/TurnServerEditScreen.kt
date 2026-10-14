@@ -30,6 +30,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -102,23 +103,30 @@ fun TurnServerEditScreen(
                 supportingText = { state.usernameError?.let { Text(it) } }
             )
             Spacer(Modifier.height(8.dp))
-            OutlinedTextField(
-                value = state.password,
-                onValueChange = viewModel::onPasswordChanged,
-                modifier = Modifier.fillMaxWidth(),
-                enabled = fieldsEnabled,
-                label = { Text(if (state.isEditing) "Пароль (пусто — не менять)" else "Пароль") },
-                singleLine = true,
-                visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                trailingIcon = {
-                    TextButton(onClick = { passwordVisible = !passwordVisible }) {
-                        Text(if (passwordVisible) "Скрыть" else "Показать")
-                    }
-                },
-                isError = state.passwordError != null,
-                supportingText = { state.passwordError?.let { Text(it) } },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
-            )
+
+            // Поле пароля с кнопкой Показать/Скрыть под ним.
+            // key(passwordVisible) заставляет Compose полностью пересоздать поле при каждом
+            // переключении — иначе Android-уровень принудительно маскирует ввод, игнорируя
+            // visualTransformation.
+            key(passwordVisible) {
+                OutlinedTextField(
+                    value = state.password,
+                    onValueChange = viewModel::onPasswordChanged,
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = fieldsEnabled,
+                    label = { Text(if (state.isEditing) "Пароль (пусто — не менять)" else "Пароль") },
+                    singleLine = true,
+                    visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                    isError = state.passwordError != null,
+                    supportingText = { state.passwordError?.let { Text(it) } }
+                )
+            }
+            TextButton(
+                onClick = { passwordVisible = !passwordVisible }
+            ) {
+                Text(if (passwordVisible) "Скрыть" else "Показать")
+            }
+
             Spacer(Modifier.height(24.dp))
             Row(Modifier.fillMaxWidth()) {
                 OutlinedButton(onClick = onBack, modifier = Modifier.weight(1f)) { Text("Отмена") }

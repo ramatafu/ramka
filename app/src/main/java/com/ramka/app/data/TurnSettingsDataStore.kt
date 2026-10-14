@@ -160,6 +160,14 @@ class TurnSettingsDataStore @Inject constructor(
         }
     }
 
+    /**
+     * Читает пароль для конкретного сервера из SecureKeyStore.
+     * Используется ViewModel при редактировании для заполнения поля ввода.
+     */
+    suspend fun getPassword(id: String): String? = withContext(Dispatchers.IO) {
+        readPassword(id)
+    }
+
     // ---- внутреннее ---------------------------------------------------------------------
 
     private suspend fun ensureMigrated() {
