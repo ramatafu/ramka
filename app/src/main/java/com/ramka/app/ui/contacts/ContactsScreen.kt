@@ -15,8 +15,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -37,8 +35,7 @@ import com.ramka.domain.model.Contact
  * ПРИМЕЧАНИЕ ПО ИКОНКАМ: для «добавить по QR» и «обновить очередь» использованы
  * текстовые глифы, а не Icons.Filled.QrCodeScanner/Sync — этих иконок нет в
  * material-icons-core (только в material-icons-extended, которую по вашему
- * указанию не добавляем без отдельного одобрения — см. §4.3). Icons.Filled.Search
- * входит в core и используется как обычно.
+ * указанию не добавляем без отдельного одобрения — см. §4.3).
  *
  * ЭТАП B.7/B.8, ревью п.5: здесь же — runtime-запрос POST_NOTIFICATIONS (API 33+),
  * тем же паттерном, что CAMERA в QrScreen.kt (объяснение -> запрос; отказ ->
@@ -99,16 +96,7 @@ fun ContactsScreen(
             TopAppBar(
                 title = { Text("ramka") },
                 actions = {
-                    IconButton(onClick = { /* локальный поиск по псевдонимам — этап 1.x */ }) {
-                        Icon(Icons.Filled.Search, contentDescription = "Поиск")
-                    }
-                    // Раньше здесь была вторая кнопка «⌗», дублирующая FAB (тот же
-                    // onAddContact) — убрана по указанию директивы v2, этап A.4:
-                    // единственный вход в QR-экран — FAB ниже.
-                    IconButton(onClick = { viewModel.refreshOutbox() }) {
-                        Text("↻", style = MaterialTheme.typography.titleLarge)
-                    }
-                    // Вход в настройки (ЭТАП B.8): до этого onOpenSettings нигде не вызывался.
+                    // Вход в настройки (ЭТАП B.8)
                     IconButton(onClick = onOpenSettings) {
                         Text("⚙", style = MaterialTheme.typography.titleLarge)
                     }
