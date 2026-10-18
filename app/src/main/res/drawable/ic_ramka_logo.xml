@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Логотип ramka (рамка с внутренним квадратом и четырьмя диагоналями), 24dp, одноцветный.
+    Используется как маленькая иконка уведомлений (система красит её сама) и в интерфейсе
+    (Icon(...) красит tint-ом). Линии чуть толще, чем в исходном PNG, чтобы читались в статус-баре.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- внешняя рамка -->
+    <path
+        android:pathData="M2.3,2.3 L21.7,2.3 L21.7,21.7 L2.3,21.7 Z"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.6"
+        android:strokeLineJoin="round" />
+    <!-- внутренний квадрат -->
+    <path
+        android:pathData="M5.9,5.9 L18.1,5.9 L18.1,18.1 L5.9,18.1 Z"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.5"
+        android:strokeLineJoin="miter" />
+    <!-- диагонали -->
+    <path
+        android:pathData="M2.3,2.3 L5.9,5.9 M21.7,2.3 L18.1,5.9 M21.7,21.7 L18.1,18.1 M2.3,21.7 L5.9,18.1"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.5" />
+</vector>

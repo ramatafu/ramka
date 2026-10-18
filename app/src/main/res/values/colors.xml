@@ -1,3 +1,5 @@
 <resources>
     <color name="ramka_background">#1a2332</color>
+    <!-- Фон адаптивной иконки: чистый чёрный, как у логотипа -->
+    <color name="ic_launcher_background">#000000</color>
 </resources>

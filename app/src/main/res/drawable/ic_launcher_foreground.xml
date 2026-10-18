@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Передний план адаптивной иконки (108x108dp). Логотип занимает 44dp по центру: помещается в безопасную
+    зону (круг 66dp), поэтому не обрезается ни одной маской. Размеры штрихов сняты с исходного PNG.
+    Этот же слой используется как monochrome (тематические иконки Android 13+) и как иконка заставки Android 12+.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:pathData="M33.12,33.12 L74.88,33.12 L74.88,74.88 L33.12,74.88 Z"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2.24"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M40.86,40.86 L67.14,40.86 L67.14,67.14 L40.86,67.14 Z"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2.1"
+        android:strokeLineJoin="miter" />
+    <path
+        android:pathData="M33.12,33.12 L40.86,40.86 M74.88,33.12 L67.14,40.86 M74.88,74.88 L67.14,67.14 M33.12,74.88 L40.86,67.14"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2.1" />
+</vector>

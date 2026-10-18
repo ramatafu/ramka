@@ -23,4 +23,10 @@ interface IncomingFileStore {
 
     /** Удаляет ВСЕ временные файлы: на старте процесса активных передач нет, значит, это осиротевшие остатки. */
     suspend fun discardAll()
+
+    /** 
+     * Возвращает URI расшифрованного файла во временном кэше в виде String. 
+     * fileName нужен для сохранения правильного расширения файла.
+     */
+    suspend fun getDecryptedFileUri(transferId: String, fileName: String): String?
 }

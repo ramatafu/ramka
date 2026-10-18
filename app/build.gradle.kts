@@ -81,6 +81,11 @@ dependencies {
     // WebRTC для звонков. Версия 1.3.10 стабильна и совместима с compileSdk 34.
     implementation("io.getstream:stream-webrtc-android:1.3.10")
 
+    // ИСПРАВЛЕНИЕ R-3: Прямое использование Google Tink вместо security-crypto.
+    // Это обходит фатальный баг EncryptedFile, где AAD привязывается к имени файла,
+    // что ломает расшифровку после любого переименования (renameTo).
+    implementation("com.google.crypto.tink:tink-android:1.13.0")
+
     testImplementation("junit:junit:4.13.2")
     // org.json в юнит-тестах: в android.jar он заглушка, а TurnServerCodec пользуется JSONArray/JSONObject.
     testImplementation("org.json:json:20240303")

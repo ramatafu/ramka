@@ -1,0 +1,10 @@
+<resources>
+    <style name="Theme.Ramka" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/ramka_background</item>
+        <item name="android:statusBarColor">@color/ramka_background</item>
+        <item name="android:navigationBarColor">@color/ramka_background</item>
+        <!-- Заставка: фон окна приложения (без мигания) и логотип по центру -->
+        <item name="android:windowSplashScreenBackground">@color/ramka_background</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+    </style>
+</resources>

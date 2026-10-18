@@ -1,6 +1,14 @@
 package com.ramka.app.ui.chat
 
+import android.app.Activity
+import android.content.ActivityNotFoundException
+import android.content.ClipData
+import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.util.Log
+import android.webkit.MimeTypeMap
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -16,15 +24,14 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import com.ramka.app.files.FileOpener
 import com.ramka.app.ui.theme.RamkaAccent
 import com.ramka.app.ui.theme.RamkaBubbleOutgoing
 import com.ramka.domain.model.Message
@@ -32,40 +39,113 @@ import com.ramka.domain.model.MessageBody
 import com.ramka.domain.model.MessageDirection
 import com.ramka.domain.model.MessageStatus
 import kotlinx.coroutines.launch
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
 
-/**
- * Экран «Чат» — см. PROJECT_SPEC.md п. 8.3. Без имени отправителя в 1-на-1, без точного
- * времени статусов. Кнопка вложения — текстовый глиф (📎), т.к. Icons.Filled.AttachFile
- * не входит в material-icons-core — см. примечание в ContactsScreen.kt.
- * Файловые сообщения рисует FileBubble (FileBubble.kt).
- */
+// 1. Класс запроса на открытие файла
+data class OpenFileRequest(val uri: Uri, val mimeType: String?, val fileName: String?)
+
+private const val OPEN_TAG = "ChatOpenFile"
+
+// 2. Умное определение MIME-типа
+private fun resolveMimeType(context: Context, req: OpenFileRequest): String {
+    req.mimeType?.lowercase()?.trim()
+        ?.takeIf { it.isNotEmpty() && it != "*/*" && it != "application/octet-stream" }
+        ?.let { return it }
+    
+    val ext = (req.fileName ?: req.uri.lastPathSegment).orEmpty()
+        .substringAfterLast('.', "").lowercase()
+    MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext)?.let { return it }
+    
+    context.contentResolver.getType(req.uri)
+        ?.takeIf { it != "application/octet-stream" }
+        ?.let { return it }
+    
+    return "application/octet-stream"
+}
+
+// 3. Функция открытия с поддержкой FileProvider и явной выдачей прав
+private fun openFileExternally(context: Context, req: OpenFileRequest): String? {
+    val mime = resolveMimeType(context, req)
+    
+    // Конвертация file:// в content:// через FileProvider
+    val safeUri = if (req.uri.scheme == "file") {
+        val file = File(req.uri.path ?: return "Неверный путь к файлу")
+        if (!file.exists() || !file.isFile) {
+            return "Файл не найден на устройстве"
+        }
+        try {
+            FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.fileprovider",
+                file
+            )
+        } catch (e: IllegalArgumentException) {
+            Log.e(OPEN_TAG, "FileProvider не настроен для этого пути: ${req.uri}", e)
+            return "Ошибка конфигурации FileProvider"
+        }
+    } else {
+        req.uri // Уже content:// или другой поддерживаемый тип
+    }
+
+    val intent = Intent(Intent.ACTION_VIEW).apply {
+        setDataAndType(safeUri, mime)
+        flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK
+        clipData = ClipData.newRawUri("", safeUri)
+    }
+
+    // Явная выдача прав всем целевым приложениям
+    val resInfoList = context.packageManager.queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY)
+    for (resolveInfo in resInfoList) {
+        val packageName = resolveInfo.activityInfo.packageName
+        context.grantUriPermission(packageName, safeUri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    }
+
+    val size = runCatching {
+        context.contentResolver.openAssetFileDescriptor(safeUri, "r")?.use { it.length }
+    }.getOrNull()
+    
+    Log.d(OPEN_TAG, "uri=$safeUri mime=$mime size=$size target_apps_count=${resInfoList.size}")
+
+    return try {
+        context.startActivity(intent)
+        Log.d(OPEN_TAG, "startActivity вызван успешно")
+        null
+    } catch (e: ActivityNotFoundException) {
+        Log.e(OPEN_TAG, "Нет приложения для $mime", e)
+        "Нет приложения для открытия файлов типа $mime"
+    } catch (e: SecurityException) {
+        Log.e(OPEN_TAG, "SecurityException при открытии $safeUri", e)
+        "Нет доступа к файлу: ${e.message}"
+    } catch (e: Exception) {
+        Log.e(OPEN_TAG, "Не удалось открыть $safeUri", e)
+        "Не удалось открыть файл: ${e.message}"
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(
     contactId: String,
     onBack: () -> Unit,
-    /** Кнопка «Позвонить» (шаг 7.3): навигация на экран звонка этого контакта. */
     onCall: () -> Unit = {},
-    /** Кнопка «Видеозвонок» (шаг 7.4): тот же экран звонка, но с камерой. */
     onVideoCall: () -> Unit = {},
     viewModel: ChatViewModel = hiltViewModel()
 ) {
     val contact by viewModel.contact.collectAsState()
     val messages by viewModel.messages.collectAsState()
+    val context = LocalContext.current
 
-    // Пикер (GetContent) не требует разрешений на чтение хранилища. Копирование файла и
-    // создание сообщения — в ChatViewModel.onFilePicked (шаг 6.3).
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    
     val filePickerLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         if (uri != null) viewModel.onFilePicked(uri)
     }
 
-    // launch: showSnackbar приостанавливается до скрытия — не задерживаем вызывающего.
     val showMessage: (String) -> Unit = { text ->
         scope.launch {
             snackbarHostState.currentSnackbarData?.dismiss()
@@ -77,14 +157,14 @@ fun ChatScreen(
         viewModel.events.collect { text -> showMessage(text) }
     }
 
-    // Открытие файла из чата (ACTION_VIEW + MIME, FileProvider для наших файлов).
-    val context = LocalContext.current
-    val openFile: (MessageBody.File) -> Unit = { body ->
-        FileOpener.open(context, body).userMessage?.let(showMessage)
+    // LaunchedEffect, который обрабатывает запрос на открытие
+    LaunchedEffect(viewModel) {
+        viewModel.openFileRequest.collect { req ->
+            Log.d(OPEN_TAG, "Получен запрос на открытие: ${req.uri}")
+            openFileExternally(context, req)?.let { showMessage(it) }
+        }
     }
 
-    // Чат "виден" только пока экран на переднем плане (ON_START..ON_STOP): сворачивание
-    // приложения снова делает новые сообщения непрочитанными.
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner, viewModel) {
         val observer = LifecycleEventObserver { _, event ->
@@ -98,6 +178,7 @@ fun ChatScreen(
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
             viewModel.onChatHidden()
+            viewModel.clearDecryptedFileCache()
         }
     }
 
@@ -111,7 +192,6 @@ fun ChatScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Назад")
                     }
                 },
-                // Глиф вместо иконки — как у кнопки вложения (📎): в material-icons-core нет нужных значков.
                 actions = {
                     IconButton(onClick = onVideoCall, enabled = contact != null) {
                         Text("📹", style = MaterialTheme.typography.titleLarge)
@@ -120,7 +200,6 @@ fun ChatScreen(
                         Text("📞", style = MaterialTheme.typography.titleLarge)
                     }
                 }
-                // Намеренно нет индикатора «онлайн» / «был в сети» — запрет п. 3.5/8.1.
             )
         },
         bottomBar = {
@@ -140,7 +219,15 @@ fun ChatScreen(
             reverseLayout = true
         ) {
             items(messages.asReversed(), key = { it.localId }) { message ->
-                MessageBubble(message, onRetryFile = viewModel::retryFile, onOpenFile = openFile)
+                MessageBubble(
+                    message = message,
+                    onRetryFile = viewModel::retryFile,
+                    onOpenFile = { body -> 
+                        body.uri?.let { uri ->
+                            viewModel.onFileClicked(uri, body.fileName, body.mimeType)
+                        }
+                    }
+                )
                 Spacer(Modifier.height(6.dp))
             }
         }
@@ -193,16 +280,6 @@ private fun MessageBubble(
     }
 }
 
-/**
- * Три значка по ЭТАП B.4: 🕐 (в очереди или попытка доставки идёт/повторяется),
- * ✓ (доставлено — получен DELIVERED-ACK), ✓✓ (прочитано — получен READ-ACK).
- * Без точного времени доставки/прочтения (п. 3.3, 8.3) — было и остаётся так.
- *
- * SENT (сокет-отправка прошла успешно) сюда же, в 🕐 — это ещё не "доставлено" в
- * смысле UI: получатель мог принять байты по TCP и тут же упасть, не сохранив
- * сообщение. Настоящее подтверждение — только ACK, см. IncomingMessageProcessor
- * и DEVIATIONS.md, раздел «ЭТАП B — решения по Outbox/ACK».
- */
 @Composable
 private fun StatusTicks(status: MessageStatus) {
     val (text, color) = when (status) {
@@ -221,12 +298,6 @@ private fun MessageInputBar(
     onSend: () -> Unit,
     onAttach: () -> Unit
 ) {
-    // Scaffold передаёт insets только в padding для content-слота — bottomBar (это и
-    // есть MessageInputBar) сам за собой ничего не подкладывает, поэтому без явного
-    // navigationBarsPadding() поле ввода наезжает на системные кнопки навигации.
-    // imePadding() дополнительно поднимает поле над клавиатурой, когда она открыта
-    // (на part устройств высота IME превышает высоту навигационной панели — оба
-    // модификатора не конфликтуют, Compose берёт больший из применимых отступов).
     Surface(
         modifier = Modifier
             .navigationBarsPadding()

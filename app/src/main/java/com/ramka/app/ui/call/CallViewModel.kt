@@ -8,6 +8,7 @@ import android.util.Log
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.ramka.app.data.TurnCredentials
 import com.ramka.app.data.TurnSettingsDataStore
 import com.ramka.app.webrtc.createAnswerSdp
 import com.ramka.app.webrtc.createOfferSdp
@@ -37,6 +38,7 @@ import org.webrtc.CameraVideoCapturer
 import org.webrtc.DataChannel
 import org.webrtc.EglBase
 import org.webrtc.IceCandidate
+import org.webrtc.IceCandidateErrorEvent
 import org.webrtc.MediaConstraints
 import org.webrtc.MediaStream
 import org.webrtc.PeerConnection
@@ -95,6 +97,11 @@ class CallViewModel @Inject constructor(
     private var audioSource: AudioSource? = null
     private var audioTrack: AudioTrack? = null
     private var previousAudioMode: Int? = null
+
+    // R-1: по умолчанию звонок идёт ТОЛЬКО через TURN (relay): ни Google STUN, ни host/srflx-кандидаты, реальный IP
+    // не раскрывается ни STUN-серверу, ни собеседнику.
+    // TODO: Добавить тумблер "Разрешить прямое P2P-соединение (раскрывает IP)" в настройки
+    private val allowDirectP2p: Boolean = false
 
     private val commands = Channel<suspend () -> Unit>(Channel.UNLIMITED)
 
@@ -171,6 +178,11 @@ class CallViewModel @Inject constructor(
             _state.value = CallState.Error(MSG_NO_MIC)
             return
         }
+        val turnServers = loadActiveTurnServers()
+        if (isTurnMissing(turnServers)) {
+            _state.value = CallState.Error(MSG_TURN_REQUIRED) // звонок даже не начинаем: P2P раскрыл бы IP
+            return
+        }
         val wantVideo = withVideo && hasCameraPermission()
         if (withVideo && !wantVideo) Log.i(TAG, "Нет разрешения CAMERA: звонок начат как аудио")
 
@@ -178,7 +190,7 @@ class CallViewModel @Inject constructor(
         begin(id, contactId, caller = true)
         _state.value = CallState.Dialing(contactId, withVideo = wantVideo)
         try {
-            val pc = openMedia(id, withLocalVideo = wantVideo)
+            val pc = openMedia(id, withLocalVideo = wantVideo, turnServers = turnServers)
             if (callHasVideo != wantVideo) _state.value = CallState.Dialing(contactId, withVideo = callHasVideo)
             val offer = pc.createOfferSdp(mediaConstraints(video = callHasVideo))
             val sent = signaling.sendOffer(contactId, id, offer.description, withVideo = callHasVideo)
@@ -225,13 +237,19 @@ class CallViewModel @Inject constructor(
             _state.value = CallState.Error(MSG_NO_MIC)
             return
         }
+        val turnServers = loadActiveTurnServers()
+        if (isTurnMissing(turnServers)) {
+            teardown(AppMessage.CallEnd.Reason.REJECTED)
+            _state.value = CallState.Error(MSG_TURN_REQUIRED)
+            return
+        }
 
         timeoutJob?.cancel()
         pendingOffer = null
         val sendVideo = withVideo && offer.withVideo && hasCameraPermission()
         _state.value = CallState.Dialing(contactId, withVideo = offer.withVideo)
         try {
-            val pc = openMedia(id, withLocalVideo = sendVideo)
+            val pc = openMedia(id, withLocalVideo = sendVideo, turnServers = turnServers)
             callHasVideo = offer.withVideo
             pc.setRemoteSdp(SessionDescription(SessionDescription.Type.OFFER, offer.sdp))
             remoteDescriptionSet = true
@@ -267,6 +285,8 @@ class CallViewModel @Inject constructor(
 
     private fun onRemoteCandidate(message: AppMessage.CallIceCandidate) {
         val candidate = IceCandidate(message.sdpMid, message.sdpMLineIndex, message.candidate)
+        // Диагностика: какого типа кандидаты шлёт собеседник (адреса в лог не пишем).
+        Log.d(TAG, "📥 remote candidate: type=${candidate.sdp.substringAfter("typ ", "?").substringBefore(' ')}")
         val pc = peerConnection
         if (pc != null && remoteDescriptionSet) {
             if (!pc.addIceCandidate(candidate)) Log.w(TAG, "libwebrtc отклонил кандидат собеседника")
@@ -342,6 +362,11 @@ class CallViewModel @Inject constructor(
             }
         }
 
+        // Диагностика TURN: 401 — неверный логин/пароль, 403 — запрещён адрес/права, 701 — сервер недоступен (адрес не логируем).
+        override fun onIceCandidateError(event: IceCandidateErrorEvent) {
+            Log.w(TAG, "⚠️ onIceCandidateError: code=${event.errorCode}, text=${event.errorText}")
+        }
+
         override fun onIceGatheringChange(newState: PeerConnection.IceGatheringState) {
             Log.d(TAG, "📡 onIceGatheringChange: $newState")
         }
@@ -388,20 +413,28 @@ class CallViewModel @Inject constructor(
         }
     }
 
-    /**
-     * ICE-серверы для звонка: публичный STUN есть всегда; для каждого включённого TURN-сервера из списка
-     * (по порядку приоритета) добавляются основной адрес и, для `turn:`, резервный `?transport=tcp`.
-     * Пустой список — только STUN (P2P). Логины и пароли в лог не попадают.
-     */
-    private suspend fun buildIceServers(): List<PeerConnection.IceServer> {
-        val servers = mutableListOf(PeerConnection.IceServer.builder(STUN_URL).createIceServer())
-        val turnServers = try {
+    /** Включённые TURN-серверы пользователя. Ошибка чтения трактуется как «серверов нет» (fail closed). */
+    private suspend fun loadActiveTurnServers(): List<TurnCredentials> =
+        try {
             turnSettings.activeServers()
         } catch (e: Exception) {
             currentCoroutineContext().ensureActive()
             Log.w(TAG, "Не удалось прочитать список TURN: ${e.javaClass.simpleName}")
             emptyList()
         }
+
+    /** В режиме relay-only без TURN-сервера звонок невозможен (иначе пришлось бы раскрыть IP). */
+    private fun isTurnMissing(turnServers: List<TurnCredentials>): Boolean =
+        !allowDirectP2p && turnServers.isEmpty()
+
+    /**
+     * ICE-серверы для звонка: для каждого включённого TURN-сервера из списка (по порядку приоритета) добавляются
+     * основной адрес и, для `turn:`, резервный `?transport=tcp`. STUN НЕ добавляется (раньше был зашит
+     * stun.l.google.com: он видел публичный IP и момент каждого звонка). Логины и пароли в лог не попадают.
+     * TODO: если появится режим прямого P2P, STUN должен задаваться пользователем, а не зашиваться в код.
+     */
+    private fun buildIceServers(turnServers: List<TurnCredentials>): List<PeerConnection.IceServer> {
+        val servers = mutableListOf<PeerConnection.IceServer>()
         for (turn in turnServers) {
             for (url in turn.iceUrls) {
                 servers += PeerConnection.IceServer.builder(url)
@@ -410,22 +443,23 @@ class CallViewModel @Inject constructor(
                     .createIceServer()
             }
         }
-        if (turnServers.isEmpty()) {
-            Log.d(TAG, "ICE: только STUN (TURN-серверы не добавлены или выключены)")
-        } else {
-            Log.d(TAG, "ICE: STUN + TURN-серверов: ${turnServers.size}")
-        }
+        Log.d(TAG, "ICE: TURN-серверов: ${turnServers.size}, режим: ${if (allowDirectP2p) "ALL" else "RELAY"}")
         return servers
     }
 
-    private suspend fun openMedia(id: String, withLocalVideo: Boolean): PeerConnection {
+    private suspend fun openMedia(id: String, withLocalVideo: Boolean, turnServers: List<TurnCredentials>): PeerConnection {
         val factory = factoryProvider.get()
-        val rtcConfig = PeerConnection.RTCConfiguration(buildIceServers()).apply {
-            iceTransportsType = PeerConnection.IceTransportsType.ALL
+        val iceServers = buildIceServers(turnServers)
+        // Страховка к проверке в doStartCall/doAnswerCall: без TURN в relay-режиме PeerConnection не создаём.
+        check(allowDirectP2p || iceServers.isNotEmpty()) { "Relay-режим без TURN-серверов" }
+        val rtcConfig = PeerConnection.RTCConfiguration(iceServers).apply {
+            iceTransportsType =
+                if (allowDirectP2p) PeerConnection.IceTransportsType.ALL else PeerConnection.IceTransportsType.RELAY
             bundlePolicy = PeerConnection.BundlePolicy.MAXBUNDLE
             rtcpMuxPolicy = PeerConnection.RtcpMuxPolicy.REQUIRE
             sdpSemantics = PeerConnection.SdpSemantics.UNIFIED_PLAN
-            continualGatheringPolicy = PeerConnection.ContinualGatheringPolicy.GATHER_CONTINUALLY
+            // GATHER_ONCE: без повторной выдачи кандидатов при смене сети.
+            continualGatheringPolicy = PeerConnection.ContinualGatheringPolicy.GATHER_ONCE
         }
         val pc = factory.createPeerConnection(rtcConfig, PcObserver(id))
             ?: throw IllegalStateException("createPeerConnection вернул null")
@@ -663,7 +697,6 @@ class CallViewModel @Inject constructor(
         private const val VIDEO_TRACK_ID = "ramka-video"
         private const val STREAM_ID = "ramka-stream"
         private const val CAPTURE_THREAD_NAME = "ramka-capture"
-        private const val STUN_URL = "stun:stun.l.google.com:19302"
 
         private const val CAPTURE_WIDTH = 640
         private const val CAPTURE_HEIGHT = 480
@@ -674,6 +707,7 @@ class CallViewModel @Inject constructor(
         private const val MAX_PENDING_CANDIDATES = 100
 
         const val MSG_NO_MIC = "Для звонков необходим доступ к микрофону"
+        const val MSG_TURN_REQUIRED = "Для звонка требуется настроенный TURN-сервер. Добавьте его в настройках"
         private const val MSG_PEER_UNREACHABLE = "Собеседник недоступен"
         private const val MSG_START_FAILED = "Не удалось начать звонок"
         private const val MSG_ANSWER_FAILED = "Не удалось принять звонок"

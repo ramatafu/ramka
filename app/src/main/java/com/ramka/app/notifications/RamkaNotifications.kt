@@ -9,6 +9,7 @@ import android.content.Intent
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.ramka.app.MainActivity
+import com.ramka.app.R
 
 private const val CHANNEL_ID = "ramka_messages"
 private const val NOTIFICATION_ID = 1 // одно и то же уведомление на всё приложение — без списка отправителей
@@ -56,14 +57,14 @@ object RamkaNotifications {
      */
     fun showNewMessageNotification(context: Context) {
         val publicVersion = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_dialog_email)
+            .setSmallIcon(R.drawable.ic_ramka_logo)
             .setContentTitle(TITLE)
             .setContentText(TEXT)
             .setAutoCancel(true)
             .build()
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_dialog_email)
+            .setSmallIcon(R.drawable.ic_ramka_logo)
             .setContentTitle(TITLE)
             .setContentText(TEXT)
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
@@ -113,13 +114,13 @@ object RamkaNotifications {
         )
 
         val publicVersion = NotificationCompat.Builder(context, SERVICE_CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_dialog_email)
+            .setSmallIcon(R.drawable.ic_ramka_logo)
             .setContentTitle(TITLE)
             .setContentText(SERVICE_TEXT)
             .build()
 
         return NotificationCompat.Builder(context, SERVICE_CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_dialog_email)
+            .setSmallIcon(R.drawable.ic_ramka_logo)
             .setContentTitle(TITLE)
             .setContentText(SERVICE_TEXT)
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)

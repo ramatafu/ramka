@@ -2,6 +2,11 @@
 <paths>
     <!-- Исходящие файлы: копии из шага 6.3 (filesDir/outgoing_files). -->
     <files-path name="outgoing_files" path="outgoing_files/" />
+    
     <!-- Принятые файлы на Android 8-9 (на 10+ они лежат в MediaStore и FileProvider не нужен). -->
     <external-files-path name="received_legacy" path="Download/ramka/" />
+    
+    <!-- НОВОЕ (Исправление R-3): Доступ к временно расшифрованным файлам для открытия через FileProvider. 
+         Используется методом getDecryptedFileUri() для директории cacheDir/open/ -->
+    <cache-path name="open" path="open/" />
 </paths>

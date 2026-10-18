@@ -21,11 +21,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.ramka.app.R
 import com.ramka.app.ui.theme.RamkaAccent
 import com.ramka.domain.model.Contact
 
@@ -94,7 +96,17 @@ fun ContactsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("ramka") },
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_ramka_logo),
+                            contentDescription = null, // декоративный: рядом название приложения
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(Modifier.width(10.dp))
+                        Text("ramka")
+                    }
+                },
                 actions = {
                     // Вход в настройки (ЭТАП B.8)
                     IconButton(onClick = onOpenSettings) {

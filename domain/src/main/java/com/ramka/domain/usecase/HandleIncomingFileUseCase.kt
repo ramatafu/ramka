@@ -15,29 +15,12 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.util.UUID
 
-/**
- * Приём файла (этап 6.4): [AppMessage.FileMeta] заводит входящее сообщение (SENDING, «Загрузка…»)
- * и временный файл; каждый [AppMessage.FileChunk] пишется по смещению index * chunkSize
- * (каждый пакет — отдельное соединение, порядок их обработки не гарантирован); когда собраны все
- * чанки, файл публикуется ([IncomingFileStore.publish]), сообщение становится DELIVERED с Uri
- * файла, растёт счётчик непрочитанных и уходит DELIVERED-ACK — тот же механизм, что у текста.
- *
- * Недоверенный ввод: размеры и число чанков проверяются, имя и MIME очищаются ([FileNames]), чанк
- * неверной длины обрывает передачу, чанки неизвестной передачи отбрасываются молча. Одновременных
- * приёмов не больше [FileTransferConfig.MAX_ACTIVE_INCOMING].
- *
- * Повторные метаданные того же messageId: если файл уже принят — только повторный ACK (у отправителя
- * мог потеряться ACK), иначе приём начинается заново. Состояние активных приёмов — в памяти; при
- * перезапуске процесса незавершённые помечаются FAILED (MessageRepository.failInterruptedFileTransfers).
- */
 class HandleIncomingFileUseCase(
     private val messageRepository: MessageRepository,
     private val contactRepository: ContactRepository,
     private val store: IncomingFileStore,
     private val tracker: FileTransferTracker,
-    /** Источник времени для вытеснения брошенных приёмов (в тестах подменяется). */
     private val clock: () -> Long = { System.currentTimeMillis() },
-    /** true, если чат с этим контактом сейчас виден — тогда счётчик непрочитанных не растёт. */
     private val isChatOpen: (contactId: String) -> Boolean = { false }
 ) {
     private class Active(
@@ -76,13 +59,11 @@ class HandleIncomingFileUseCase(
         if (existing != null) {
             if (existing.body !is MessageBody.File) return@withLock
             if (existing.status == MessageStatus.DELIVERED || existing.status == MessageStatus.READ) {
-                acknowledge(meta.messageId) // уже принят: отправитель повторяет из-за потерянного ACK
+                acknowledge(meta.messageId)
                 return@withLock
             }
         }
-        // Новый приём или перезапуск прерванного: лимит одновременных (перезапуск своей записи не считается).
         if (key !in active && active.size >= FileTransferConfig.MAX_ACTIVE_INCOMING) {
-            // Слоты заняты: брошенные отправителем приёмы (давно нет чанков) освобождают место.
             val now = clock()
             active.entries
                 .filter { now - it.value.lastActivityMillis > FileTransferConfig.STALE_INCOMING_MILLIS }
@@ -129,7 +110,7 @@ class HandleIncomingFileUseCase(
         onCompleted: suspend (Message) -> Unit
     ) = mutex.withLock {
         val key = key(contactId, chunk.messageId)
-        val transfer = active[key] ?: return@withLock // неизвестная или уже завершённая передача
+        val transfer = active[key] ?: return@withLock
 
         if (chunk.index >= transfer.totalChunks) return@withLock fail(key, transfer)
         val expectedLength = if (chunk.index < transfer.totalChunks - 1) {
@@ -138,7 +119,7 @@ class HandleIncomingFileUseCase(
             transfer.totalSize - chunk.index.toLong() * transfer.chunkSize
         }
         if (chunk.data.size.toLong() != expectedLength) return@withLock fail(key, transfer)
-        if (transfer.received[chunk.index]) return@withLock // дубликат
+        if (transfer.received[chunk.index]) return@withLock
 
         if (!store.write(transfer.localId, chunk.index.toLong() * transfer.chunkSize, chunk.data)) {
             return@withLock fail(key, transfer)
@@ -152,11 +133,16 @@ class HandleIncomingFileUseCase(
             return@withLock
         }
 
+        // !!! ВОТ ЭТО БЫЛО ПРОПУЩЕНО !!!
+        // 1. Шифруем файл и получаем URI
         val uri = store.publish(transfer.localId, transfer.displayName, transfer.mimeType)
             ?: return@withLock fail(key, transfer)
 
+        // 2. Сохраняем этот URI в базу данных!
         active.remove(key)
         messageRepository.updateFileUri(transfer.localId, uri)
+        // !!! КОНЕЦ ПРОПУЩЕННОГО БЛОКА !!!
+
         messageRepository.updateFileProgress(transfer.localId, 100)
         messageRepository.updateStatus(transfer.localId, MessageStatus.DELIVERED)
         tracker.clear(transfer.localId)
