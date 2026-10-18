@@ -1,3 +1,4 @@
+<img width="1254" height="1254" alt="изображение" src="https://github.com/user-attachments/assets/7afff5dc-dfe4-406a-be94-1dedd896bba5" />
 # ramka — Stage 1 (локальный зашифрованный чат по LAN)
 
 ## О проекте
