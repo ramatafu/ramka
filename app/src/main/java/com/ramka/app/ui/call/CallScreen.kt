@@ -9,15 +9,17 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -34,6 +36,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -238,7 +243,14 @@ fun CallContent(
             onToggleMute = onToggleMute,
             onToggleVideo = onToggleVideo,
             onClose = onClose,
-            modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(24.dp),
+            // navigationBarsPadding() ПЕРЕД padding(24.dp): сначала отступ на высоту системной панели
+            // (кнопки или жестовая полоса), затем прежние 24dp. Приложение рисуется под системными панелями
+            // (enableEdgeToEdge), поэтому без этого кнопки оказывались под ними.
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(24.dp),
         )
     }
 }
@@ -340,41 +352,73 @@ private fun CallControls(
     ) {
         when (state) {
             is CallState.Incoming -> {
-                DangerButton(text = "Отклонить", onClick = onReject)
+                CircleCallButton("📵", "Отклонить", CallButtonStyle.Danger, onReject)
                 if (state.withVideo) {
-                    FilledTonalButton(onClick = { onAnswer(false) }) { Text("Голос") }
-                    Button(onClick = { onAnswer(true) }) { Text("Видео") }
+                    CircleCallButton("📞", "Ответить голосом", CallButtonStyle.Tonal) { onAnswer(false) }
+                    CircleCallButton("📹", "Ответить с видео", CallButtonStyle.Primary) { onAnswer(true) }
                 } else {
-                    Button(onClick = { onAnswer(false) }) { Text("Принять") }
+                    CircleCallButton("📞", "Принять", CallButtonStyle.Primary) { onAnswer(false) }
                 }
             }
-            is CallState.Dialing -> DangerButton(text = "Завершить", onClick = onEndCall)
+            is CallState.Dialing -> CircleCallButton("📵", "Завершить звонок", CallButtonStyle.Danger, onEndCall)
             is CallState.Connected -> {
-                FilledTonalButton(onClick = onToggleMute) {
-                    Text(if (isMuted) "Микрофон выкл." else "Микрофон")
-                }
+                CircleCallButton(
+                    emoji = if (isMuted) "🔇" else "🎤",
+                    description = if (isMuted) "Микрофон выключен, включить" else "Микрофон включён, выключить",
+                    style = CallButtonStyle.Tonal,
+                    onClick = onToggleMute
+                )
                 if (canToggleVideo) {
-                    FilledTonalButton(onClick = onToggleVideo) {
-                        Text(if (isVideoEnabled) "Камера" else "Камера выкл.")
-                    }
+                    CircleCallButton(
+                        emoji = if (isVideoEnabled) "📹" else "📷",
+                        description = if (isVideoEnabled) "Камера включена, выключить" else "Камера выключена, включить",
+                        style = CallButtonStyle.Tonal,
+                        onClick = onToggleVideo
+                    )
                 }
-                DangerButton(text = "Завершить", onClick = onEndCall)
+                CircleCallButton("📵", "Завершить звонок", CallButtonStyle.Danger, onEndCall)
             }
-            is CallState.Ended, is CallState.Error -> FilledTonalButton(onClick = onClose) { Text("Закрыть") }
-            is CallState.Idle -> DangerButton(text = "Отмена", onClick = onClose)
+            is CallState.Ended, is CallState.Error -> CircleCallButton("❌", "Закрыть", CallButtonStyle.Tonal, onClose)
+            is CallState.Idle -> CircleCallButton("❌", "Отмена", CallButtonStyle.Danger, onClose)
         }
     }
 }
 
+private enum class CallButtonStyle { Primary, Tonal, Danger }
+
+/**
+ * Круглая кнопка звонка с одним эмодзи (в стиле остального приложения: 📹 📞 📎 текстом).
+ * Цвета прежние: основной (Primary), тональный (Tonal), красный (Danger). Подпись для TalkBack —
+ * в [description]; сам эмодзи из семантики убран, чтобы он не зачитывался дважды.
+ */
 @Composable
-private fun DangerButton(text: String, onClick: () -> Unit) {
-    Button(
-        onClick = onClick,
-        colors = ButtonDefaults.buttonColors(
+private fun CircleCallButton(
+    emoji: String,
+    description: String,
+    style: CallButtonStyle,
+    onClick: () -> Unit,
+) {
+    val colors = when (style) {
+        CallButtonStyle.Primary -> ButtonDefaults.buttonColors()
+        CallButtonStyle.Tonal -> ButtonDefaults.filledTonalButtonColors()
+        CallButtonStyle.Danger -> ButtonDefaults.buttonColors(
             containerColor = MaterialTheme.colorScheme.error,
             contentColor = MaterialTheme.colorScheme.onError,
-        ),
+        )
+    }
+    Button(
+        onClick = onClick,
+        modifier = Modifier
+            .size(64.dp)
+            .semantics { contentDescription = description },
+        shape = CircleShape,
+        colors = colors,
+        contentPadding = PaddingValues(0.dp),
     ) {
-        Text(text)
+        Text(
+            text = emoji,
+            style = MaterialTheme.typography.titleLarge,
+            modifier = Modifier.clearAndSetSemantics { },
+        )
     }
 }

@@ -218,11 +218,20 @@ object AppModule {
         activeChat: com.ramka.domain.util.ActiveChatTracker,
         jitter: Jitter,
         handleIncomingFile: HandleIncomingFileUseCase,
-        callSignaling: CallSignaling
+        callSignaling: CallSignaling,
+        incomingFileStore: com.ramka.app.files.AndroidIncomingFileStore
     ): IncomingMessageProcessor = IncomingMessageProcessor(
         contactRepository, messageRepository, transportRepository, activeChat, jitter,
         handleIncomingFile = handleIncomingFile,
-        onCallSignal = callSignaling::onIncoming
+        onCallSignal = callSignaling::onIncoming,
+        // Собеседник удалил файловое сообщение у всех — стираем и сам принятый файл.
+        onMessageRemoved = { removed ->
+            val body = removed.body
+            if (body is com.ramka.domain.model.MessageBody.File) {
+                com.ramka.app.files.AndroidIncomingFileStore.transferIdFrom(body.uri)
+                    ?.let { incomingFileStore.deleteStoredFile(it) }
+            }
+        }
     ) {
         com.ramka.app.notifications.RamkaNotifications.showNewMessageNotification(ctx)
     }

@@ -57,6 +57,15 @@ sealed class AppMessage {
         override fun hashCode(): Int = 31 * (31 * messageId.hashCode() + index) + data.contentHashCode()
     }
 
+    /**
+     * «Удалить у всех»: отправитель просит получателя удалить ЕГО сообщение. [messageId] — localId сообщения
+     * у отправителя (UUID), то есть тот же идентификатор, что в [Text.messageId]/[FileMeta.messageId];
+     * получатель ищет у себя среди входящих от ЭТОГО контакта сообщение с таким remoteMessageId. Чужие
+     * сообщения и сообщения других контактов так удалить нельзя. Старые версии приложения не знают тег и
+     * просто отбрасывают пакет (decode == null).
+     */
+    data class DeleteMessage(val messageId: String) : AppMessage()
+
     // --- Сигналинг звонков (этап 7.3). Идут тем же зашифрованным каналом, что и текст; ---
     // --- [callId] — UUIDv4 звонка, генерирует инициатор; по нему стороны сопоставляют сигналы. ---
 
@@ -101,6 +110,8 @@ sealed class AppMessage {
         is CallIceCandidate -> encodeIceCandidate(this)
         // CallEnd: [тег][callId 36][причина 1]
         is CallEnd -> byteArrayOf(TAG_CALL_END) + callId.toByteArray(Charsets.US_ASCII) + byteArrayOf(reason.code)
+        // DeleteMessage: [тег][messageId 36]
+        is DeleteMessage -> byteArrayOf(TAG_DELETE_MESSAGE) + messageId.toByteArray(Charsets.US_ASCII)
     }
 
     companion object {
@@ -113,6 +124,7 @@ sealed class AppMessage {
         private const val TAG_CALL_ANSWER: Byte = 6
         private const val TAG_CALL_ICE: Byte = 7
         private const val TAG_CALL_END: Byte = 8
+        private const val TAG_DELETE_MESSAGE: Byte = 9
         private const val UUID_LENGTH = 36
 
         /** Потолки размеров недоверенных строк сигналинга: настоящие SDP/кандидаты на порядки меньше. */
@@ -241,6 +253,10 @@ sealed class AppMessage {
                         callId = payload.copyOfRange(0, UUID_LENGTH).toString(Charsets.US_ASCII),
                         reason = CallEnd.Reason.fromCode(payload[UUID_LENGTH])
                     )
+                }
+                TAG_DELETE_MESSAGE -> {
+                    if (payload.size != UUID_LENGTH) return null
+                    DeleteMessage(payload.toString(Charsets.US_ASCII))
                 }
                 else -> null
             }

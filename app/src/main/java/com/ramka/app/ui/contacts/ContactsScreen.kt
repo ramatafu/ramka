@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -28,7 +29,16 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.ramka.app.R
+import com.ramka.app.connection.ConnectionLogo
+import com.ramka.app.connection.ConnectionIndicatorViewModel
+import com.ramka.app.connection.resolveConnectionState
+import com.ramka.app.panic.PanicViewModel
+import com.ramka.app.panic.findActivity
+import com.ramka.app.panic.panicLogoTrigger
+import com.ramka.app.ui.call.CallViewModel
+import com.ramka.app.ui.call.activityCallViewModel
 import com.ramka.app.ui.theme.RamkaAccent
+import com.ramka.domain.call.CallState
 import com.ramka.domain.model.Contact
 
 /**
@@ -55,9 +65,21 @@ fun ContactsScreen(
     onOpenChat: (String) -> Unit,
     onAddContact: () -> Unit,
     onOpenSettings: () -> Unit,
-    viewModel: ContactsViewModel = hiltViewModel()
+    viewModel: ContactsViewModel = hiltViewModel(),
+    panicViewModel: PanicViewModel = hiltViewModel(),
+    connectionViewModel: ConnectionIndicatorViewModel = hiltViewModel(),
+    callViewModel: CallViewModel = activityCallViewModel()
 ) {
     val contacts by viewModel.contacts.collectAsState()
+    // Индикатор типа соединения на логотипе (только отображение; логика транспортов не затронута).
+    val callState by callViewModel.state.collectAsState()
+    val link by connectionViewModel.link.collectAsState()
+    val connection = resolveConnectionState(
+        callConnected = callState is CallState.Connected,
+        network = link.network,
+        relayConnected = link.relayConnected,
+        peersDiscoveredInLan = false // <-- ДОБАВЛЕНО: временно false, пока нет механизма обнаружения пиров
+    )
     val context = LocalContext.current
     var notificationPermissionState by remember { mutableStateOf(NotificationPermissionUiState.NONE) }
 
@@ -98,19 +120,26 @@ fun ContactsScreen(
             TopAppBar(
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_ramka_logo),
-                            contentDescription = null, // декоративный: рядом название приложения
-                            modifier = Modifier.size(24.dp)
+                        // Сам логотип окрашен в цвет типа соединения (зелёный P2P, жёлтый TURN, синий Relay,
+                        // серый офлайн). Скрытый триггер экстренного сброса (5 нажатий за 3 с или удержание 3 с),
+                        // размер 24dp и padding 8dp прежние.
+                        ConnectionLogo(
+                            state = connection,
+                            modifier = Modifier
+                                .panicLogoTrigger { panicViewModel.panic(context.findActivity()) }
+                                .padding(8.dp)
+                                .size(24.dp)
                         )
-                        Spacer(Modifier.width(10.dp))
-                        Text("ramka")
-                    }
-                },
-                actions = {
-                    // Вход в настройки (ЭТАП B.8)
-                    IconButton(onClick = onOpenSettings) {
-                        Text("⚙", style = MaterialTheme.typography.titleLarge)
+                        // Вход в настройки (ЭТАП B.8): тап по слову «ramka» (шестерёнка убрана).
+                        // Логотип слева с этим не связан — на нём только скрытый триггер паники,
+                        // поэтому 5 быстрых нажатий / удержание не открывают настройки.
+                        Text(
+                            text = "ramka",
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable(onClickLabel = "Настройки", onClick = onOpenSettings)
+                                .padding(start = 2.dp, top = 8.dp, end = 8.dp, bottom = 8.dp)
+                        )
                     }
                 }
             )

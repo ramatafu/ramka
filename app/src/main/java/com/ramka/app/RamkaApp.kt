@@ -4,6 +4,7 @@ import android.app.Application
 import com.ramka.app.background.BackgroundDeliveryController
 import com.ramka.app.discovery.LanPresenceCoordinator
 import com.ramka.app.discovery.LanVisibilityController
+import com.ramka.app.panic.PanicWipe
 import com.ramka.data.incoming.IncomingMessageProcessor
 import android.util.Log
 import com.ramka.domain.relay.RelayHealthMonitor
@@ -30,6 +31,15 @@ class RamkaApp : Application() {
     @Inject lateinit var incomingFileStore: IncomingFileStore
 
     override fun onCreate() {
+        // Экстренный сброс был прерван (процесс убит посреди стирания): дочищаем ДО инициализации
+        // Hilt/БД/Keystore. Иначе остаток (например, prefs без ключа) мог бы привести к падению при старте.
+        try {
+            if (PanicWipe.isPending(this)) {
+                PanicWipe.wipeAll(this)
+                PanicWipe.clearMarker(this)
+            }
+        } catch (_: Throwable) { }
+
         super.onCreate()
 
         com.ramka.app.notifications.RamkaNotifications.ensureChannel(this)

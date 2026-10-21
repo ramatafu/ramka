@@ -12,6 +12,8 @@
     <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
     <!-- Уведомления о новых сообщениях (опционально, запрашивается по месту) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Короткая вибрация при активации экстренного сброса -->
+    <uses-permission android:name="android.permission.VIBRATE" />
     <!-- Фоновая доставка (опционально, этап 2+) -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <!-- API 34+: разрешение под тип foreground-сервиса specialUse (см. <service> ниже и DEVIATIONS.md, «ЭТАП B.8») -->
@@ -39,7 +41,8 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:theme="@style/Theme.Ramka">
+            android:theme="@style/Theme.Ramka"
+            android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

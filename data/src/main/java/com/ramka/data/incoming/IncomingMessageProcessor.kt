@@ -45,6 +45,11 @@ class IncomingMessageProcessor(
      */
     private val onCallSignal: (contactId: String, message: AppMessage) -> Unit = { _, _ -> },
     /**
+     * Вызывается ПОСЛЕ того, как собеседник удалил своё сообщение у всех ([AppMessage.DeleteMessage]) и запись
+     * уже убрана из БД. Нужен app-слою, чтобы стереть файл удалённого файлового сообщения. По умолчанию — no-op.
+     */
+    private val onMessageRemoved: suspend (Message) -> Unit = {},
+    /**
      * Вызывается ПОСЛЕ сохранения НОВОГО (не дублирующего) входящего текстового
      * сообщения — единственная точка интеграции с уведомлениями (ЭТАП B.7). На
      * дубликат по remoteMessageId НЕ вызывается — дубликат не должен спамить
@@ -94,11 +99,23 @@ class IncomingMessageProcessor(
                 // Файл принят целиком: то же уведомление, что и о новом тексте (фиксированный текст, без имени файла).
                 { saved -> onIncomingTextSaved(saved) }
             )
+            is AppMessage.DeleteMessage -> handleRemoteDelete(contact, appMessage.messageId)
             is AppMessage.CallOffer,
             is AppMessage.CallAnswer,
             is AppMessage.CallIceCandidate,
             is AppMessage.CallEnd -> onCallSignal(contact.localId, appMessage)
         }
+    }
+
+    /**
+     * «Удалить у всех» от собеседника. Ищем среди ВХОДЯЩИХ сообщений именно ЭТОГО контакта по remoteMessageId:
+     * так контакт может удалить только свои сообщения в этой переписке. Неизвестный ID (уже удалено или не
+     * дошло) молча игнорируем.
+     */
+    private suspend fun handleRemoteDelete(contact: Contact, senderMessageId: String) {
+        val message = messageRepository.findIncomingByRemoteId(contact.localId, senderMessageId) ?: return
+        messageRepository.deleteMessage(message.localId)
+        onMessageRemoved(message)
     }
 
     /** DELIVERED-ACK best-effort, отдельной корутиной и с джиттером — ровно как для текста. */

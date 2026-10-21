@@ -44,6 +44,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.ramka.app.data.TurnServerEntry
+import com.ramka.app.turn.TurnServerStatus
 
 /** Список TURN-серверов: карточки с переключателем, перестановкой и удалением; внизу — «Добавить». */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -57,6 +58,7 @@ fun TurnServerListScreen(
 ) {
     val servers by viewModel.servers.collectAsState()
     val loaded by viewModel.loaded.collectAsState()
+    val statuses by viewModel.statuses.collectAsState()
     val message by viewModel.message.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     var pendingDelete by remember { mutableStateOf<TurnServerEntry?>(null) }
@@ -104,6 +106,7 @@ fun TurnServerListScreen(
                         itemsIndexed(servers, key = { _, server -> server.id }) { index, server ->
                             TurnServerCard(
                                 server = server,
+                                status = if (server.isEnabled) statuses[server.id] else null,
                                 canMoveUp = index > 0,
                                 canMoveDown = index < servers.lastIndex,
                                 onEdit = { onEditServer(server.id) },
@@ -142,6 +145,7 @@ fun TurnServerListScreen(
 @Composable
 private fun TurnServerCard(
     server: TurnServerEntry,
+    status: TurnServerStatus?,
     canMoveUp: Boolean,
     canMoveDown: Boolean,
     onEdit: () -> Unit,
@@ -161,9 +165,21 @@ private fun TurnServerCard(
                         color = MaterialTheme.colorScheme.secondary
                     )
                 }
+                if (status != null) {
+                    Spacer(Modifier.width(8.dp))
+                    TurnStatusBadge(status)
+                }
                 Spacer(Modifier.width(12.dp))
                 Switch(checked = server.isEnabled, onCheckedChange = { onToggle() })
                 Spacer(Modifier.width(8.dp))
+            }
+            if (status == TurnServerStatus.UNREACHABLE) {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    TURN_UNREACHABLE_HINT,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error
+                )
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                 IconButton(onClick = onMoveUp, enabled = canMoveUp) {

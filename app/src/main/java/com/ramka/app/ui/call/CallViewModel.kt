@@ -4,6 +4,10 @@ import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import android.media.AudioManager
+import android.os.Build
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 import android.util.Log
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
@@ -359,6 +363,7 @@ class CallViewModel @Inject constructor(
                 Log.e(TAG, "❌ ICE соединение ПРОВАЛИЛОСЬ! Проверь TURN, STUN и сеть.")
             } else if (newState == PeerConnection.IceConnectionState.CONNECTED) {
                 Log.i(TAG, "✅ ICE соединение УСПЕШНО установлено!")
+                vibrateOnConnected(id)
             }
         }
 
@@ -392,6 +397,26 @@ class CallViewModel @Inject constructor(
         
         override fun onRenegotiationNeeded() {
             Log.d(TAG, "🔄 onRenegotiationNeeded")
+        }
+    }
+
+    /** Один раз на звонок: ICE может перейти в CONNECTED повторно (после DISCONNECTED), вибрировать снова не нужно. */
+    @Volatile private var vibratedForCallId: String? = null
+
+    private fun vibrateOnConnected(id: String) {
+        if (vibratedForCallId == id) return
+        vibratedForCallId = id
+        try {
+            val vibrator: Vibrator? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                (context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager)?.defaultVibrator
+            } else {
+                @Suppress("DEPRECATION")
+                context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+            }
+            // minSdk = 26, поэтому VibrationEffect доступен всегда; vibrate() не блокирует поток.
+            vibrator?.vibrate(VibrationEffect.createOneShot(50, VibrationEffect.DEFAULT_AMPLITUDE))
+        } catch (_: Throwable) {
+            // Вибромотора нет или он недоступен — не критично.
         }
     }
 

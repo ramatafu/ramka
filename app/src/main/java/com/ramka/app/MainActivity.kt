@@ -4,6 +4,13 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
+import com.ramka.app.panic.PanicBlackout
+import com.ramka.app.panic.PanicButtonManager
 import com.ramka.app.background.BackgroundDeliveryController
 import com.ramka.app.navigation.RamkaNavHost
 import com.ramka.app.ui.theme.RamkaTheme
@@ -14,6 +21,7 @@ import javax.inject.Inject
 class MainActivity : ComponentActivity() {
 
     @Inject lateinit var backgroundDeliveryController: BackgroundDeliveryController
+    @Inject lateinit var panicButtonManager: PanicButtonManager
 
     override fun onStart() {
         super.onStart()
@@ -26,7 +34,12 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             RamkaTheme {
-                RamkaNavHost()
+                val blackout by panicButtonManager.blackout.collectAsState()
+                Box(Modifier.fillMaxSize()) {
+                    RamkaNavHost()
+                    // Экстренный сброс: чёрный экран с текстом поверх всего, касания поглощаются.
+                    if (blackout) PanicBlackout()
+                }
             }
         }
     }

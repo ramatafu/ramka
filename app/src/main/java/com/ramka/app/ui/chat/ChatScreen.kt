@@ -15,16 +15,22 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
@@ -47,6 +53,9 @@ import java.util.*
 data class OpenFileRequest(val uri: Uri, val mimeType: String?, val fileName: String?)
 
 private const val OPEN_TAG = "ChatOpenFile"
+
+/** «Внизу» для умной автопрокрутки: первый элемент виден и сдвинут не более чем на столько dp. */
+private const val NEAR_BOTTOM_DP = 100
 
 // 2. Умное определение MIME-типа
 private fun resolveMimeType(context: Context, req: OpenFileRequest): String {
@@ -146,6 +155,52 @@ fun ChatScreen(
         if (uri != null) viewModel.onFilePicked(uri)
     }
 
+    // Умная автопрокрутка. reverseLayout = true: индекс 0 — самое новое сообщение, оно же «низ» чата.
+    val listState = rememberLazyListState()
+    val nearBottomPx = with(LocalDensity.current) { NEAR_BOTTOM_DP.dp.roundToPx() }
+    var stickToBottom by remember { mutableStateOf(true) }
+
+    // «Пользователь внизу» обновляем только по реальному скроллу. Эмиссии, в которых изменилось число
+    // элементов, пропускаем: при вставке нового сообщения список сам сдвигает firstVisibleItemIndex на 1
+    // (сохраняя позицию по ключу), и без этого пропуска «внизу» ложно превращалось бы в «выше».
+    LaunchedEffect(listState, nearBottomPx) {
+        var previousCount = -1
+        snapshotFlow {
+            Triple(
+                listState.layoutInfo.totalItemsCount,
+                listState.firstVisibleItemIndex,
+                listState.firstVisibleItemScrollOffset
+            )
+        }.collect { (count, index, offset) ->
+            if (count == previousCount) stickToBottom = index == 0 && offset < nearBottomPx
+            previousCount = count
+        }
+    }
+
+    val newest = messages.lastOrNull()
+    LaunchedEffect(newest?.localId) {
+        // Открытие чата / новое сообщение: вниз, если пользователь внизу. Своё отправленное сообщение
+        // показываем всегда — иначе отправитель, читавший историю, не увидит собственного сообщения.
+        if (newest != null && (stickToBottom || newest.direction == MessageDirection.OUTGOING)) {
+            listState.scrollToItem(0)
+        }
+    }
+
+    // Контекстное меню сообщения (долгое нажатие) и диалоги второго уровня.
+    var menuState by remember { mutableStateOf<MessageContextMenuState?>(null) }
+    var deleteTarget by remember { mutableStateOf<Message?>(null) }
+    var forwardTarget by remember { mutableStateOf<Message?>(null) }
+    var infoTarget by remember { mutableStateOf<MessageInfo?>(null) }
+    val forwardTargets by viewModel.forwardTargets.collectAsState()
+    val haptic = LocalHapticFeedback.current
+
+    // Сообщение исчезло (например, собеседник удалил его у всех), пока меню открыто, — закрываем меню.
+    LaunchedEffect(messages) {
+        menuState?.let { s ->
+            if (messages.none { it.localId == s.message.localId }) menuState = null
+        }
+    }
+
     val showMessage: (String) -> Unit = { text ->
         scope.launch {
             snackbarHostState.currentSnackbarData?.dismiss()
@@ -183,7 +238,9 @@ fun ChatScreen(
     }
 
     Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
+        // Вертикальные отступы (статус-бар, навигация, клавиатура) раскладываем сами: верх — TopAppBar,
+        // низ — Column ниже (imePadding один раз). По горизонтали (вырезы, ландшафт) Scaffold оставляем.
+        contentWindowInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal),
         topBar = {
             TopAppBar(
                 title = { Text(contact?.alias ?: "…") },
@@ -193,16 +250,73 @@ fun ChatScreen(
                     }
                 },
                 actions = {
+                    // Иконки звонков в стиле остальных значков экрана (стрелка «Назад», «Отправить»):
+                    // однотонные Material, цвет акцента Ramka; без контакта — приглушены.
+                    val callTint = RamkaAccent.copy(alpha = if (contact != null) 1f else 0.38f)
                     IconButton(onClick = onVideoCall, enabled = contact != null) {
-                        Text("📹", style = MaterialTheme.typography.titleLarge)
+                        Icon(VideocamIcon, contentDescription = "Видеозвонок", tint = callTint)
                     }
                     IconButton(onClick = onCall, enabled = contact != null) {
-                        Text("📞", style = MaterialTheme.typography.titleLarge)
+                        Icon(Icons.Filled.Call, contentDescription = "Аудиозвонок", tint = callTint)
                     }
                 }
             )
-        },
-        bottomBar = {
+        }
+    ) { padding ->
+        // Без bottomBar: поле ввода — обычный нижний элемент Column. imePadding() здесь единственный:
+        // Column заканчивается ровно над клавиатурой, список (weight) занимает всё место между
+        // TopAppBar и полем ввода, а поле прижато к клавиатуре без зазора.
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .imePadding()
+        ) {
+            LazyColumn(
+                state = listState,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                reverseLayout = true
+            ) {
+                items(messages.asReversed(), key = { it.localId }) { message ->
+                    MessageBubble(
+                        message = message,
+                        onRetryFile = viewModel::retryFile,
+                        onOpenFile = { body ->
+                            body.uri?.let { uri ->
+                                viewModel.onFileClicked(uri, body.fileName, body.mimeType)
+                            }
+                        },
+                        menuState = menuState?.takeIf { it.message.localId == message.localId },
+                        onLongClick = { m, position ->
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            menuState = MessageContextMenuState(m, position)
+                        },
+                        onDismissMenu = { menuState = null },
+                        onMenuAction = { action ->
+                            val target = message
+                            menuState = null
+                            when (action) {
+                                MessageAction.Copy -> viewModel.copyMessage(target)
+                                MessageAction.Forward -> forwardTarget = target
+                                MessageAction.Delete -> deleteTarget = target
+                                MessageAction.Info -> infoTarget = viewModel.getMessageInfo(target)
+                            }
+                        }
+                    )
+                    Spacer(Modifier.height(6.dp))
+                }
+                // reverseLayout: последний в коде = самый верхний на экране, поэтому подсказка о шифровании
+                // идёт ПОСЛЕ сообщений. Это один item без записи в БД: индекс 0 по-прежнему самое новое
+                // сообщение, автопрокрутка не затронута, а в пустом чате подсказка всё равно видна.
+                item(key = ENCRYPTION_BANNER_KEY, contentType = "encryption_banner") {
+                    EncryptionInfoBanner()
+                }
+            }
+            // Snackbar в потоке Column: показывается над полем ввода и не перекрывается клавиатурой.
+            SnackbarHost(snackbarHostState)
             MessageInputBar(
                 text = viewModel.draftText,
                 onTextChange = viewModel::onDraftChanged,
@@ -210,27 +324,34 @@ fun ChatScreen(
                 onAttach = { filePickerLauncher.launch("*/*") }
             )
         }
-    ) { padding ->
-        LazyColumn(
-            modifier = Modifier
-                .padding(padding)
-                .fillMaxSize()
-                .padding(horizontal = 12.dp),
-            reverseLayout = true
-        ) {
-            items(messages.asReversed(), key = { it.localId }) { message ->
-                MessageBubble(
-                    message = message,
-                    onRetryFile = viewModel::retryFile,
-                    onOpenFile = { body -> 
-                        body.uri?.let { uri ->
-                            viewModel.onFileClicked(uri, body.fileName, body.mimeType)
-                        }
-                    }
-                )
-                Spacer(Modifier.height(6.dp))
-            }
-        }
+    }
+
+    deleteTarget?.let { target ->
+        DeleteMessageDialog(
+            message = target,
+            onDeleteForMe = {
+                deleteTarget = null
+                viewModel.deleteMessageLocally(target.localId)
+            },
+            onDeleteForEveryone = {
+                deleteTarget = null
+                viewModel.deleteMessageForEveryone(target.localId)
+            },
+            onDismiss = { deleteTarget = null }
+        )
+    }
+    forwardTarget?.let { target ->
+        ForwardDialog(
+            contacts = forwardTargets,
+            onSelect = { contact ->
+                forwardTarget = null
+                viewModel.forwardMessage(target, contact.localId)
+            },
+            onDismiss = { forwardTarget = null }
+        )
+    }
+    infoTarget?.let { info ->
+        MessageInfoDialog(info = info, onDismiss = { infoTarget = null })
     }
 }
 
@@ -238,43 +359,57 @@ fun ChatScreen(
 private fun MessageBubble(
     message: Message,
     onRetryFile: (String) -> Unit,
-    onOpenFile: (MessageBody.File) -> Unit
+    onOpenFile: (MessageBody.File) -> Unit,
+    menuState: MessageContextMenuState?,
+    onLongClick: (Message, Offset) -> Unit,
+    onDismissMenu: () -> Unit,
+    onMenuAction: (MessageAction) -> Unit
 ) {
     val isOutgoing = message.direction == MessageDirection.OUTGOING
     val bubbleColor = if (isOutgoing) RamkaBubbleOutgoing else RamkaAccent.copy(alpha = 0.18f)
     val alignment = if (isOutgoing) Alignment.CenterEnd else Alignment.CenterStart
 
     Box(modifier = Modifier.fillMaxWidth(), contentAlignment = alignment) {
-        Column(
-            modifier = Modifier
-                .widthIn(max = 280.dp)
-                .background(bubbleColor, RoundedCornerShape(14.dp))
-                .padding(horizontal = 12.dp, vertical = 8.dp)
-        ) {
-            when (val body = message.body) {
-                is MessageBody.Text -> Text(
-                    text = body.text,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-                is MessageBody.File -> FileBubble(
-                    body = body,
-                    isOutgoing = isOutgoing,
-                    status = message.status,
-                    onRetry = { onRetryFile(message.localId) },
-                    onOpen = { onOpenFile(body) }
-                )
-            }
-            Spacer(Modifier.height(4.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = formatLocalTime(message.localCreatedAtEpochMillis),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.secondary
-                )
-                if (isOutgoing) {
-                    Spacer(Modifier.width(4.dp))
-                    StatusTicks(message.status)
+        // Внешний Box — якорь для меню: координаты нажатия считаются от пузыря, а Popup ставится от него же.
+        Box(modifier = Modifier.widthIn(max = 280.dp)) {
+            Column(
+                modifier = Modifier
+                    .background(bubbleColor, RoundedCornerShape(14.dp))
+                    .messageLongPress { offset -> onLongClick(message, offset) }
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
+            ) {
+                when (val body = message.body) {
+                    is MessageBody.Text -> Text(
+                        text = body.text,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+                    is MessageBody.File -> FileBubble(
+                        body = body,
+                        isOutgoing = isOutgoing,
+                        status = message.status,
+                        onRetry = { onRetryFile(message.localId) },
+                        onOpen = { onOpenFile(body) }
+                    )
                 }
+                Spacer(Modifier.height(4.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = formatLocalTime(message.localCreatedAtEpochMillis),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.secondary
+                    )
+                    if (isOutgoing) {
+                        Spacer(Modifier.width(4.dp))
+                        StatusTicks(message.status)
+                    }
+                }
+            }
+            if (menuState != null) {
+                MessageContextMenu(
+                    state = menuState,
+                    onDismiss = onDismissMenu,
+                    onAction = onMenuAction
+                )
             }
         }
     }
@@ -298,14 +433,16 @@ private fun MessageInputBar(
     onSend: () -> Unit,
     onAttach: () -> Unit
 ) {
+    // imePadding здесь НЕ нужен (он на родительском Column). navigationBarsPadding стоит внутри Surface:
+    // фон поля ввода доходит до края экрана под панелью навигации; при открытой клавиатуре этот
+    // отступ автоматически становится 0, потому что Column уже «съел» нижний inset.
     Surface(
-        modifier = Modifier
-            .navigationBarsPadding()
-            .imePadding(),
+        modifier = Modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.surface
     ) {
         Row(
             modifier = Modifier
+                .navigationBarsPadding()
                 .fillMaxWidth()
                 .padding(8.dp),
             verticalAlignment = Alignment.CenterVertically

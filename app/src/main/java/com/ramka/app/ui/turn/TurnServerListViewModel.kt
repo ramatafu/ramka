@@ -5,23 +5,39 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ramka.app.data.TurnServerEntry
 import com.ramka.app.data.TurnSettingsDataStore
+import com.ramka.app.data.TurnUrl
+import com.ramka.app.turn.TurnServerChecker
+import com.ramka.app.turn.TurnServerStatus
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.channelFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 
-/** Список TURN-серверов: показ, включение/выключение, порядок, удаление. */
+/** Список TURN-серверов: показ, включение/выключение, порядок, удаление, статус доступности. */
+@OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class TurnServerListViewModel @Inject constructor(
-    private val store: TurnSettingsDataStore
+    private val store: TurnSettingsDataStore,
+    private val checker: TurnServerChecker
 ) : ViewModel() {
 
     private val _loaded = MutableStateFlow(false)
@@ -36,6 +52,51 @@ class TurnServerListViewModel @Inject constructor(
         }
         .onEach { _loaded.value = true }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    private data class Target(val id: String, val url: String)
+
+    /** Последний результат по серверу (id -> адрес и статус): перестановка соседей не заставляет бейдж мигать. */
+    private val lastResults = ConcurrentHashMap<String, Pair<String, TurnServerStatus>>()
+
+    /**
+     * Статусы ВКЛЮЧЁННЫХ серверов по id. Проверка идёт, только пока экран подписан на поток: при открытии,
+     * при любом изменении набора/адресов/включённости (flatMapLatest перезапускает проверку), далее раз в
+     * [REFRESH_MS]. Выключенные серверы не проверяются и бейджа не получают.
+     */
+    val statuses: StateFlow<Map<String, TurnServerStatus>> = servers
+        .map { list -> list.filter { it.isEnabled }.map { Target(it.id, it.url) }.toSet() }
+        .distinctUntilChanged()
+        .flatMapLatest { targets -> probeLoop(targets) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
+
+    private fun probeLoop(targets: Set<Target>): Flow<Map<String, TurnServerStatus>> = channelFlow {
+        val mutex = Mutex()
+        val current = HashMap<String, TurnServerStatus>()
+        for (t in targets) {
+            lastResults[t.id]?.takeIf { it.first == t.url }?.let { current[t.id] = it.second }
+        }
+        send(current.toMap())
+        if (targets.isEmpty()) return@channelFlow
+
+        suspend fun publish(t: Target, status: TurnServerStatus) = mutex.withLock {
+            current[t.id] = status
+            send(current.toMap())
+        }
+
+        while (true) {
+            coroutineScope {
+                for (t in targets) launch {
+                    val known = mutex.withLock { t.id in current }
+                    if (!known) publish(t, TurnServerStatus.CONNECTING)
+                    val parsed = TurnUrl.parse(t.url)
+                    val result = if (parsed == null) TurnServerStatus.UNREACHABLE else checker.check(parsed)
+                    lastResults[t.id] = t.url to result
+                    publish(t, result)
+                }
+            }
+            delay(REFRESH_MS)
+        }
+    }
 
     private val _message = MutableStateFlow<String?>(null)
 
@@ -78,5 +139,6 @@ class TurnServerListViewModel @Inject constructor(
 
     private companion object {
         const val TAG = "ramka"
+        const val REFRESH_MS = 45_000L
     }
 }
