@@ -49,7 +49,13 @@ fun QrScreen(onDone: () -> Unit, viewModel: QrViewModel = hiltViewModel()) {
     var cameraPermissionState by remember { mutableStateOf(CameraPermissionUiState.NONE) }
 
     val scanOptions = remember {
-        ScanOptions().setDesiredBarcodeFormats(ScanOptions.QR_CODE).setBeepEnabled(false)
+        ScanOptions()
+            .setDesiredBarcodeFormats(ScanOptions.QR_CODE)
+            .setBeepEnabled(false)
+            // Свой экран сканера без принудительной горизонтали + не фиксировать ориентацию при запуске:
+            // сканер работает и вертикально, и горизонтально, телефон переворачивать не нужно.
+            .setCaptureActivity(PortraitCaptureActivity::class.java)
+            .setOrientationLocked(false)
     }
     val scanLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
         result.contents?.let(viewModel::onQrScanned)

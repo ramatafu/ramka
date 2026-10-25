@@ -35,6 +35,9 @@ class SendFileUseCaseTest {
     /** Провалить все попытки пакета с этим номером в sent-последовательности (0 = метаданные). */
     private var alwaysFailFromPacket = Int.MAX_VALUE
 
+    /** Пары (contactId, messageId), по которым сработал колбэк «сбой соединения». */
+    private val connectionFailures = mutableListOf<Pair<String, String>>()
+
     private fun useCase(): SendFileUseCase = SendFileUseCase(
         repo, tracker,
         send = { _, payload ->
@@ -47,7 +50,8 @@ class SendFileUseCaseTest {
                 sent += payload; true
             }
         },
-        pause = { pauses += it }
+        pause = { pauses += it },
+        onConnectionFailed = { contactId, messageId -> connectionFailures += contactId to messageId }
     )
 
     private fun fileOf(size: Int): Pair<File, ByteArray> {
@@ -170,6 +174,46 @@ class SendFileUseCaseTest {
         assertFalse(uc.transfer(empty.localId))
         assertEquals(MessageStatus.FAILED, statusOf(empty.localId))
         assertTrue(sent.isEmpty())
+    }
+
+    @Test fun connectionFailureOnMetaTriggersSignalCallbackAfterFailedStatus() = runBlocking {
+        val (file, _) = fileOf(100)
+        val uc = useCase()
+        val msg = outgoing(uc, file)
+        alwaysFailFromPacket = 0
+        assertFalse(uc.transfer(msg.localId))
+        assertEquals(MessageStatus.FAILED, statusOf(msg.localId))
+        assertEquals(listOf("contact" to msg.localId), connectionFailures)
+    }
+
+    @Test fun connectionFailureOnChunkTriggersSignalCallback() = runBlocking {
+        val (file, _) = fileOf(chunk * 3)
+        val uc = useCase()
+        val msg = outgoing(uc, file)
+        alwaysFailFromPacket = 2
+        assertFalse(uc.transfer(msg.localId))
+        assertEquals(listOf("contact" to msg.localId), connectionFailures)
+    }
+
+    @Test fun localErrorsAndSuccessDoNotTriggerSignalCallback() = runBlocking {
+        val uc = useCase()
+        val missing = outgoing(uc, File(tmp.root, "nope.bin"), size = 10)
+        assertFalse(uc.transfer(missing.localId))
+        val empty = outgoing(uc, tmp.newFile())
+        assertFalse(uc.transfer(empty.localId))
+        val (file, _) = fileOf(50)
+        val ok = outgoing(uc, file)
+        assertTrue(uc.transfer(ok.localId))
+        assertTrue(connectionFailures.isEmpty())
+    }
+
+    @Test fun throwingCallbackDoesNotChangeFailedResult() = runBlocking {
+        val (file, _) = fileOf(100)
+        val uc = SendFileUseCase(repo, tracker, send = { _, _ -> false }, pause = {},
+            onConnectionFailed = { _, _ -> throw IllegalStateException("boom") })
+        val msg = outgoing(uc, file)
+        assertFalse(uc.transfer(msg.localId))
+        assertEquals(MessageStatus.FAILED, statusOf(msg.localId))
     }
 
     @Test fun nonFileOrIncomingMessagesAreRejected() = runBlocking {

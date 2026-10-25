@@ -1,5 +1,6 @@
 package com.ramka.app
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -12,6 +13,7 @@ import androidx.compose.ui.Modifier
 import com.ramka.app.panic.PanicBlackout
 import com.ramka.app.panic.PanicButtonManager
 import com.ramka.app.background.BackgroundDeliveryController
+import com.ramka.app.call.CallAlerts
 import com.ramka.app.navigation.RamkaNavHost
 import com.ramka.app.ui.theme.RamkaTheme
 import dagger.hilt.android.AndroidEntryPoint
@@ -22,6 +24,7 @@ class MainActivity : ComponentActivity() {
 
     @Inject lateinit var backgroundDeliveryController: BackgroundDeliveryController
     @Inject lateinit var panicButtonManager: PanicButtonManager
+    @Inject lateinit var callAlerts: CallAlerts
 
     override fun onStart() {
         super.onStart()
@@ -29,9 +32,18 @@ class MainActivity : ComponentActivity() {
         // (из фона это запрещено на Android 12+). Если под-тумблер выключен — сервис гасится.
         backgroundDeliveryController.applyService()
     }
+
+    // Тап по баннеру звонка при живой Activity (SINGLE_TOP): не пересоздаём её, а разбираем новый Intent.
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        callAlerts.handleIntent(intent)
+    }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        // Только при первом создании: после поворота экрана Intent тот же, а «Принять» уже отработало.
+        if (savedInstanceState == null) callAlerts.handleIntent(intent)
         setContent {
             RamkaTheme {
                 val blackout by panicButtonManager.blackout.collectAsState()

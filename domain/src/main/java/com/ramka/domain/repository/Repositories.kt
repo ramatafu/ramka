@@ -9,7 +9,16 @@ interface ContactRepository {
     fun observeContacts(): Flow<List<Contact>>
     suspend fun getContact(localId: String): Contact?
     suspend fun addContact(contact: Contact)
+
+    /**
+     * Служебный контакт «Избранное» ([com.ramka.domain.model.ContactConstants.SELF_CONTACT_ID]): возвращает
+     * существующий или создаёт. Идемпотентно и безопасно при гонке (вставка IGNORE).
+     */
+    suspend fun getOrCreateSelfContact(): Contact
     suspend fun updateAlias(localId: String, alias: String)
+
+    /** Локальное фото контакта (file:// во внутреннем хранилище); null — убрать. Никуда не передаётся. */
+    suspend fun updatePhotoUri(localId: String, photoUri: String?)
     suspend fun updateLastKnownAddress(localId: String, address: com.ramka.domain.model.NetworkAddress)
     suspend fun markKeyChanged(localId: String, newPublicKey: ByteArray)
     suspend fun removeContact(localId: String)
@@ -28,6 +37,9 @@ interface MessageRepository {
     suspend fun updateStatus(localId: String, status: com.ramka.domain.model.MessageStatus)
     suspend fun markReadAckSent(localId: String)
     suspend fun deleteMessage(localId: String)
+
+    /** Удаляет ВСЕ сообщения контакта (при удалении контакта); записи Outbox уходят каскадом. */
+    suspend fun deleteAllForContact(contactId: String)
     suspend fun pendingForContact(contactId: String): List<Message>
     /** Входящие сообщения этого контакта, за которые ещё не отправлен ReadAck (см. ЭТАП B.5). */
     suspend fun incomingWithoutReadAck(contactId: String): List<Message>

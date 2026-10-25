@@ -9,26 +9,36 @@ import android.os.Build
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import android.content.ActivityNotFoundException
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.ramka.app.R
 import com.ramka.app.connection.ConnectionLogo
 import com.ramka.app.connection.ConnectionIndicatorViewModel
 import com.ramka.app.connection.resolveConnectionState
@@ -41,22 +51,6 @@ import com.ramka.app.ui.theme.RamkaAccent
 import com.ramka.domain.call.CallState
 import com.ramka.domain.model.Contact
 
-/**
- * Экран «Список контактов» — см. PROJECT_SPEC.md, п. 8.2. Без превью сообщений.
- *
- * ПРИМЕЧАНИЕ ПО ИКОНКАМ: для «добавить по QR» и «обновить очередь» использованы
- * текстовые глифы, а не Icons.Filled.QrCodeScanner/Sync — этих иконок нет в
- * material-icons-core (только в material-icons-extended, которую по вашему
- * указанию не добавляем без отдельного одобрения — см. §4.3).
- *
- * ЭТАП B.7/B.8, ревью п.5: здесь же — runtime-запрос POST_NOTIFICATIONS (API 33+),
- * тем же паттерном, что CAMERA в QrScreen.kt (объяснение -> запрос; отказ ->
- * «Повторить»; постоянный отказ -> «Открыть настройки»). Запрашивается
- * автоматически один раз при первом показе этого экрана (см.
- * ContactsViewModel.hasAskedNotificationPermissionBefore) — это и есть "первое
- * использование" приложения, отдельного специфического действия-триггера для
- * уведомлений, в отличие от сканирования QR, здесь нет.
- */
 private enum class NotificationPermissionUiState { NONE, DENIED, PERMANENTLY_DENIED }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -71,15 +65,39 @@ fun ContactsScreen(
     callViewModel: CallViewModel = activityCallViewModel()
 ) {
     val contacts by viewModel.contacts.collectAsState()
-    // Индикатор типа соединения на логотипе (только отображение; логика транспортов не затронута).
+
+    // Управление контактами (долгое нажатие). Храним только id: сам контакт берётся из актуального списка,
+    // а rememberSaveable переживает пересоздание активити (в т.ч. пока открыта галерея).
+    var menuContactId by rememberSaveable { mutableStateOf<String?>(null) }
+    var renameContactId by rememberSaveable { mutableStateOf<String?>(null) }
+    var deleteContactId by rememberSaveable { mutableStateOf<String?>(null) }
+    var photoTargetId by rememberSaveable { mutableStateOf<String?>(null) }
+    val haptic = LocalHapticFeedback.current
+    val snackbarHostState = remember { SnackbarHostState() }
+    val photoLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+        val target = photoTargetId
+        photoTargetId = null
+        if (uri != null && target != null) viewModel.updatePhoto(target, uri)
+    }
+    LaunchedEffect(Unit) {
+        viewModel.events.collect { snackbarHostState.showSnackbar(it) }
+    }
+    
+    // <-- СЛУШАЕМ состояние обнаружения пира -->
+    val isLanPeerDiscovered by viewModel.isLanPeerDiscovered.collectAsState()
+    
     val callState by callViewModel.state.collectAsState()
     val link by connectionViewModel.link.collectAsState()
+    
+    // <-- ИЗМЕНЕНО: добавлен параметр turnReady -->
     val connection = resolveConnectionState(
         callConnected = callState is CallState.Connected,
         network = link.network,
         relayConnected = link.relayConnected,
-        peersDiscoveredInLan = false // <-- ДОБАВЛЕНО: временно false, пока нет механизма обнаружения пиров
+        peersDiscoveredInLan = isLanPeerDiscovered,
+        turnReady = link.turnReady // <-- ДОБАВЛЕНО: теперь логотип знает о статусе TURN
     )
+    
     val context = LocalContext.current
     var notificationPermissionState by remember { mutableStateOf(NotificationPermissionUiState.NONE) }
 
@@ -104,8 +122,6 @@ fun ContactsScreen(
     }
 
     LaunchedEffect(Unit) {
-        // Только API 33+ — раньше POST_NOTIFICATIONS не существует как runtime-разрешение,
-        // уведомления и так показываются без него. Автозапрос — не более одного раза.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             !viewModel.hasAskedNotificationPermissionBefore &&
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
@@ -116,13 +132,11 @@ fun ContactsScreen(
     }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        // Сам логотип окрашен в цвет типа соединения (зелёный P2P, жёлтый TURN, синий Relay,
-                        // серый офлайн). Скрытый триггер экстренного сброса (5 нажатий за 3 с или удержание 3 с),
-                        // размер 24dp и padding 8dp прежние.
                         ConnectionLogo(
                             state = connection,
                             modifier = Modifier
@@ -130,9 +144,6 @@ fun ContactsScreen(
                                 .padding(8.dp)
                                 .size(24.dp)
                         )
-                        // Вход в настройки (ЭТАП B.8): тап по слову «ramka» (шестерёнка убрана).
-                        // Логотип слева с этим не связан — на нём только скрытый триггер паники,
-                        // поэтому 5 быстрых нажатий / удержание не открывают настройки.
                         Text(
                             text = "ramka",
                             modifier = Modifier
@@ -146,7 +157,7 @@ fun ContactsScreen(
         },
         floatingActionButton = {
             FloatingActionButton(onClick = onAddContact, containerColor = RamkaAccent) {
-                Text("＋", style = MaterialTheme.typography.titleLarge)
+                Icon(Icons.Filled.Add, contentDescription = "Добавить контакт")
             }
         }
     ) { padding ->
@@ -176,11 +187,72 @@ fun ContactsScreen(
             } else {
                 LazyColumn(modifier = Modifier.weight(1f).fillMaxWidth()) {
                     items(contacts, key = { it.localId }) { contact ->
-                        ContactRow(contact, onClick = { onOpenChat(contact.localId) })
+                        ContactRow(
+                            contact = contact,
+                            onClick = { onOpenChat(contact.localId) },
+                            onLongClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                menuContactId = contact.localId
+                            }
+                        )
+                    }
+                    // Только «Избранное» в списке — подсказка, как добавить первого собеседника.
+                    if (contacts.none { !it.isSelf }) {
+                        item(key = "no_contacts_hint") { NoContactsHint() }
                     }
                 }
             }
         }
+    }
+
+    val menuContact = menuContactId?.let { id -> contacts.firstOrNull { it.localId == id } }
+    if (menuContact != null) {
+        ContactActionsSheet(
+            contact = menuContact,
+            onDismiss = { menuContactId = null },
+            onRename = {
+                menuContactId = null
+                renameContactId = menuContact.localId
+            },
+            onPickPhoto = {
+                menuContactId = null
+                photoTargetId = menuContact.localId
+                try {
+                    photoLauncher.launch("image/*")
+                } catch (e: ActivityNotFoundException) {
+                    photoTargetId = null
+                    viewModel.onPhotoPickerUnavailable()
+                }
+            },
+            onDelete = {
+                menuContactId = null
+                deleteContactId = menuContact.localId
+            }
+        )
+    }
+
+    val renameContact = renameContactId?.let { id -> contacts.firstOrNull { it.localId == id } }
+    if (renameContact != null) {
+        RenameContactDialog(
+            contact = renameContact,
+            onDismiss = { renameContactId = null },
+            onConfirm = { name ->
+                renameContactId = null
+                viewModel.updateAlias(renameContact.localId, name)
+            }
+        )
+    }
+
+    val deleteContact = deleteContactId?.let { id -> contacts.firstOrNull { it.localId == id } }
+    if (deleteContact != null) {
+        DeleteContactDialog(
+            contact = deleteContact,
+            onDismiss = { deleteContactId = null },
+            onConfirm = {
+                deleteContactId = null
+                viewModel.deleteContact(deleteContact.localId)
+            }
+        )
     }
 }
 
@@ -200,6 +272,16 @@ private fun NotificationPermissionBanner(message: String, actionLabel: String, o
 }
 
 @Composable
+private fun NoContactsHint() {
+    Text(
+        "Добавьте первый контакт: нажмите «+» и отсканируйте QR-код.",
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.secondary,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 24.dp)
+    )
+}
+
+@Composable
 private fun EmptyContactsState(modifier: Modifier = Modifier) {
     Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Text(
@@ -210,25 +292,25 @@ private fun EmptyContactsState(modifier: Modifier = Modifier) {
     }
 }
 
-/**
- * Контакты с unreadCount > 0 — жирным акцентным цветом, с числовым badge справа.
- * Порядок (непрочитанные вверху, дальше по алфавиту) задан на уровне SQL —
- * см. ContactDao.observeAll() — здесь только отображение, не сортировка.
- */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun ContactRow(contact: Contact, onClick: () -> Unit) {
+private fun ContactRow(contact: Contact, onClick: () -> Unit, onLongClick: () -> Unit) {
     val hasUnread = contact.unreadCount > 0
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick,
+                onLongClickLabel = "Действия с контактом"
+            )
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        ContactAvatar(alias = contact.alias)
+        ContactAvatar(alias = contact.displayName(), photoUri = contact.photoUri, isSelf = contact.isSelf)
         Spacer(Modifier.width(12.dp))
         Text(
-            contact.alias,
+            contact.displayName(),
             style = MaterialTheme.typography.bodyLarge.copy(
                 fontWeight = if (hasUnread) FontWeight.Bold else FontWeight.Normal
             ),
@@ -237,7 +319,6 @@ private fun ContactRow(contact: Contact, onClick: () -> Unit) {
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f)
         )
-        // Намеренно нет превью последнего сообщения — запрет п. 8.1. Badge — только число.
         if (hasUnread) {
             Spacer(Modifier.width(8.dp))
             UnreadBadge(count = contact.unreadCount)
@@ -262,22 +343,107 @@ private fun UnreadBadge(count: Int) {
     }
 }
 
+/** Меню действий над контактом (долгое нажатие): имя, фото, удаление. */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ContactAvatar(alias: String) {
-    val initial = alias.trim().firstOrNull()?.uppercaseChar()?.toString() ?: "?"
-    Box(
-        modifier = Modifier
-            .size(44.dp)
-            .clip(CircleShape)
-            .background(colorForAlias(alias)),
-        contentAlignment = Alignment.Center
+private fun ContactActionsSheet(
+    contact: Contact,
+    onDismiss: () -> Unit,
+    onRename: () -> Unit,
+    onPickPhoto: () -> Unit,
+    onDelete: () -> Unit
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
     ) {
-        Text(initial, color = androidx.compose.ui.graphics.Color.White)
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(bottom = 16.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                ContactAvatar(alias = contact.displayName(), photoUri = contact.photoUri, size = 40.dp, isSelf = contact.isSelf)
+                Spacer(Modifier.width(12.dp))
+                Text(
+                    contact.displayName(),
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            ContactActionRow(Icons.Filled.Edit, "Изменить имя", onRename)
+            // «Избранное»: фото всегда звезда, удалить нельзя — остаётся только переименование.
+            if (!contact.isSelf) {
+                ContactActionRow(
+                    Icons.Filled.Image,
+                    if (contact.photoUri == null) "Добавить фото" else "Изменить фото",
+                    onPickPhoto
+                )
+                ContactActionRow(Icons.Filled.Delete, "Удалить контакт", onDelete, destructive = true)
+            }
+        }
     }
 }
 
-/** Стабильный псевдослучайный цвет аватарки на основе псевдонима (локально, без сервера). */
-private fun colorForAlias(alias: String): androidx.compose.ui.graphics.Color {
-    val hue = (alias.hashCode().and(0xFFFFFF) % 360).toFloat()
-    return androidx.compose.ui.graphics.Color.hsv(hue, 0.45f, 0.55f)
+@Composable
+private fun ContactActionRow(icon: ImageVector, label: String, onClick: () -> Unit, destructive: Boolean = false) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 24.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        val tint = if (destructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+        Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(24.dp))
+        Spacer(Modifier.width(16.dp))
+        Text(
+            label,
+            style = MaterialTheme.typography.bodyLarge,
+            color = tint
+        )
+    }
+}
+
+@Composable
+private fun RenameContactDialog(contact: Contact, onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
+    var text by rememberSaveable(contact.localId) { mutableStateOf(contact.alias) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Изменить имя") },
+        text = {
+            OutlinedTextField(
+                value = text,
+                onValueChange = { text = it.take(ContactsViewModel.MAX_ALIAS_LENGTH) },
+                singleLine = true,
+                label = { Text("Имя контакта") }
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(text) }, enabled = text.trim().isNotEmpty()) { Text("Сохранить") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } }
+    )
+}
+
+@Composable
+private fun DeleteContactDialog(contact: Contact, onDismiss: () -> Unit, onConfirm: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Удалить контакт") },
+        text = { Text("Удалить контакт ${contact.displayName()}? Все сообщения будут удалены.") },
+        confirmButton = {
+            TextButton(onClick = onConfirm) { Text("Удалить", color = MaterialTheme.colorScheme.error) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } }
+    )
 }

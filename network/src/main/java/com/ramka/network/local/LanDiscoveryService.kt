@@ -3,35 +3,25 @@ package com.ramka.network.local
 import android.content.Context
 import android.net.nsd.NsdManager
 import android.net.nsd.NsdServiceInfo
+import android.net.wifi.WifiManager
+import android.util.Log
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 
-/**
- * Регистрация и обнаружение сервиса ramka в локальной сети через NSD (mDNS),
- * без запроса разрешений на геолокацию (см. запрет 5.2 — ACCESS_*_LOCATION запрещены).
- *
- * Вещание и поиск включаются и выключаются тумблером в настройках (этап 2.5) через
- * `LanPresenceCoordinator`: [registerService]/[unregisterService] и подписка на [discoverPeers].
- *
- * Согласно п. 3.6, вариант A (ручной ввод IP:port из QR) — приоритетный способ
- * обнаружения; NSD — опциональное дополнение (вариант B), не обязательное для
- * MVP этапа 1, если начнёт требовать лишние разрешения на конкретных версиях Android.
- */
 class LanDiscoveryService(context: Context) {
 
     private val nsdManager = context.getSystemService(Context.NSD_SERVICE) as NsdManager
+    private val multicast = MulticastLockHolder(context.applicationContext)
 
     private val lock = Any()
+    private var registrationHoldsMulticast = false
     private var registration: NsdManager.RegistrationListener? = null
     private var registered = false
     private var unregisterWhenRegistered = false
 
-    /**
-     * Вещает сервис в локальной сети. Идемпотентно: пока регистрация активна или ещё ожидается,
-     * повторный вызов ничего не создаёт (и отменяет отложенное снятие, если оно было запрошено).
-     */
     fun registerService(port: Int, instanceName: String) {
+        Log.d("ramka", "NSD: Попытка регистрации сервиса: $instanceName на порту $port")
         val serviceInfo = NsdServiceInfo().apply {
             serviceName = instanceName
             serviceType = SERVICE_TYPE
@@ -39,31 +29,40 @@ class LanDiscoveryService(context: Context) {
         }
         val listener = object : NsdManager.RegistrationListener {
             override fun onServiceRegistered(info: NsdServiceInfo) {
+                Log.d("ramka", "NSD: Успешно зарегистрирован в сети как ${info.serviceName}")
                 val unregisterNow = synchronized(lock) {
                     if (registration !== this) return@synchronized false
                     registered = true
                     if (unregisterWhenRegistered) {
-                        // Тумблер выключили, пока регистрация ещё была в пути.
                         unregisterWhenRegistered = false
                         registration = null
                         registered = false
                         true
                     } else false
                 }
-                if (unregisterNow) runCatching { nsdManager.unregisterService(this) }
+                if (unregisterNow) {
+                    runCatching { nsdManager.unregisterService(this) }
+                    releaseRegistrationMulticast()
+                }
             }
 
             override fun onRegistrationFailed(info: NsdServiceInfo, errorCode: Int) {
+                Log.e("ramka", "NSD: ОШИБКА регистрации сервиса, код: $errorCode")
                 synchronized(lock) {
                     if (registration !== this) return
                     registration = null
                     registered = false
                     unregisterWhenRegistered = false
                 }
+                releaseRegistrationMulticast()
             }
 
-            override fun onServiceUnregistered(info: NsdServiceInfo) = Unit
-            override fun onUnregistrationFailed(info: NsdServiceInfo, errorCode: Int) = Unit
+            override fun onServiceUnregistered(info: NsdServiceInfo) {
+                Log.d("ramka", "NSD: Сервис успешно снят с регистрации")
+            }
+            override fun onUnregistrationFailed(info: NsdServiceInfo, errorCode: Int) {
+                Log.e("ramka", "NSD: ОШИБКА снятия с регистрации, код: $errorCode")
+            }
         }
         synchronized(lock) {
             if (registration != null) {
@@ -73,20 +72,24 @@ class LanDiscoveryService(context: Context) {
             registration = listener
             registered = false
             unregisterWhenRegistered = false
+            registrationHoldsMulticast = true
         }
+        multicast.acquire()
         try {
             nsdManager.registerService(serviceInfo, NsdManager.PROTOCOL_DNS_SD, listener)
         } catch (e: Exception) {
+            Log.e("ramka", "NSD: Исключение при регистрации: ${e.message}")
             synchronized(lock) { if (registration === listener) registration = null }
+            releaseRegistrationMulticast()
         }
     }
 
-    /** Снимает вещание. Безопасно вызывать, если сервис не зарегистрирован или регистрация ещё в пути. */
     fun unregisterService() {
+        Log.d("ramka", "NSD: Запрос на снятие с регистрации")
         val listener = synchronized(lock) {
             val current = registration ?: return
             if (!registered) {
-                unregisterWhenRegistered = true // снимем в onServiceRegistered
+                unregisterWhenRegistered = true
                 return
             }
             registration = null
@@ -94,32 +97,112 @@ class LanDiscoveryService(context: Context) {
             current
         }
         runCatching { nsdManager.unregisterService(listener) }
+        releaseRegistrationMulticast()
     }
 
-    /** Поток найденных экземпляров сервиса ramka в локальной сети. */
+    private fun releaseRegistrationMulticast() {
+        val release = synchronized(lock) {
+            val held = registrationHoldsMulticast
+            registrationHoldsMulticast = false
+            held
+        }
+        if (release) multicast.release()
+    }
+
     fun discoverPeers(): Flow<DiscoveredPeer> = callbackFlow {
+        Log.d("ramka", "NSD: Запуск поиска устройств в сети...")
         val listener = object : NsdManager.DiscoveryListener {
-            override fun onDiscoveryStarted(serviceType: String) = Unit
-            override fun onStartDiscoveryFailed(serviceType: String, errorCode: Int) { close() }
-            override fun onStopDiscoveryFailed(serviceType: String, errorCode: Int) = Unit
-            override fun onDiscoveryStopped(serviceType: String) = Unit
-            override fun onServiceLost(service: NsdServiceInfo) = Unit
+            override fun onDiscoveryStarted(serviceType: String) {
+                Log.d("ramka", "NSD: Поиск успешно запущен")
+            }
+            override fun onStartDiscoveryFailed(serviceType: String, errorCode: Int) {
+                Log.e("ramka", "NSD: ОШИБКА запуска поиска, код: $errorCode")
+                close()
+            }
+            override fun onStopDiscoveryFailed(serviceType: String, errorCode: Int) {
+                Log.e("ramka", "NSD: ОШИБКА остановки поиска, код: $errorCode")
+            }
+            override fun onDiscoveryStopped(serviceType: String) {
+                Log.d("ramka", "NSD: Поиск остановлен")
+            }
+            override fun onServiceLost(service: NsdServiceInfo) {
+                Log.d("ramka", "NSD: Устройство потеряно: ${service.serviceName}")
+            }
 
             override fun onServiceFound(service: NsdServiceInfo) {
+                Log.d("ramka", "NSD: Найдено устройство: ${service.serviceName}. Начинаем разрешение...")
                 nsdManager.resolveService(service, object : NsdManager.ResolveListener {
-                    override fun onResolveFailed(info: NsdServiceInfo, errorCode: Int) = Unit
+                    override fun onResolveFailed(info: NsdServiceInfo, errorCode: Int) {
+                        Log.e("ramka", "NSD: ОШИБКА разрешения устройства, код: $errorCode")
+                    }
                     override fun onServiceResolved(info: NsdServiceInfo) {
-                        trySend(DiscoveredPeer(host = info.host.hostAddress ?: return, port = info.port))
+                        val host = info.host.hostAddress
+                        Log.d("ramka", "NSD: Устройство успешно разрешено! IP: $host, Порт: ${info.port}")
+                        if (host != null) {
+                            trySend(DiscoveredPeer(host = host, port = info.port))
+                        }
                     }
                 })
             }
         }
-        nsdManager.discoverServices(SERVICE_TYPE, NsdManager.PROTOCOL_DNS_SD, listener)
-        awaitClose { nsdManager.stopServiceDiscovery(listener) }
+        multicast.acquire()
+        try {
+            nsdManager.discoverServices(SERVICE_TYPE, NsdManager.PROTOCOL_DNS_SD, listener)
+        } catch (e: Exception) {
+            Log.e("ramka", "NSD: Исключение при запуске поиска: ${e.message}")
+            multicast.release()
+            throw e
+        }
+        awaitClose {
+            try {
+                nsdManager.stopServiceDiscovery(listener)
+            } finally {
+                multicast.release()
+            }
+        }
     }
 
     companion object {
         private const val SERVICE_TYPE = "_ramka._tcp."
+    }
+}
+
+private class MulticastLockHolder(context: Context) {
+    private val lock: WifiManager.MulticastLock? = try {
+        (context.getSystemService(Context.WIFI_SERVICE) as? WifiManager)
+            ?.createMulticastLock("ramka_mdns_lock")
+            ?.apply { setReferenceCounted(false) }
+    } catch (e: Exception) {
+        Log.w("ramka", "MulticastLock недоступен: ${e.javaClass.simpleName}")
+        null
+    }
+    private var users = 0
+
+    @Synchronized
+    fun acquire() {
+        users++
+        if (users != 1) return
+        try {
+            lock?.acquire()
+            Log.d("ramka", "MulticastLock получен")
+        } catch (e: Exception) {
+            Log.w("ramka", "MulticastLock: не удалось получить: ${e.javaClass.simpleName}")
+        }
+    }
+
+    @Synchronized
+    fun release() {
+        if (users == 0) return
+        users--
+        if (users != 0) return
+        try {
+            if (lock?.isHeld == true) {
+                lock.release()
+                Log.d("ramka", "MulticastLock освобождён")
+            }
+        } catch (e: Exception) {
+            Log.w("ramka", "MulticastLock: не удалось освободить: ${e.javaClass.simpleName}")
+        }
     }
 }
 

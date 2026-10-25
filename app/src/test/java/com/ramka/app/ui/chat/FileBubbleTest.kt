@@ -44,4 +44,13 @@ class FileBubbleTest {
         assertTrue(isFileOpenable(file(uri = "content://m/1"), false, MessageStatus.DELIVERED))
         assertTrue(isFileOpenable(file(uri = "content://m/1"), false, MessageStatus.READ))
     }
+
+    @Test fun offlineSignalNoteOnlyForOutgoingFailedWithSignal() {
+        val note = "Собеседнику отправлено уведомление"
+        assertEquals(note, offlineSignalNote(true, MessageStatus.FAILED, true))
+        assertEquals(null, offlineSignalNote(true, MessageStatus.FAILED, false))
+        assertEquals(null, offlineSignalNote(true, MessageStatus.SENT, true))
+        assertEquals(null, offlineSignalNote(true, MessageStatus.SENDING, true))
+        assertEquals(null, offlineSignalNote(false, MessageStatus.FAILED, true))
+    }
 }

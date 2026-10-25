@@ -10,6 +10,8 @@
     <!-- Обнаружение в локальной сети -->
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+    <!-- MulticastLock для mDNS (NSD): без него часть прошивок отбрасывает multicast-пакеты на Wi-Fi -->
+    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
     <!-- Уведомления о новых сообщениях (опционально, запрашивается по месту) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- Короткая вибрация при активации экстренного сброса -->
@@ -81,5 +83,24 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Peer-to-peer messenger without a server: keeps the app process alive so the local-network message receiver and mDNS discovery keep working under OEM background restrictions. The user enables it explicitly; it processes no data itself." />
         </service>
+
+        <!--
+            Сканер QR. Встроенная CaptureActivity библиотеки заперта в sensorLandscape, поэтому используем
+            свою (PortraitCaptureActivity): fullUser — вертикально и горизонтально, по положению телефона и
+            блокировке поворота. Тема — штатная полноэкранная тема библиотеки.
+        -->
+        <activity
+            android:name=".ui.qr.PortraitCaptureActivity"
+            android:exported="false"
+            android:screenOrientation="fullUser"
+            android:stateNotNeeded="true"
+            android:theme="@style/zxing_CaptureTheme"
+            android:windowSoftInputMode="stateAlwaysHidden" />
+
+        <!-- Кнопка «Отклонить» в уведомлении о входящем звонке. Не экспортируется. -->
+        <receiver
+            android:name=".call.CallActionReceiver"
+            android:exported="false" />
+
     </application>
 </manifest>

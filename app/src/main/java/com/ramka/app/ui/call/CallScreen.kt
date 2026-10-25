@@ -18,8 +18,17 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Call
+import androidx.compose.material.icons.filled.CallEnd
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.MicOff
+import androidx.compose.material.icons.filled.Videocam
+import androidx.compose.material.icons.filled.VideocamOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -36,10 +45,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
-import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
@@ -51,6 +60,9 @@ import org.webrtc.EglBase
 import org.webrtc.RendererCommon
 import org.webrtc.SurfaceViewRenderer
 import org.webrtc.VideoTrack
+
+/** «Принять» из баннера действует, только пока оно свежее: просроченную просьбу молча сбрасываем. */
+private const val ACCEPT_REQUEST_TTL_MS = 20_000L
 
 @Composable
 fun CallScreen(
@@ -93,6 +105,20 @@ fun CallScreen(
                 if (video && !camOk) add(Manifest.permission.CAMERA)
             }
             permissionLauncher.launch(missing.toTypedArray())
+        }
+    }
+
+    // «Принять» нажато в баннере уведомления: как только появится входящий звонок этого контакта, отвечаем
+    // тем же путём, что и кнопка на экране (с проверкой разрешений микрофона/камеры).
+    val acceptRequest by viewModel.acceptRequest.collectAsState()
+    LaunchedEffect(state, acceptRequest) {
+        val incoming = state as? CallState.Incoming ?: return@LaunchedEffect
+        val request = acceptRequest ?: return@LaunchedEffect
+        if (request.contactId != incoming.contactId) return@LaunchedEffect
+        viewModel.consumeAcceptRequest()
+        if (System.currentTimeMillis() - request.atMillis > ACCEPT_REQUEST_TTL_MS) return@LaunchedEffect
+        withCallPermissions(incoming.withVideo) { cameraGranted ->
+            viewModel.answerCall(incoming.contactId, withVideo = incoming.withVideo && cameraGranted)
         }
     }
 
@@ -352,34 +378,34 @@ private fun CallControls(
     ) {
         when (state) {
             is CallState.Incoming -> {
-                CircleCallButton("📵", "Отклонить", CallButtonStyle.Danger, onReject)
+                CircleCallButton(Icons.Filled.CallEnd, "Отклонить", CallButtonStyle.Danger, onReject)
                 if (state.withVideo) {
-                    CircleCallButton("📞", "Ответить голосом", CallButtonStyle.Tonal) { onAnswer(false) }
-                    CircleCallButton("📹", "Ответить с видео", CallButtonStyle.Primary) { onAnswer(true) }
+                    CircleCallButton(Icons.Filled.Call, "Ответить голосом", CallButtonStyle.Tonal) { onAnswer(false) }
+                    CircleCallButton(Icons.Filled.Videocam, "Ответить с видео", CallButtonStyle.Primary) { onAnswer(true) }
                 } else {
-                    CircleCallButton("📞", "Принять", CallButtonStyle.Primary) { onAnswer(false) }
+                    CircleCallButton(Icons.Filled.Call, "Принять", CallButtonStyle.Primary) { onAnswer(false) }
                 }
             }
-            is CallState.Dialing -> CircleCallButton("📵", "Завершить звонок", CallButtonStyle.Danger, onEndCall)
+            is CallState.Dialing -> CircleCallButton(Icons.Filled.CallEnd, "Завершить звонок", CallButtonStyle.Danger, onEndCall)
             is CallState.Connected -> {
                 CircleCallButton(
-                    emoji = if (isMuted) "🔇" else "🎤",
+                    icon = if (isMuted) Icons.Filled.MicOff else Icons.Filled.Mic,
                     description = if (isMuted) "Микрофон выключен, включить" else "Микрофон включён, выключить",
                     style = CallButtonStyle.Tonal,
                     onClick = onToggleMute
                 )
                 if (canToggleVideo) {
                     CircleCallButton(
-                        emoji = if (isVideoEnabled) "📹" else "📷",
+                        icon = if (isVideoEnabled) Icons.Filled.Videocam else Icons.Filled.VideocamOff,
                         description = if (isVideoEnabled) "Камера включена, выключить" else "Камера выключена, включить",
                         style = CallButtonStyle.Tonal,
                         onClick = onToggleVideo
                     )
                 }
-                CircleCallButton("📵", "Завершить звонок", CallButtonStyle.Danger, onEndCall)
+                CircleCallButton(Icons.Filled.CallEnd, "Завершить звонок", CallButtonStyle.Danger, onEndCall)
             }
-            is CallState.Ended, is CallState.Error -> CircleCallButton("❌", "Закрыть", CallButtonStyle.Tonal, onClose)
-            is CallState.Idle -> CircleCallButton("❌", "Отмена", CallButtonStyle.Danger, onClose)
+            is CallState.Ended, is CallState.Error -> CircleCallButton(Icons.Filled.Close, "Закрыть", CallButtonStyle.Tonal, onClose)
+            is CallState.Idle -> CircleCallButton(Icons.Filled.Close, "Отмена", CallButtonStyle.Danger, onClose)
         }
     }
 }
@@ -387,13 +413,13 @@ private fun CallControls(
 private enum class CallButtonStyle { Primary, Tonal, Danger }
 
 /**
- * Круглая кнопка звонка с одним эмодзи (в стиле остального приложения: 📹 📞 📎 текстом).
- * Цвета прежние: основной (Primary), тональный (Tonal), красный (Danger). Подпись для TalkBack —
- * в [description]; сам эмодзи из семантики убран, чтобы он не зачитывался дважды.
+ * Круглая кнопка звонка с иконкой Material (Filled). Цвета прежние: основной (Primary), тональный (Tonal),
+ * красный (Danger); иконка берёт цвет содержимого кнопки. Подпись для TalkBack — в [description],
+ * у самой иконки описания нет, чтобы оно не зачитывалось дважды.
  */
 @Composable
 private fun CircleCallButton(
-    emoji: String,
+    icon: ImageVector,
     description: String,
     style: CallButtonStyle,
     onClick: () -> Unit,
@@ -415,10 +441,10 @@ private fun CircleCallButton(
         colors = colors,
         contentPadding = PaddingValues(0.dp),
     ) {
-        Text(
-            text = emoji,
-            style = MaterialTheme.typography.titleLarge,
-            modifier = Modifier.clearAndSetSemantics { },
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            modifier = Modifier.size(28.dp),
         )
     }
 }

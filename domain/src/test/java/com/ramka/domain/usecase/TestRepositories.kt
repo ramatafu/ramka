@@ -34,6 +34,8 @@ internal class StubMessageRepository(
     override suspend fun updateStatus(localId: String, status: MessageStatus) = replace(localId) { it.copy(status = status) }
     override suspend fun markReadAckSent(localId: String) = replace(localId) { it.copy(readAckSent = true) }
     override suspend fun deleteMessage(localId: String) { synchronized(store) { store.removeAll { it.localId == localId } } }
+
+    override suspend fun deleteAllForContact(contactId: String) { synchronized(store) { store.removeAll { it.contactId == contactId } } }
     override suspend fun pendingForContact(contactId: String): List<Message> = emptyList()
     override suspend fun incomingWithoutReadAck(contactId: String): List<Message> {
         val snapshot = all().filter {
@@ -73,7 +75,20 @@ internal class StubContactRepository : ContactRepository {
     override fun observeContacts(): Flow<List<Contact>> = flowOf(emptyList())
     override suspend fun getContact(localId: String): Contact? = null
     override suspend fun addContact(contact: Contact) = Unit
+
+    override suspend fun getOrCreateSelfContact(): Contact = Contact(
+        localId = com.ramka.domain.model.ContactConstants.SELF_CONTACT_ID,
+        alias = com.ramka.domain.model.ContactConstants.SELF_CONTACT_ALIAS,
+        publicKey = ByteArray(0),
+        signingPublicKey = ByteArray(0),
+        lastKnownAddress = null,
+        verification = com.ramka.domain.model.KeyVerificationStatus.VERIFIED_BY_QR,
+        addedAtEpochDay = 0,
+        isSelf = true
+    )
     override suspend fun updateAlias(localId: String, alias: String) = Unit
+
+    override suspend fun updatePhotoUri(localId: String, photoUri: String?) = Unit
     override suspend fun updateLastKnownAddress(localId: String, address: NetworkAddress) = Unit
     override suspend fun markKeyChanged(localId: String, newPublicKey: ByteArray) = Unit
     override suspend fun removeContact(localId: String) = Unit

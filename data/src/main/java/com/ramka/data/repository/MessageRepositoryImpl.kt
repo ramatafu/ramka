@@ -35,6 +35,10 @@ class MessageRepositoryImpl(private val dao: MessageDao) : MessageRepository {
         dao.delete(localId)
     }
 
+    override suspend fun deleteAllForContact(contactId: String) {
+        dao.deleteAllForContact(contactId)
+    }
+
     override suspend fun pendingForContact(contactId: String): List<Message> =
         dao.pendingForContact(contactId).map { it.toDomain() }
 

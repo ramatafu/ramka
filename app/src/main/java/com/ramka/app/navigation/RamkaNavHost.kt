@@ -1,1 +1,195 @@
-package com.ramka.app.navigationimport androidx.compose.runtime.Composableimport androidx.compose.runtime.LaunchedEffectimport androidx.compose.runtime.collectAsStateimport androidx.compose.runtime.getValueimport androidx.navigation.NavTypeimport androidx.navigation.compose.NavHostimport androidx.navigation.compose.composableimport androidx.navigation.compose.rememberNavControllerimport androidx.navigation.navArgumentimport com.ramka.app.ui.call.CallScreenimport com.ramka.app.ui.call.activityCallViewModelimport com.ramka.app.ui.chat.ChatScreenimport com.ramka.app.ui.contacts.ContactsScreenimport com.ramka.app.ui.qr.QrScreenimport com.ramka.app.ui.relay.RelayEditViewModelimport com.ramka.app.ui.relay.RelayEditScreenimport com.ramka.app.ui.relay.RelayListScreenimport com.ramka.app.ui.relay.TurnGuideScreenimport com.ramka.app.ui.relayguide.RelayGuideScreenimport com.ramka.app.ui.settings.NetworkServersScreen // <-- ДОБАВЛЕНОimport com.ramka.app.ui.settings.SettingsScreenimport com.ramka.app.ui.speedtest.SpeedTestScreenimport com.ramka.app.ui.turn.TurnServerEditScreenimport com.ramka.app.ui.turn.TurnServerEditViewModelimport com.ramka.app.ui.turn.TurnServerListScreenimport com.ramka.domain.call.CallStateobject Routes {    const val CONTACTS = "contacts"    const val CHAT = "chat/{contactId}"    const val QR = "qr"    const val SETTINGS = "settings"    const val NETWORK_SERVERS = "network_servers" // <-- ДОБАВЛЕНО    const val RELAY_GUIDE = "relay_guide"    const val TURN_GUIDE = "turn_guide"    const val TURN_SERVERS = "turn_servers"    const val TURN_SERVER_ADD = "turn_server_add"    const val TURN_SERVER_EDIT = "turn_server_edit/{id}"    const val SPEED_TEST = "speed_test"    const val RELAY_LIST = "relay_list"    const val RELAY_EDIT = "relay_edit/{entryId}"    const val CALL = "call/{contactId}?video={video}"    fun chat(contactId: String) = "chat/$contactId"    fun call(contactId: String, video: Boolean = false) = "call/$contactId?video=$video"    fun turnServerEdit(id: String) = "turn_server_edit/$id"    /** null — добавление новой записи (в путь подставляется [RelayEditViewModel.NEW_ENTRY]). */    fun relayEdit(entryId: String?) = "relay_edit/${entryId ?: RelayEditViewModel.NEW_ENTRY}"}@Composablefun RamkaNavHost() {    val navController = rememberNavController()    // Входящий звонок (шаг 7.3): CallViewModel одна на Activity и слушает сигналинг всё время, пока    // приложение на экране; при CallState.Incoming открываем экран звонка поверх текущего.    val callViewModel = activityCallViewModel()    val callState by callViewModel.state.collectAsState()    LaunchedEffect(callState) {        val incoming = callState as? CallState.Incoming ?: return@LaunchedEffect        val onCallScreen = navController.currentBackStackEntry?.destination?.route == Routes.CALL        if (!onCallScreen) navController.navigate(Routes.call(incoming.contactId)) { launchSingleTop = true }    }    NavHost(navController = navController, startDestination = Routes.CONTACTS) {        composable(Routes.CONTACTS) {            ContactsScreen(                onOpenChat = { contactId -> navController.navigate(Routes.chat(contactId)) },                onAddContact = { navController.navigate(Routes.QR) },                onOpenSettings = { navController.navigate(Routes.SETTINGS) }            )        }        composable(            route = Routes.CHAT,            arguments = listOf(navArgument("contactId") { type = NavType.StringType })        ) { backStackEntry ->            val contactId = backStackEntry.arguments?.getString("contactId").orEmpty()            ChatScreen(                contactId = contactId,                onBack = { navController.popBackStack() },                onCall = { navController.navigate(Routes.call(contactId)) },                onVideoCall = { navController.navigate(Routes.call(contactId, video = true)) }            )        }        composable(            route = Routes.CALL,            arguments = listOf(                navArgument("contactId") { type = NavType.StringType },                navArgument("video") {                    type = NavType.BoolType                    defaultValue = false                }            )        ) { backStackEntry ->            val contactId = backStackEntry.arguments?.getString("contactId").orEmpty()            val startWithVideo = backStackEntry.arguments?.getBoolean("video") ?: false            CallScreen(                contactId = contactId,                startWithVideo = startWithVideo,                onClose = { navController.popBackStack() }            )        }        composable(Routes.QR) {            QrScreen(onDone = { navController.popBackStack() })        }                // --- ОБНОВЛЕННЫЙ ВЫЗОВ SettingsScreen ---        composable(Routes.SETTINGS) {            SettingsScreen(                onBack = { navController.popBackStack() },                onOpenNetworkServers = { navController.navigate(Routes.NETWORK_SERVERS) }            )        }        // --- НОВЫЙ ЭКРАН: Сеть и серверы ---        composable(Routes.NETWORK_SERVERS) {            NetworkServersScreen(                onBack = { navController.popBackStack() },                onOpenRelays = { navController.navigate(Routes.RELAY_LIST) },                onOpenTurnServers = { navController.navigate(Routes.TURN_SERVERS) },                onOpenSpeedTest = { navController.navigate(Routes.SPEED_TEST) }            )        }        composable(Routes.RELAY_LIST) {            RelayListScreen(                onBack = { navController.popBackStack() },                onAddRelay = { navController.navigate(Routes.relayEdit(null)) },                onEditRelay = { id -> navController.navigate(Routes.relayEdit(id)) },                onOpenRelayGuide = { navController.navigate(Routes.RELAY_GUIDE) }            )        }        composable(            route = Routes.RELAY_EDIT,            arguments = listOf(                navArgument(RelayEditViewModel.ARG_ENTRY_ID) {                    type = NavType.StringType                    nullable = true                    defaultValue = null                }            )        ) {            RelayEditScreen(onBack = { navController.popBackStack() })        }        composable(Routes.RELAY_GUIDE) {            RelayGuideScreen(onBack = { navController.popBackStack() })        }        composable(Routes.TURN_GUIDE) {            TurnGuideScreen(onBack = { navController.popBackStack() })        }        composable(Routes.TURN_SERVERS) {            TurnServerListScreen(                onBack = { navController.popBackStack() },                onAddServer = { navController.navigate(Routes.TURN_SERVER_ADD) },                onEditServer = { id -> navController.navigate(Routes.turnServerEdit(id)) },                onOpenTurnGuide = { navController.navigate(Routes.TURN_GUIDE) }            )        }        composable(Routes.SPEED_TEST) {            SpeedTestScreen(onBack = { navController.popBackStack() })        }        composable(Routes.TURN_SERVER_ADD) {            TurnServerEditScreen(onBack = { navController.popBackStack() })        }        composable(            route = Routes.TURN_SERVER_EDIT,            arguments = listOf(navArgument(TurnServerEditViewModel.ARG_ID) { type = NavType.StringType })        ) {            TurnServerEditScreen(onBack = { navController.popBackStack() })        }    }}
+package com.ramka.app.navigation
+
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.navigation.NavType
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
+import com.ramka.app.ui.about.AboutScreen
+import com.ramka.app.ui.call.CallScreen
+import com.ramka.app.ui.call.activityCallViewModel
+import com.ramka.app.ui.chat.ChatScreen
+import com.ramka.app.ui.contacts.ContactsScreen
+import com.ramka.app.ui.qr.QrScreen
+import com.ramka.app.ui.relay.RelayEditViewModel
+import com.ramka.app.ui.relay.RelayEditScreen
+import com.ramka.app.ui.relay.RelayListScreen
+import com.ramka.app.ui.relay.TurnGuideScreen
+import com.ramka.app.ui.relayguide.RelayGuideScreen
+import com.ramka.app.ui.settings.NetworkServersScreen // <-- ДОБАВЛЕНО
+import com.ramka.app.ui.settings.SettingsScreen
+import com.ramka.app.ui.speedtest.SpeedTestScreen
+import com.ramka.app.ui.turn.TurnServerEditScreen
+import com.ramka.app.ui.turn.TurnServerEditViewModel
+import com.ramka.app.ui.turn.TurnServerListScreen
+import com.ramka.domain.call.CallState
+
+/** «Принять»/тап по баннеру действуют, пока свежие: просроченную просьбу открыть экран не выполняем. */
+private const val OPEN_REQUEST_TTL_MS = 20_000L
+
+object Routes {
+    const val CONTACTS = "contacts"
+    const val CHAT = "chat/{contactId}"
+    const val QR = "qr"
+    const val SETTINGS = "settings"
+    const val NETWORK_SERVERS = "network_servers" // <-- ДОБАВЛЕНО
+    const val ABOUT = "about"
+    const val RELAY_GUIDE = "relay_guide"
+    const val TURN_GUIDE = "turn_guide"
+    const val TURN_SERVERS = "turn_servers"
+    const val TURN_SERVER_ADD = "turn_server_add"
+    const val TURN_SERVER_EDIT = "turn_server_edit/{id}"
+    const val SPEED_TEST = "speed_test"
+    const val RELAY_LIST = "relay_list"
+    const val RELAY_EDIT = "relay_edit/{entryId}"
+    const val CALL = "call/{contactId}?video={video}"
+
+    fun chat(contactId: String) = "chat/$contactId"
+
+    fun call(contactId: String, video: Boolean = false) = "call/$contactId?video=$video"
+
+    fun turnServerEdit(id: String) = "turn_server_edit/$id"
+
+    /** null — добавление новой записи (в путь подставляется [RelayEditViewModel.NEW_ENTRY]). */
+    fun relayEdit(entryId: String?) = "relay_edit/${entryId ?: RelayEditViewModel.NEW_ENTRY}"
+}
+
+@Composable
+fun RamkaNavHost() {
+    val navController = rememberNavController()
+
+    // Входящий звонок: сообщает о себе баннером-уведомлением (рингтон, вибрация, «Принять»/«Отклонить») и
+    // НЕ открывает экран звонка сам. Экран открывается по тапу на баннер или по «Принять» (openCallRequest).
+    // Исключение — баннер показать нельзя (уведомления выключены или канал «Звонки» заглушён): тогда экран
+    // открывается как раньше, иначе принять звонок было бы нечем.
+    val callViewModel = activityCallViewModel()
+    val callState by callViewModel.state.collectAsState()
+    val openRequest by callViewModel.openCallRequest.collectAsState()
+    LaunchedEffect(callState, openRequest) {
+        val incoming = callState as? CallState.Incoming ?: return@LaunchedEffect
+        val requested = openRequest?.let {
+            it.contactId == incoming.contactId && System.currentTimeMillis() - it.atMillis < OPEN_REQUEST_TTL_MS
+        } == true
+        if (!requested && callViewModel.isCallBannerAvailable()) return@LaunchedEffect
+        callViewModel.consumeOpenRequest()
+        val onCallScreen = navController.currentBackStackEntry?.destination?.route == Routes.CALL
+        if (!onCallScreen) navController.navigate(Routes.call(incoming.contactId)) { launchSingleTop = true }
+    }
+
+    NavHost(navController = navController, startDestination = Routes.CONTACTS) {
+        composable(Routes.CONTACTS) {
+            ContactsScreen(
+                onOpenChat = { contactId -> navController.navigate(Routes.chat(contactId)) },
+                onAddContact = { navController.navigate(Routes.QR) },
+                onOpenSettings = { navController.navigate(Routes.SETTINGS) }
+            )
+        }
+        composable(
+            route = Routes.CHAT,
+            arguments = listOf(navArgument("contactId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val contactId = backStackEntry.arguments?.getString("contactId").orEmpty()
+            ChatScreen(
+                contactId = contactId,
+                onBack = { navController.popBackStack() },
+                onCall = { navController.navigate(Routes.call(contactId)) },
+                onVideoCall = { navController.navigate(Routes.call(contactId, video = true)) }
+            )
+        }
+        composable(
+            route = Routes.CALL,
+            arguments = listOf(
+                navArgument("contactId") { type = NavType.StringType },
+                navArgument("video") {
+                    type = NavType.BoolType
+                    defaultValue = false
+                }
+            )
+        ) { backStackEntry ->
+            val contactId = backStackEntry.arguments?.getString("contactId").orEmpty()
+            val startWithVideo = backStackEntry.arguments?.getBoolean("video") ?: false
+            CallScreen(
+                contactId = contactId,
+                startWithVideo = startWithVideo,
+                onClose = { navController.popBackStack() }
+            )
+        }
+        composable(Routes.QR) {
+            QrScreen(onDone = { navController.popBackStack() })
+        }
+        
+        // --- ОБНОВЛЕННЫЙ ВЫЗОВ SettingsScreen ---
+        composable(Routes.SETTINGS) {
+            SettingsScreen(
+                onBack = { navController.popBackStack() },
+                onOpenNetworkServers = { navController.navigate(Routes.NETWORK_SERVERS) },
+                onOpenAbout = { navController.navigate(Routes.ABOUT) }
+            )
+        }
+
+        composable(Routes.ABOUT) {
+            AboutScreen(onBack = { navController.popBackStack() })
+        }
+
+        // --- НОВЫЙ ЭКРАН: Сеть и серверы ---
+        composable(Routes.NETWORK_SERVERS) {
+            NetworkServersScreen(
+                onBack = { navController.popBackStack() },
+                onOpenRelays = { navController.navigate(Routes.RELAY_LIST) },
+                onOpenTurnServers = { navController.navigate(Routes.TURN_SERVERS) },
+                onOpenSpeedTest = { navController.navigate(Routes.SPEED_TEST) }
+            )
+        }
+
+        composable(Routes.RELAY_LIST) {
+            RelayListScreen(
+                onBack = { navController.popBackStack() },
+                onAddRelay = { navController.navigate(Routes.relayEdit(null)) },
+                onEditRelay = { id -> navController.navigate(Routes.relayEdit(id)) },
+                onOpenRelayGuide = { navController.navigate(Routes.RELAY_GUIDE) }
+            )
+        }
+        composable(
+            route = Routes.RELAY_EDIT,
+            arguments = listOf(
+                navArgument(RelayEditViewModel.ARG_ENTRY_ID) {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                }
+            )
+        ) {
+            RelayEditScreen(onBack = { navController.popBackStack() })
+        }
+        composable(Routes.RELAY_GUIDE) {
+            RelayGuideScreen(onBack = { navController.popBackStack() })
+        }
+        composable(Routes.TURN_GUIDE) {
+            TurnGuideScreen(onBack = { navController.popBackStack() })
+        }
+        composable(Routes.TURN_SERVERS) {
+            TurnServerListScreen(
+                onBack = { navController.popBackStack() },
+                onAddServer = { navController.navigate(Routes.TURN_SERVER_ADD) },
+                onEditServer = { id -> navController.navigate(Routes.turnServerEdit(id)) },
+                onOpenTurnGuide = { navController.navigate(Routes.TURN_GUIDE) }
+            )
+        }
+        composable(Routes.SPEED_TEST) {
+            SpeedTestScreen(onBack = { navController.popBackStack() })
+        }
+        composable(Routes.TURN_SERVER_ADD) {
+            TurnServerEditScreen(onBack = { navController.popBackStack() })
+        }
+        composable(
+            route = Routes.TURN_SERVER_EDIT,
+            arguments = listOf(navArgument(TurnServerEditViewModel.ARG_ID) { type = NavType.StringType })
+        ) {
+            TurnServerEditScreen(onBack = { navController.popBackStack() })
+        }
+    }
+}

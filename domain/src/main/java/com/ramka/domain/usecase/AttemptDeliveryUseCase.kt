@@ -10,6 +10,9 @@ import com.ramka.domain.repository.TransportRepository
  * IK-рукопожатие на каждую попытку (D-3/D-6 — не снимается, см. DEVIATIONS.md).
  * Никакого "быстрого" пути в обход рукопожатия здесь и не может появиться,
  * потому что это единственная функция, которая вообще обращается к транспорту.
+ *
+ * «Избранное» ([Contact.isSelf]) по сети не доставляется никогда: это последний рубеж на случай, если
+ * сообщение для него по ошибке попадёт в очередь (ключей у такого контакта нет, пакет некому адресовать).
  */
 class AttemptDeliveryUseCase(
     private val contactRepository: ContactRepository,
@@ -17,6 +20,7 @@ class AttemptDeliveryUseCase(
 ) {
     suspend operator fun invoke(contactId: String, payload: ByteArray): Boolean {
         val contact = contactRepository.getContact(contactId) ?: return false
+        if (contact.isSelf) return false
         return transportRepository.sendEncryptedPacket(contact, payload)
     }
 }

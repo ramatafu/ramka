@@ -72,4 +72,7 @@ interface MessageDao {
 
     @Query("DELETE FROM messages WHERE localId = :localId")
     suspend fun delete(localId: String)
+
+    @Query("DELETE FROM messages WHERE contactId = :contactId")
+    suspend fun deleteAllForContact(contactId: String)
 }

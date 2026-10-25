@@ -29,6 +29,16 @@ class AppPreferences(context: Context) : BackgroundDeliveryPrefs, MdnsPrefs {
         get() = prefs.getBoolean(KEY_MDNS, true)
         set(value) = prefs.edit().putBoolean(KEY_MDNS, value).apply()
 
+    /** Рингтон при входящем звонке (по умолчанию включён). */
+    var callRingtoneEnabled: Boolean
+        get() = prefs.getBoolean(KEY_CALL_RINGTONE, true)
+        set(value) = prefs.edit().putBoolean(KEY_CALL_RINGTONE, value).apply()
+
+    /** Вибрация при входящем звонке (по умолчанию включена). */
+    var callVibrationEnabled: Boolean
+        get() = prefs.getBoolean(KEY_CALL_VIBRATION, true)
+        set(value) = prefs.edit().putBoolean(KEY_CALL_VIBRATION, value).apply()
+
     fun legacyRelaySnapshot(secrets: RelaySecrets): LegacyRelaySnapshot? {
         val enabled = prefs.getBoolean(KEY_RELAY_ENABLED, false)
         val address = prefs.getString(KEY_RELAY_ADDRESS, "")?.takeIf { it.isNotBlank() }
@@ -53,6 +63,8 @@ class AppPreferences(context: Context) : BackgroundDeliveryPrefs, MdnsPrefs {
         private const val KEY_PERSISTENT_SERVICE = "persistent_service_enabled"
         private const val KEY_BACKGROUND_HINT_SHOWN = "background_hint_shown"
         private const val KEY_MDNS = "mdns_enabled"
+        private const val KEY_CALL_RINGTONE = "call_ringtone_enabled"
+        private const val KEY_CALL_VIBRATION = "call_vibration_enabled"
         private const val KEY_RELAY_ENABLED = "relay_enabled"
         private const val KEY_RELAY_ADDRESS = "relay_address"
         private const val KEY_RELAY_PIN = "relay_pin"

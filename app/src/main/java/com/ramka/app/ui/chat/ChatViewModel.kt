@@ -16,6 +16,7 @@ import androidx.lifecycle.viewModelScope
 import com.ramka.app.files.AndroidIncomingFileStore
 import com.ramka.domain.model.AppMessage
 import com.ramka.domain.model.Contact
+import com.ramka.domain.model.ContactConstants
 import com.ramka.domain.model.Message
 import com.ramka.domain.model.MessageBody
 import com.ramka.domain.model.MessageDirection
@@ -26,9 +27,12 @@ import com.ramka.domain.repository.OutboxRepository
 import com.ramka.domain.repository.TransportRepository
 import com.ramka.domain.usecase.AttemptDeliveryUseCase
 import com.ramka.domain.usecase.FileTransferManager
+import com.ramka.domain.usecase.OfflineFileSignal
+import com.ramka.domain.usecase.SaveSelfNoteUseCase
 import com.ramka.domain.usecase.SendFileUseCase
 import com.ramka.domain.util.FileTransferConfig
 import com.ramka.domain.util.FileTransferTracker
+import com.ramka.domain.util.OfflineSignalTracker
 import com.ramka.domain.usecase.SendReadAckUseCase
 import com.ramka.domain.usecase.SendMessageUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -56,12 +60,17 @@ class ChatViewModel @Inject constructor(
     private val sendFile: SendFileUseCase,
     private val fileTransfers: FileTransferManager,
     fileTracker: FileTransferTracker,
+    offlineSignals: OfflineSignalTracker,
     private val incomingFileStore: AndroidIncomingFileStore
 ) : ViewModel() {
 
     private val contactId: String = checkNotNull(savedStateHandle["contactId"])
     private val attemptDelivery = AttemptDeliveryUseCase(contactRepository, transportRepository)
     private val sendMessageUseCase = SendMessageUseCase(contactRepository, messageRepository, outboxRepository, attemptDelivery)
+    private val saveSelfNote = SaveSelfNoteUseCase(messageRepository)
+
+    /** «Избранное»: сообщения только сохраняются локально — ни Outbox, ни транспорта, ни передачи файлов. */
+    fun isSelfContact(id: String = contactId): Boolean = id == ContactConstants.SELF_CONTACT_ID
 
     val contact: StateFlow<Contact?> = flow { emit(contactRepository.getContact(contactId)) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
@@ -70,12 +79,21 @@ class ChatViewModel @Inject constructor(
         messageRepository.observeMessages(contactId),
         fileTracker.progress
     ) { stored, live ->
-        stored.map { message ->
+        // Служебный сигнал «Вам пытаются отправить файл…» адресован собеседнику: у отправителя он в чате
+        // не показывается (о нём говорит подпись под файлом), хотя в Outbox и в БД лежит как обычный текст.
+        stored.filterNot { isOfflineSignal(it) }.map { message ->
             val body = message.body
             val percent = live[message.localId]
             if (body is MessageBody.File && percent != null) message.copy(body = body.copy(progress = percent)) else message
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    private fun isOfflineSignal(message: Message): Boolean =
+        message.direction == MessageDirection.OUTGOING &&
+            (message.body as? MessageBody.Text)?.text == OfflineFileSignal.TEXT
+
+    /** localId файлов, по которым собеседнику отправлен текстовый сигнал (подпись под ошибкой в FileBubble). */
+    val notifiedFiles: StateFlow<Set<String>> = offlineSignals.notifiedFiles
 
     /** Контакты для окна «Переслать» — все, кроме текущего собеседника. */
     val forwardTargets: StateFlow<List<Contact>> = contactRepository.observeContacts()
@@ -98,7 +116,9 @@ class ChatViewModel @Inject constructor(
         val text = draftText.trim()
         if (text.isEmpty()) return
         draftText = ""
-        viewModelScope.launch { sendMessageUseCase(contactId, text) }
+        viewModelScope.launch {
+            if (isSelfContact()) saveSelfNote.saveText(text) else sendMessageUseCase(contactId, text)
+        }
     }
 
     fun onFilePicked(uri: Uri) {
@@ -116,6 +136,16 @@ class ChatViewModel @Inject constructor(
                 _events.trySend("Не удалось подготовить файл")
                 return@launch
             }
+            if (isSelfContact()) {
+                // Только локальная копия (outgoing_files) + запись в чате; FileTransferManager не запускается.
+                try {
+                    saveSelfNote.saveFile(prepared.displayName, prepared.sizeBytes, prepared.mimeType, prepared.localUri)
+                } catch (e: CancellationException) { throw e }
+                catch (e: Exception) {
+                    _events.trySend("Не удалось сохранить файл")
+                }
+                return@launch
+            }
             val message = try {
                 sendFile.createOutgoing(contactId, prepared.displayName, prepared.sizeBytes, prepared.mimeType, prepared.localUri)
             } catch (e: CancellationException) { throw e }
@@ -127,12 +157,15 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    fun retryFile(messageLocalId: String) { fileTransfers.start(messageLocalId) }
+    fun retryFile(messageLocalId: String) {
+        if (isSelfContact()) return // в «Избранном» нечего повторять: файл никуда не отправляется
+        fileTransfers.start(messageLocalId)
+    }
 
     fun onChatShown() {
         activeChat.onChatShown(contactId)
         viewModelScope.launch { contactRepository.resetUnreadCount(contactId) }
-        viewModelScope.launch { sendReadAck(contactId) }
+        if (!isSelfContact()) viewModelScope.launch { sendReadAck(contactId) }
     }
 
     fun onChatHidden() {
@@ -222,8 +255,13 @@ class ChatViewModel @Inject constructor(
         }
         viewModelScope.launch {
             try {
-                sendMessageUseCase(targetContactId, text)
-                _events.trySend("Переслано")
+                if (isSelfContact(targetContactId)) {
+                    saveSelfNote.saveText(text)
+                    _events.trySend("Сохранено в «Избранном»")
+                } else {
+                    sendMessageUseCase(targetContactId, text)
+                    _events.trySend("Переслано")
+                }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -251,6 +289,11 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             val message = messageRepository.getMessage(messageLocalId)
             if (message == null || message.contactId != contactId) return@launch
+            if (isSelfContact()) {
+                // В «Избранном» нет собеседника: «у всех» = «у меня», сети нет.
+                removeLocally(message)
+                return@launch
+            }
             if (message.direction != MessageDirection.OUTGOING) {
                 _events.trySend("У всех можно удалить только свои сообщения")
                 return@launch

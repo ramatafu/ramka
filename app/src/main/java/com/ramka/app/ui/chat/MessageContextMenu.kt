@@ -16,12 +16,19 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -34,6 +41,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.changedToUpIgnoreConsumed
 import androidx.compose.ui.input.pointer.pointerInput
@@ -47,6 +55,7 @@ import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
 import com.ramka.domain.model.Contact
+import com.ramka.domain.model.ContactConstants
 import com.ramka.domain.model.Message
 import com.ramka.domain.model.MessageBody
 import com.ramka.domain.model.MessageDirection
@@ -98,7 +107,7 @@ fun Modifier.messageLongPress(onLongPress: (Offset) -> Unit): Modifier {
     }
 }
 
-private data class MenuEntry(val emoji: String, val title: String, val action: MessageAction)
+private data class MenuEntry(val icon: ImageVector, val title: String, val action: MessageAction)
 
 /**
  * Меню рядом с местом нажатия: поверхность темы, углы 12dp, тень 8dp, появление fade + scale за 150 мс.
@@ -112,10 +121,10 @@ fun MessageContextMenu(
 ) {
     val isText = state.message.body is MessageBody.Text
     val entries = buildList {
-        if (isText) add(MenuEntry("📋", "Копировать", MessageAction.Copy))
-        if (isText) add(MenuEntry("↗️", "Переслать", MessageAction.Forward))
-        add(MenuEntry("🗑️", "Удалить", MessageAction.Delete))
-        add(MenuEntry("ℹ️", "Информация", MessageAction.Info))
+        if (isText) add(MenuEntry(Icons.Filled.ContentCopy, "Копировать", MessageAction.Copy))
+        if (isText) add(MenuEntry(Icons.Filled.Share, "Переслать", MessageAction.Forward))
+        add(MenuEntry(Icons.Filled.Delete, "Удалить", MessageAction.Delete))
+        add(MenuEntry(Icons.Filled.Info, "Информация", MessageAction.Info))
     }
     val marginPx = with(LocalDensity.current) { 8.dp.roundToPx() }
     val provider = remember(state.position, marginPx) {
@@ -154,7 +163,7 @@ fun MessageContextMenu(
                                 .padding(12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(entry.emoji, style = MaterialTheme.typography.titleMedium)
+                            Icon(entry.icon, contentDescription = null, tint = onSurface, modifier = Modifier.size(20.dp))
                             Spacer(Modifier.width(10.dp))
                             Text(entry.title, style = MaterialTheme.typography.bodyLarge)
                         }
@@ -199,7 +208,8 @@ fun DeleteMessageDialog(
         text = {
             Column {
                 TextButton(onClick = onDeleteForMe) { Text("Удалить у меня") }
-                if (message.direction == MessageDirection.OUTGOING) {
+                // В «Избранном» «у всех» бессмысленно: собеседника нет, удаление всегда локальное.
+                if (message.direction == MessageDirection.OUTGOING && message.contactId != ContactConstants.SELF_CONTACT_ID) {
                     TextButton(onClick = onDeleteForEveryone) { Text("Удалить у всех") }
                 }
             }

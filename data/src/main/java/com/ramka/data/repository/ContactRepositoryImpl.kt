@@ -20,8 +20,19 @@ class ContactRepositoryImpl(private val dao: ContactDao) : ContactRepository {
         dao.upsert(contact.toEntity())
     }
 
+    override suspend fun getOrCreateSelfContact(): Contact {
+        dao.getById(ContactConstants.SELF_CONTACT_ID)?.let { return it.toDomain() }
+        dao.insertIgnore(selfContactEntity())
+        // IGNORE: при гонке запись создал другой вызов — читаем то, что реально лежит в БД.
+        return checkNotNull(dao.getById(ContactConstants.SELF_CONTACT_ID)) { "«Избранное» не создано" }.toDomain()
+    }
+
     override suspend fun updateAlias(localId: String, alias: String) {
         dao.updateAlias(localId, alias)
+    }
+
+    override suspend fun updatePhotoUri(localId: String, photoUri: String?) {
+        dao.updatePhotoUri(localId, photoUri)
     }
 
     override suspend fun updateLastKnownAddress(localId: String, address: NetworkAddress) {
@@ -64,7 +75,9 @@ private fun ContactEntity.toDomain(): Contact = Contact(
     },
     verification = KeyVerificationStatus.valueOf(verificationStatus),
     addedAtEpochDay = addedAtEpochDay,
-    unreadCount = unreadCount
+    unreadCount = unreadCount,
+    photoUri = photoUri,
+    isSelf = isSelf
 )
 
 private fun Contact.toEntity(): ContactEntity = ContactEntity(
@@ -85,5 +98,23 @@ private fun Contact.toEntity(): ContactEntity = ContactEntity(
     addressPort = (lastKnownAddress as? NetworkAddress.Lan)?.port,
     verificationStatus = verification.name,
     addedAtEpochDay = addedAtEpochDay,
-    unreadCount = unreadCount
+    unreadCount = unreadCount,
+    photoUri = photoUri,
+    isSelf = isSelf
+)
+
+/** Ключей у «Избранного» нет: пустые Base64-строки (контакт не участвует ни в рукопожатии, ни в доставке). */
+private fun selfContactEntity(): ContactEntity = ContactEntity(
+    localId = ContactConstants.SELF_CONTACT_ID,
+    alias = ContactConstants.SELF_CONTACT_ALIAS,
+    publicKeyB64 = "",
+    signingPublicKeyB64 = "",
+    addressType = null,
+    addressHost = null,
+    addressPort = null,
+    verificationStatus = KeyVerificationStatus.VERIFIED_BY_QR.name,
+    addedAtEpochDay = System.currentTimeMillis() / 86_400_000L,
+    unreadCount = 0,
+    photoUri = null,
+    isSelf = true
 )

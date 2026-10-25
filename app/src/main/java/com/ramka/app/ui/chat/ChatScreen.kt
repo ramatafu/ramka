@@ -20,7 +20,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Call
+import androidx.compose.material.icons.filled.Done
+import androidx.compose.material.icons.filled.DoneAll
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -38,11 +43,15 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.compose.ui.text.style.TextOverflow
+import com.ramka.app.ui.contacts.ContactAvatar
+import com.ramka.app.ui.contacts.displayName
 import com.ramka.app.ui.theme.RamkaAccent
 import com.ramka.app.ui.theme.RamkaBubbleOutgoing
 import com.ramka.domain.model.Message
 import com.ramka.domain.model.MessageBody
 import com.ramka.domain.model.MessageDirection
+import com.ramka.domain.model.ContactConstants
 import com.ramka.domain.model.MessageStatus
 import kotlinx.coroutines.launch
 import java.io.File
@@ -143,7 +152,10 @@ fun ChatScreen(
     viewModel: ChatViewModel = hiltViewModel()
 ) {
     val contact by viewModel.contact.collectAsState()
+    // Определяем по id, а не по загруженному контакту: иначе кнопки звонков мигали бы, пока контакт читается из БД.
+    val isSelfChat = contactId == ContactConstants.SELF_CONTACT_ID
     val messages by viewModel.messages.collectAsState()
+    val notifiedFiles by viewModel.notifiedFiles.collectAsState()
     val context = LocalContext.current
 
     val snackbarHostState = remember { SnackbarHostState() }
@@ -243,7 +255,19 @@ fun ChatScreen(
         contentWindowInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal),
         topBar = {
             TopAppBar(
-                title = { Text(contact?.alias ?: "…") },
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        contact?.let {
+                            ContactAvatar(alias = it.displayName(), photoUri = it.photoUri, size = 36.dp, isSelf = it.isSelf)
+                            Spacer(Modifier.width(10.dp))
+                        }
+                        Text(
+                            contact?.displayName() ?: "…",
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Назад")
@@ -252,12 +276,15 @@ fun ChatScreen(
                 actions = {
                     // Иконки звонков в стиле остальных значков экрана (стрелка «Назад», «Отправить»):
                     // однотонные Material, цвет акцента Ramka; без контакта — приглушены.
-                    val callTint = RamkaAccent.copy(alpha = if (contact != null) 1f else 0.38f)
-                    IconButton(onClick = onVideoCall, enabled = contact != null) {
-                        Icon(VideocamIcon, contentDescription = "Видеозвонок", tint = callTint)
-                    }
-                    IconButton(onClick = onCall, enabled = contact != null) {
-                        Icon(Icons.Filled.Call, contentDescription = "Аудиозвонок", tint = callTint)
+                    // В «Избранном» звонков нет: звонить самому себе бессмысленно.
+                    if (!isSelfChat) {
+                        val callTint = RamkaAccent.copy(alpha = if (contact != null) 1f else 0.38f)
+                        IconButton(onClick = onVideoCall, enabled = contact != null) {
+                            Icon(Icons.Filled.Videocam, contentDescription = "Видеозвонок", tint = callTint)
+                        }
+                        IconButton(onClick = onCall, enabled = contact != null) {
+                            Icon(Icons.Filled.Call, contentDescription = "Аудиозвонок", tint = callTint)
+                        }
                     }
                 }
             )
@@ -284,6 +311,7 @@ fun ChatScreen(
                     MessageBubble(
                         message = message,
                         onRetryFile = viewModel::retryFile,
+                        offlineSignalSent = message.localId in notifiedFiles,
                         onOpenFile = { body ->
                             body.uri?.let { uri ->
                                 viewModel.onFileClicked(uri, body.fileName, body.mimeType)
@@ -359,6 +387,7 @@ fun ChatScreen(
 private fun MessageBubble(
     message: Message,
     onRetryFile: (String) -> Unit,
+    offlineSignalSent: Boolean,
     onOpenFile: (MessageBody.File) -> Unit,
     menuState: MessageContextMenuState?,
     onLongClick: (Message, Offset) -> Unit,
@@ -388,7 +417,8 @@ private fun MessageBubble(
                         isOutgoing = isOutgoing,
                         status = message.status,
                         onRetry = { onRetryFile(message.localId) },
-                        onOpen = { onOpenFile(body) }
+                        onOpen = { onOpenFile(body) },
+                        signalSent = offlineSignalSent
                     )
                 }
                 Spacer(Modifier.height(4.dp))
@@ -398,7 +428,8 @@ private fun MessageBubble(
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.secondary
                     )
-                    if (isOutgoing) {
+                    // Заметки в «Избранном» никуда не доставляются — галочки статуса там не нужны.
+                    if (isOutgoing && message.contactId != ContactConstants.SELF_CONTACT_ID) {
                         Spacer(Modifier.width(4.dp))
                         StatusTicks(message.status)
                     }
@@ -417,13 +448,13 @@ private fun MessageBubble(
 
 @Composable
 private fun StatusTicks(status: MessageStatus) {
-    val (text, color) = when (status) {
+    val (icon, color) = when (status) {
         MessageStatus.SENDING, MessageStatus.SENT, MessageStatus.FAILED ->
-            "🕐" to MaterialTheme.colorScheme.secondary
-        MessageStatus.DELIVERED -> "✓" to MaterialTheme.colorScheme.secondary
-        MessageStatus.READ -> "✓✓" to RamkaAccent
+            Icons.Filled.Schedule to MaterialTheme.colorScheme.secondary
+        MessageStatus.DELIVERED -> Icons.Filled.Done to MaterialTheme.colorScheme.secondary
+        MessageStatus.READ -> Icons.Filled.DoneAll to RamkaAccent
     }
-    Text(text, style = MaterialTheme.typography.labelSmall, color = color)
+    Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(14.dp))
 }
 
 @Composable
@@ -448,7 +479,7 @@ private fun MessageInputBar(
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = onAttach) {
-                Text("📎", style = MaterialTheme.typography.titleLarge)
+                Icon(Icons.Filled.AttachFile, contentDescription = "Прикрепить файл", tint = MaterialTheme.colorScheme.onSurface)
             }
             OutlinedTextField(
                 value = text,

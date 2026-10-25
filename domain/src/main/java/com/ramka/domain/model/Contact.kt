@@ -18,6 +18,11 @@ import java.util.Arrays
  * @property unreadCount счётчик непрочитанных входящих сообщений этого контакта (UX-правка,
  *   не в исходной спеке). Растёт на каждое новое (не дублирующее) входящее сообщение
  *   (см. HandleIncomingTextUseCase) и обнуляется при открытии чата вместе с READ-ACK.
+ * @property photoUri локальное фото контакта (file:// во внутреннем хранилище приложения) или null.
+ *   Живёт ТОЛЬКО на этом устройстве: не входит в QR-приглашение и никогда не передаётся собеседнику.
+ * @property isSelf служебный контакт «Избранное» (см. [ContactConstants]): заметки самому себе. Ключей нет
+ *   (publicKey/signingPublicKey пустые — вместо null, чтобы не трогать криптоядро), по сети с ним ничего
+ *   не отправляется ([com.ramka.domain.usecase.AttemptDeliveryUseCase] такой контакт отсекает), удалить его нельзя.
  */
 data class Contact(
     val localId: String,
@@ -27,7 +32,9 @@ data class Contact(
     val lastKnownAddress: NetworkAddress?,
     val verification: KeyVerificationStatus,
     val addedAtEpochDay: Long,
-    val unreadCount: Int = 0
+    val unreadCount: Int = 0,
+    val photoUri: String? = null,
+    val isSelf: Boolean = false
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -40,6 +47,8 @@ data class Contact(
         if (verification != other.verification) return false
         if (addedAtEpochDay != other.addedAtEpochDay) return false
         if (unreadCount != other.unreadCount) return false
+        if (photoUri != other.photoUri) return false
+        if (isSelf != other.isSelf) return false
         return true
     }
 
@@ -52,6 +61,8 @@ data class Contact(
         result = 31 * result + verification.hashCode()
         result = 31 * result + addedAtEpochDay.hashCode()
         result = 31 * result + unreadCount
+        result = 31 * result + (photoUri?.hashCode() ?: 0)
+        result = 31 * result + isSelf.hashCode()
         return result
     }
 }

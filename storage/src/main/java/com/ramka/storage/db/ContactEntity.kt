@@ -19,13 +19,17 @@ data class ContactEntity(
     val addressPort: Int?,
     val verificationStatus: String,
     val addedAtEpochDay: Long,
-    val unreadCount: Int = 0
+    val unreadCount: Int = 0,
+    // Локальное фото (file:// во внутреннем хранилище), миграция 4 -> 5. Только на этом устройстве.
+    val photoUri: String? = null,
+    // Служебный контакт «Избранное» (миграция 5 -> 6). Не удаляется, закреплён вверху списка.
+    val isSelf: Boolean = false
 )
 
 @Dao
 interface ContactDao {
-    // Контакты с непрочитанными — вверху списка (UX-правка); внутри каждой группы — по алфавиту.
-    @Query("SELECT * FROM contacts ORDER BY (unreadCount > 0) DESC, alias COLLATE NOCASE")
+    // «Избранное» — всегда первым; затем контакты с непрочитанными (UX-правка); внутри каждой группы — по алфавиту.
+    @Query("SELECT * FROM contacts ORDER BY isSelf DESC, (unreadCount > 0) DESC, alias COLLATE NOCASE")
     fun observeAll(): Flow<List<ContactEntity>>
 
     @Query("SELECT * FROM contacts WHERE localId = :localId")
@@ -34,8 +38,15 @@ interface ContactDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(entity: ContactEntity)
 
+    /** Вставка без перезаписи: для «Избранного», чтобы повторный вызов не сбросил переименование. */
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertIgnore(entity: ContactEntity): Long
+
     @Query("UPDATE contacts SET alias = :alias WHERE localId = :localId")
     suspend fun updateAlias(localId: String, alias: String)
+
+    @Query("UPDATE contacts SET photoUri = :photoUri WHERE localId = :localId")
+    suspend fun updatePhotoUri(localId: String, photoUri: String?)
 
     @Query("""
         UPDATE contacts SET addressType = :type, addressHost = :host, addressPort = :port
@@ -52,6 +63,7 @@ interface ContactDao {
     @Query("UPDATE contacts SET unreadCount = 0 WHERE localId = :localId")
     suspend fun resetUnreadCount(localId: String)
 
-    @Query("DELETE FROM contacts WHERE localId = :localId")
+    // isSelf = 0: «Избранное» нельзя удалить ни из какого места кода (полное стирание — только clearAllTables при панике).
+    @Query("DELETE FROM contacts WHERE localId = :localId AND isSelf = 0")
     suspend fun delete(localId: String)
 }

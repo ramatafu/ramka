@@ -147,6 +147,7 @@ class HandleIncomingTextUseCaseTest {
             if (i >= 0) store[i] = store[i].copy(readAckSent = true)
         }
         override suspend fun deleteMessage(localId: String) { store.removeAll { it.localId == localId } }
+        override suspend fun deleteAllForContact(contactId: String) { store.removeAll { it.contactId == contactId } }
         override suspend fun pendingForContact(contactId: String): List<Message> =
             store.filter { it.contactId == contactId && it.status == MessageStatus.SENDING }
         override suspend fun incomingWithoutReadAck(contactId: String): List<Message> =
@@ -166,7 +167,9 @@ class HandleIncomingTextUseCaseTest {
         override fun observeContacts(): Flow<List<Contact>> = MutableStateFlow(emptyList())
         override suspend fun getContact(localId: String): Contact? = fakeContact(localId, unread[localId] ?: 0)
         override suspend fun addContact(contact: Contact) {}
+        override suspend fun getOrCreateSelfContact(): Contact = fakeContact(com.ramka.domain.model.ContactConstants.SELF_CONTACT_ID, 0)
         override suspend fun updateAlias(localId: String, alias: String) {}
+        override suspend fun updatePhotoUri(localId: String, photoUri: String?) {}
         override suspend fun updateLastKnownAddress(localId: String, address: NetworkAddress) {}
         override suspend fun markKeyChanged(localId: String, newPublicKey: ByteArray) {}
         override suspend fun removeContact(localId: String) {}

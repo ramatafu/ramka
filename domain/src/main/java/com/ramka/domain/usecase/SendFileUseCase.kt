@@ -31,13 +31,23 @@ import java.util.UUID
  * достигнутый). Статусы: SENDING на время передачи, затем SENT (все пакеты ушли) или FAILED.
  * DELIVERED/READ приходят отдельными ACK, как у текста. Приёмник подтверждает файл целиком
  * (DELIVERED-ACK) только после сборки всех чанков.
+ *
+ * Если передача сорвалась ИМЕННО из-за соединения (метаданные или чанк не ушли после всех попыток),
+ * после установки FAILED вызывается [onConnectionFailed] — по нему уходит текстовый сигнал
+ * собеседнику (см. [OfflineFileSignal]). Локальные причины (файла нет, пуст, слишком большой,
+ * ошибка чтения) сигнала не вызывают. Колбэк не suspend: тяжёлая работа выносится в другой скоуп,
+ * чтобы не задерживать завершение передачи и кнопку «Повторить».
  */
 class SendFileUseCase(
     private val messageRepository: MessageRepository,
     private val tracker: FileTransferTracker,
     private val send: suspend (contactId: String, payload: ByteArray) -> Boolean,
-    private val pause: suspend (millis: Long) -> Unit = { delay(it) }
+    private val pause: suspend (millis: Long) -> Unit = { delay(it) },
+    private val onConnectionFailed: (contactId: String, fileMessageId: String) -> Unit = { _, _ -> }
 ) {
+    /** Чем закончилась попытка: сигнал собеседнику нужен только при [CONNECTION_FAILED]. */
+    private enum class SendOutcome { OK, LOCAL_ERROR, CONNECTION_FAILED }
+
     /** Создаёт и сохраняет исходящее файловое сообщение (SENDING, прогресс 0). Сеть не трогает. */
     suspend fun createOutgoing(
         contactId: String,
@@ -80,17 +90,18 @@ class SendFileUseCase(
 
         var lastPercent = 0
         try {
-            val ok = sendAll(message, body) { percent ->
+            val outcome = sendAll(message, body) { percent ->
                 lastPercent = percent
                 tracker.update(messageLocalId, percent)
             }
-            if (ok) {
+            if (outcome == SendOutcome.OK) {
                 messageRepository.updateFileProgress(messageLocalId, 100)
                 messageRepository.updateStatus(messageLocalId, MessageStatus.SENT)
             } else {
                 markFailed(messageLocalId, lastPercent)
+                if (outcome == SendOutcome.CONNECTION_FAILED) notifyConnectionFailed(message)
             }
-            return ok
+            return outcome == SendOutcome.OK
         } catch (e: CancellationException) {
             withContext(NonCancellable) { markFailed(messageLocalId, lastPercent) }
             throw e
@@ -107,11 +118,21 @@ class SendFileUseCase(
         messageRepository.updateStatus(id, MessageStatus.FAILED)
     }
 
-    private suspend fun sendAll(message: Message, body: MessageBody.File, onProgress: (Int) -> Unit): Boolean {
-        val file = localFile(body.uri) ?: return false
-        if (!file.isFile) return false
+    /** Статус FAILED уже записан; сбой самого сигнала на файл повлиять не должен. */
+    private fun notifyConnectionFailed(message: Message) {
+        try {
+            onConnectionFailed(message.contactId, message.localId)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+        }
+    }
+
+    private suspend fun sendAll(message: Message, body: MessageBody.File, onProgress: (Int) -> Unit): SendOutcome {
+        val file = localFile(body.uri) ?: return SendOutcome.LOCAL_ERROR
+        if (!file.isFile) return SendOutcome.LOCAL_ERROR
         val size = file.length()
-        if (size <= 0 || size > FileTransferConfig.MAX_FILE_SIZE_BYTES) return false
+        if (size <= 0 || size > FileTransferConfig.MAX_FILE_SIZE_BYTES) return SendOutcome.LOCAL_ERROR
 
         val chunkSize = FileTransferConfig.CHUNK_SIZE
         val chunkCount = FileTransferConfig.chunkCount(size, chunkSize)
@@ -124,20 +145,20 @@ class SendFileUseCase(
             chunkSize = chunkSize,
             mimeType = FileNames.sanitizeMimeType(body.mimeType)
         )
-        if (!sendWithRetry(message.contactId, meta.encode())) return false
+        if (!sendWithRetry(message.contactId, meta.encode())) return SendOutcome.CONNECTION_FAILED
 
         FileInputStream(file).use { input ->
             val buffer = ByteArray(chunkSize)
             for (index in 0 until chunkCount) {
                 val expected = if (index < chunkCount - 1) chunkSize else (size - index.toLong() * chunkSize).toInt()
                 // Файл укоротили/изменили во время передачи — продолжать нельзя, приёмник получит мусор.
-                if (!readFully(input, buffer, expected)) return false
+                if (!readFully(input, buffer, expected)) return SendOutcome.LOCAL_ERROR
                 val chunk = AppMessage.FileChunk(message.localId, index, buffer.copyOf(expected))
-                if (!sendWithRetry(message.contactId, chunk.encode())) return false
+                if (!sendWithRetry(message.contactId, chunk.encode())) return SendOutcome.CONNECTION_FAILED
                 onProgress(((index + 1) * 100L / chunkCount).toInt())
             }
         }
-        return true
+        return SendOutcome.OK
     }
 
     private suspend fun sendWithRetry(contactId: String, payload: ByteArray): Boolean {

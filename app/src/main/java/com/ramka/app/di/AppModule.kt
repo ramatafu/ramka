@@ -2,9 +2,12 @@ package com.ramka.app.di
 
 import android.content.Context
 import android.util.Log
+import com.ramka.app.data.TurnSettingsDataStore
 import com.ramka.app.relay.AndroidLocalNetworkDetector
 import com.ramka.app.relay.LocalNetworkDetector
 import com.ramka.app.relay.RelayPoolSettings
+import com.ramka.app.turn.TurnServerChecker
+import com.ramka.app.turn.TurnServerMonitor
 import com.ramka.crypto.keys.KeyManager
 import com.ramka.crypto.securestorage.SecureKeyStore
 import com.ramka.data.incoming.IncomingMessageProcessor
@@ -18,19 +21,22 @@ import com.ramka.domain.relay.PoolRelayProvider
 import com.ramka.domain.relay.RelayChecker
 import com.ramka.domain.relay.RelayHealthMonitor
 import com.ramka.domain.repository.ContactRepository
+import com.ramka.domain.repository.IncomingFileStore
 import com.ramka.domain.repository.MessageRepository
 import com.ramka.domain.repository.OutboxRepository
 import com.ramka.domain.repository.TransportRepository
 import com.ramka.domain.usecase.AttemptDeliveryUseCase
 import com.ramka.domain.usecase.DelayedAckSender
-import com.ramka.domain.repository.IncomingFileStore
 import com.ramka.domain.usecase.FileTransferManager
 import com.ramka.domain.usecase.HandleIncomingFileUseCase
-import com.ramka.domain.usecase.SendFileUseCase
-import com.ramka.domain.util.FileTransferTracker
+import com.ramka.domain.usecase.OfflineFileSignal
 import com.ramka.domain.usecase.ProcessOutboxUseCase
+import com.ramka.domain.usecase.SendFileUseCase
+import com.ramka.domain.usecase.SendMessageUseCase
 import com.ramka.domain.usecase.SendReadAckUseCase
+import com.ramka.domain.util.FileTransferTracker
 import com.ramka.domain.util.Jitter
+import com.ramka.domain.util.OfflineSignalTracker
 import com.ramka.network.call.CallSignaling
 import com.ramka.network.local.LanDiscoveryService
 import com.ramka.network.local.SecureLanChannel
@@ -44,6 +50,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
 import java.security.SecureRandom
@@ -232,8 +239,14 @@ object AppModule {
                     ?.let { incomingFileStore.deleteStoredFile(it) }
             }
         }
-    ) {
-        com.ramka.app.notifications.RamkaNotifications.showNewMessageNotification(ctx)
+    ) { saved ->
+        val body = saved.body
+        if (body is com.ramka.domain.model.MessageBody.Text && body.text == OfflineFileSignal.TEXT) {
+            // Собеседник не смог передать нам файл: показываем понятное уведомление вместо общего.
+            com.ramka.app.notifications.RamkaNotifications.showFileSignalNotification(ctx)
+        } else {
+            com.ramka.app.notifications.RamkaNotifications.showNewMessageNotification(ctx)
+        }
     }
 
     /**
@@ -272,12 +285,37 @@ object AppModule {
     fun provideSendFileUseCase(
         messageRepository: MessageRepository,
         tracker: FileTransferTracker,
-        attemptDelivery: AttemptDeliveryUseCase
+        attemptDelivery: AttemptDeliveryUseCase,
+        offlineSignal: OfflineFileSignal,
+        appScope: CoroutineScope
     ): SendFileUseCase = SendFileUseCase(
         messageRepository,
         tracker,
-        { contactId, payload -> attemptDelivery(contactId, payload) }
+        { contactId, payload -> attemptDelivery(contactId, payload) },
+        // Сигнал уходит в appScope: передача файла завершается сразу, «Повторить» не ждёт сеть.
+        onConnectionFailed = { contactId, messageId ->
+            appScope.launch { offlineSignal(contactId, messageId) }
+        }
     )
+
+    /** Один трекер на процесс: защита от спама сигналом «вам пытаются отправить файл» (в памяти). */
+    @Provides
+    @Singleton
+    fun provideOfflineSignalTracker() = OfflineSignalTracker()
+
+    /** Сигнал идёт обычным текстовым путём (saveOutgoing + Outbox + доставка), не файловым транспортом. */
+    @Provides
+    @Singleton
+    fun provideOfflineFileSignal(
+        contactRepository: ContactRepository,
+        messageRepository: MessageRepository,
+        outboxRepository: OutboxRepository,
+        attemptDelivery: AttemptDeliveryUseCase,
+        tracker: OfflineSignalTracker
+    ): OfflineFileSignal {
+        val sendMessage = SendMessageUseCase(contactRepository, messageRepository, outboxRepository, attemptDelivery)
+        return OfflineFileSignal(tracker) { contactId, text -> sendMessage(contactId, text) }
+    }
 
     @Provides
     @Singleton
@@ -329,4 +367,13 @@ object AppModule {
 
     @Provides
     fun provideLanPort(): Int = LAN_PORT
+
+    // --- НОВОЕ: Глобальный монитор статуса TURN-серверов для индикатора ---
+    @Provides
+    @Singleton
+    fun provideTurnServerMonitor(
+        store: TurnSettingsDataStore,
+        checker: TurnServerChecker,
+        appScope: CoroutineScope
+    ): TurnServerMonitor = TurnServerMonitor(store, checker, appScope)
 }

@@ -5,35 +5,33 @@ enum class ConnectionState { P2P, TURN, RELAY, OFFLINE }
 
 /** Вид текущей сети устройства. */
 enum class NetworkKind {
-    /** Нет сети. */
     NONE,
-
-    /** Wi-Fi или Ethernet: LAN-слушатель и прямая доставка по локальной сети возможны. */
     LOCAL,
-
-    /** Мобильная сеть и прочее: прямой LAN-доставки нет. */
     OTHER
 }
 
 /**
- * Единое правило выбора состояния (чистая функция, без Android).
+ * Единое правило выбора состояния.
  *
- * Приоритеты:
- * 1. Нет сети → OFFLINE (даже если релей или звонок «числятся» подключёнными: это устаревшее состояние).
- * 2. Идёт звонок (CallState.Connected) → TURN: звонки в приложении сейчас принудительно relay-only.
- * 3. Wi-Fi/Ethernet И обнаружен хотя бы один пир в LAN → P2P (зеленый).
- * 4. Регистрация хотя бы на одном релее активна → RELAY (синий).
- * 5. Иначе → OFFLINE (серый, например, после сброса приложения или в чужом Wi-Fi без пиров).
+ * Приоритеты (сверху вниз):
+ * 1. Нет сети → OFFLINE
+ * 2. Идёт звонок → TURN (активный вызов всегда приоритетнее)
+ * 3. Wi-Fi/Ethernet И обнаружен пир в LAN → P2P (зеленый)
+ * 4. Регистрация на релее активна → RELAY (синий) ← ПОДНЯЛИ ВЫШЕ
+ * 5. Хотя бы один TURN-сервер имеет статус WORKING → TURN (желтый) ← ОПУСТИЛИ НИЖЕ
+ * 6. Иначе → OFFLINE (серый)
  */
 fun resolveConnectionState(
     callConnected: Boolean,
     network: NetworkKind,
     relayConnected: Boolean,
-    peersDiscoveredInLan: Boolean
+    peersDiscoveredInLan: Boolean,
+    turnReady: Boolean
 ): ConnectionState = when {
     network == NetworkKind.NONE -> ConnectionState.OFFLINE
     callConnected -> ConnectionState.TURN
     network == NetworkKind.LOCAL && peersDiscoveredInLan -> ConnectionState.P2P
-    relayConnected -> ConnectionState.RELAY
+    relayConnected -> ConnectionState.RELAY // ← ТЕПЕРЬ RELAY ПРИОРИТЕТНЕЕ TURN
+    turnReady -> ConnectionState.TURN       // ← ТЕПЕРЬ TURN НИЖЕ RELAY
     else -> ConnectionState.OFFLINE
 }

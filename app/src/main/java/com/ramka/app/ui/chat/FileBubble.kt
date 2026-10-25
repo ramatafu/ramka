@@ -2,6 +2,9 @@ package com.ramka.app.ui.chat
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.InsertDriveFile
+import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -21,9 +24,10 @@ import java.util.Locale
  * многоточием), размер со статусом передачи, индикатор прогресса пока идёт передача и
  * кнопка «Повторить» у исходящего в статусе FAILED.
  *
- * Иконка — текстовый глиф 📄: Icons.Filled.InsertDriveFile лежит в
- * material-icons-extended, которую без отдельного одобрения не подключаем
- * (см. примечание в ContactsScreen.kt). Время и статус рисует MessageBubble.
+ * Под статусом ошибки у исходящего может быть подпись «Собеседнику отправлено уведомление»
+ * ([signalSent], см. [offlineSignalNote]): файл не ушёл, но текстовый сигнал поставлен на отправку.
+ *
+ * Иконка — Icons.Filled.InsertDriveFile (material-icons-extended). Время и статус рисует MessageBubble.
  */
 @Composable
 internal fun FileBubble(
@@ -31,7 +35,8 @@ internal fun FileBubble(
     isOutgoing: Boolean,
     status: MessageStatus,
     onRetry: () -> Unit,
-    onOpen: () -> Unit
+    onOpen: () -> Unit,
+    signalSent: Boolean = false
 ) {
     Column(
         modifier = Modifier
@@ -39,7 +44,12 @@ internal fun FileBubble(
             .clickable(enabled = isFileOpenable(body, isOutgoing, status), onClick = onOpen)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("📄", style = MaterialTheme.typography.headlineSmall)
+            Icon(
+                Icons.Filled.InsertDriveFile,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.size(28.dp)
+            )
             Spacer(Modifier.width(8.dp))
             Column(modifier = Modifier.weight(1f, fill = false)) {
                 Text(
@@ -54,6 +64,13 @@ internal fun FileBubble(
                     color = if (status == MessageStatus.FAILED) MaterialTheme.colorScheme.error
                     else MaterialTheme.colorScheme.secondary
                 )
+                offlineSignalNote(isOutgoing, status, signalSent)?.let { note ->
+                    Text(
+                        text = note,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.secondary
+                    )
+                }
             }
         }
         if (status == MessageStatus.SENDING) {
@@ -69,6 +86,10 @@ internal fun FileBubble(
         }
     }
 }
+
+/** Подпись под ошибкой отправки файла: только у исходящего в FAILED и только если сигнал ушёл. */
+internal fun offlineSignalNote(isOutgoing: Boolean, status: MessageStatus, signalSent: Boolean): String? =
+    if (isOutgoing && status == MessageStatus.FAILED && signalSent) "Собеседнику отправлено уведомление" else null
 
 /**
  * Нажатие открывает файл, только если он есть на устройстве: исходящий — пока есть локальная копия

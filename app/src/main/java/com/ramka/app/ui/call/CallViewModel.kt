@@ -12,6 +12,7 @@ import android.util.Log
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.ramka.app.call.CallAlerts
 import com.ramka.app.data.TurnCredentials
 import com.ramka.app.data.TurnSettingsDataStore
 import com.ramka.app.webrtc.createAnswerSdp
@@ -62,7 +63,9 @@ class CallViewModel @Inject constructor(
     private val eglBase: EglBase,
     private val signaling: CallSignaling,
     private val contactRepository: ContactRepository,
-    private val turnSettings: TurnSettingsDataStore
+    private val turnSettings: TurnSettingsDataStore,
+
+    private val alerts: CallAlerts
 ) : ViewModel(), CallManager {
 
     private val _state = MutableStateFlow<CallState>(CallState.Idle)
@@ -70,6 +73,19 @@ class CallViewModel @Inject constructor(
 
     private val _peerName = MutableStateFlow<String?>(null)
     val peerName: StateFlow<String?> = _peerName.asStateFlow()
+
+    /** «Принять» из баннера уведомления: экран звонка выполняет его, когда состояние станет Incoming. */
+    val acceptRequest: StateFlow<CallAlerts.AcceptRequest?> get() = alerts.acceptRequest
+
+    fun consumeAcceptRequest() = alerts.consumeAcceptRequest()
+
+    /** Тап по баннеру или «Принять»: навигация открывает экран звонка. Входящий звонок сам экран не открывает. */
+    val openCallRequest: StateFlow<CallAlerts.OpenRequest?> get() = alerts.openCallRequest
+
+    fun consumeOpenRequest() = alerts.consumeOpenRequest()
+
+    /** Если баннер показать нельзя (уведомления выключены), экран звонка открывается сам, как раньше. */
+    fun isCallBannerAvailable(): Boolean = alerts.isBannerAvailable()
 
     private val _localVideoTrack = MutableStateFlow<VideoTrack?>(null)
     val localVideoTrack: StateFlow<VideoTrack?> = _localVideoTrack.asStateFlow()
@@ -110,6 +126,7 @@ class CallViewModel @Inject constructor(
     private val commands = Channel<suspend () -> Unit>(Channel.UNLIMITED)
 
     init {
+        alerts.onUiAttached()
         viewModelScope.launch {
             for (command in commands) {
                 try {
@@ -122,6 +139,14 @@ class CallViewModel @Inject constructor(
         }
         viewModelScope.launch {
             signaling.incoming.collect { signal -> post { handleSignal(signal) } }
+        }
+        // Offer, пришедший, пока экрана не было (тап по баннеру пересоздал Activity): забираем и обрабатываем как обычный.
+        alerts.takePendingOffer()?.let { signal -> post { handleSignal(signal) } }
+        // «Отклонить» в баннере при живом экране.
+        viewModelScope.launch {
+            alerts.declineRequests.collect { declinedCallId ->
+                post { if (declinedCallId == callId && _state.value is CallState.Incoming) doRejectCall() }
+            }
         }
     }
 
@@ -200,7 +225,8 @@ class CallViewModel @Inject constructor(
             val sent = signaling.sendOffer(contactId, id, offer.description, withVideo = callHasVideo)
             pc.setLocalSdp(offer)
             watchDelivery(id, sent, MSG_PEER_UNREACHABLE, notifyPeer = false)
-            armConnectTimeout(id)
+            startRingbackWhenDelivered(id, sent)
+            armNoAnswerTimeout(id)
         } catch (e: Exception) {
             failCall(id, MSG_START_FAILED, e)
         }
@@ -229,6 +255,7 @@ class CallViewModel @Inject constructor(
         begin(offer.callId, contactId, caller = false)
         pendingOffer = offer
         _state.value = CallState.Incoming(contactId, offer.withVideo)
+        alerts.startIncoming(offer.callId, contactId, _peerName.value ?: DEFAULT_PEER_NAME, offer.withVideo)
         armIncomingTimeout(offer.callId)
     }
 
@@ -236,6 +263,7 @@ class CallViewModel @Inject constructor(
         val offer = pendingOffer ?: return
         val id = callId ?: return
         if (_state.value !is CallState.Incoming || peerContactId != contactId) return
+        alerts.stopIncoming() // принят: рингтон, вибрация и баннер гасим сразу
         if (!hasMicPermission()) {
             teardown(AppMessage.CallEnd.Reason.REJECTED)
             _state.value = CallState.Error(MSG_NO_MIC)
@@ -282,6 +310,8 @@ class CallViewModel @Inject constructor(
             pc.setRemoteSdp(SessionDescription(SessionDescription.Type.ANSWER, answer.sdp))
             remoteDescriptionSet = true
             flushRemoteCandidates(pc)
+            alerts.stopRingback() // собеседник принял — гудки больше не нужны
+            armConnectTimeout(id)
         } catch (e: Exception) {
             failCall(id, MSG_CONNECT_FAILED, e)
         }
@@ -305,7 +335,10 @@ class CallViewModel @Inject constructor(
     }
 
     private fun onRemoteEnd(end: AppMessage.CallEnd) {
+        // Звонящий бросил трубку, пока мы не ответили, — пропущенный вызов.
+        val missed = _state.value is CallState.Incoming && end.reason == AppMessage.CallEnd.Reason.HANGUP
         teardown(null)
+        if (missed) alerts.showMissedCall()
         _state.value = when (end.reason) {
             AppMessage.CallEnd.Reason.HANGUP -> CallState.Ended
             AppMessage.CallEnd.Reason.REJECTED -> CallState.Error(MSG_REJECTED)
@@ -319,6 +352,7 @@ class CallViewModel @Inject constructor(
             PeerConnection.PeerConnectionState.CONNECTED -> {
                 val peer = peerContactId ?: return
                 if (_state.value is CallState.Dialing) {
+                    alerts.stopRingback()
                     timeoutJob?.cancel()
                     _state.value = CallState.Connected(
                         peer,
@@ -617,6 +651,9 @@ class CallViewModel @Inject constructor(
     }
 
     private fun teardown(notifyPeer: AppMessage.CallEnd.Reason?) {
+        // Любое завершение (отказ, отмена, ошибка, таймаут): ни звука, ни вибрации, ни баннера не остаётся.
+        alerts.stopIncoming()
+        alerts.stopRingback()
         timeoutJob?.cancel()
         timeoutJob = null
 
@@ -678,6 +715,32 @@ class CallViewModel @Inject constructor(
         }
     }
 
+    /** Гудки только после того, как offer реально доставлен: недоступному абоненту «звонить» незачем. */
+    private fun startRingbackWhenDelivered(id: String, sent: Deferred<Boolean>) {
+        viewModelScope.launch {
+            if (sent.await()) {
+                post {
+                    if (id == callId && isCaller && !remoteDescriptionSet && _state.value is CallState.Dialing) {
+                        alerts.startRingback()
+                    }
+                }
+            }
+        }
+    }
+
+    /** Исходящий без ответа [NO_ANSWER_TIMEOUT_MS]: «Абонент не отвечает», собеседнику уходит отбой. */
+    private fun armNoAnswerTimeout(id: String) {
+        timeoutJob?.cancel()
+        timeoutJob = viewModelScope.launch {
+            delay(NO_ANSWER_TIMEOUT_MS)
+            post {
+                if (id == callId && isCaller && !remoteDescriptionSet && _state.value is CallState.Dialing) {
+                    failCall(id, MSG_NO_ANSWER, null)
+                }
+            }
+        }
+    }
+
     private fun armIncomingTimeout(id: String) {
         timeoutJob?.cancel()
         timeoutJob = viewModelScope.launch {
@@ -685,6 +748,7 @@ class CallViewModel @Inject constructor(
             post {
                 if (id == callId && _state.value is CallState.Incoming) {
                     teardown(AppMessage.CallEnd.Reason.HANGUP)
+                    alerts.showMissedCall() // не ответили за [INCOMING_TIMEOUT_MS] — пропущенный
                     _state.value = CallState.Ended
                 }
             }
@@ -701,6 +765,9 @@ class CallViewModel @Inject constructor(
         ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
 
     override fun onCleared() {
+        alerts.stopIncoming()
+        alerts.stopRingback()
+        alerts.onUiDetached()
         val id = callId
         val peer = peerContactId
         if (id != null && peer != null) {
@@ -728,7 +795,9 @@ class CallViewModel @Inject constructor(
         private const val CAPTURE_FPS = 30
 
         private const val CONNECT_TIMEOUT_MS = 40_000L
-        private const val INCOMING_TIMEOUT_MS = 45_000L
+        private const val INCOMING_TIMEOUT_MS = 60_000L
+        private const val NO_ANSWER_TIMEOUT_MS = 60_000L
+        private const val DEFAULT_PEER_NAME = "Контакт"
         private const val MAX_PENDING_CANDIDATES = 100
 
         const val MSG_NO_MIC = "Для звонков необходим доступ к микрофону"
@@ -741,5 +810,6 @@ class CallViewModel @Inject constructor(
         private const val MSG_CONNECTION_LOST = "Соединение потеряно"
         private const val MSG_REJECTED = "Звонок отклонён"
         private const val MSG_BUSY = "Абонент занят"
+        private const val MSG_NO_ANSWER = "Абонент не отвечает"
     }
 }

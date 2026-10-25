@@ -10,7 +10,7 @@ import net.sqlcipher.database.SupportFactory
 
 @Database(
     entities = [ContactEntity::class, MessageEntity::class, OutboxEntity::class],
-    version = 4,
+    version = 6,
     exportSchema = true
 )
 abstract class RamkaDatabase : RoomDatabase() {
@@ -74,6 +74,27 @@ abstract class RamkaDatabase : RoomDatabase() {
         }
 
         /**
+         * v4 -> v5: колонка `contacts.photoUri` (локальное фото контакта, управление контактами).
+         * Nullable без DEFAULT — у существующих строк NULL (заглушка с первой буквой), ничего не теряется.
+         */
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `contacts` ADD COLUMN `photoUri` TEXT")
+            }
+        }
+
+        /**
+         * v5 -> v6: колонка `contacts.isSelf` («Избранное»). NOT NULL DEFAULT 0 — все существующие
+         * контакты остаются обычными, ничего не теряется. Саму запись «Избранного» создаёт
+         * ContactRepository.getOrCreateSelfContact() при старте приложения.
+         */
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `contacts` ADD COLUMN `isSelf` INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
+        /**
          * Пароль БД — случайный ключ, сгенерированный один раз и хранящийся
          * в [com.ramka.crypto.securestorage.SecureKeyStore] (вызывающая сторона
          * передаёт его сюда, чтобы storage-модуль не зависел от crypto напрямую).
@@ -82,7 +103,7 @@ abstract class RamkaDatabase : RoomDatabase() {
             val factory = SupportFactory(passphrase)
             return Room.databaseBuilder(context, RamkaDatabase::class.java, "ramka.db")
                 .openHelperFactory(factory)
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
                 .build()
         }
     }
