@@ -6,6 +6,7 @@ import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import android.media.ExifInterface
 import android.net.Uri
+import android.util.Log
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -41,15 +42,27 @@ class ContactPhotoStore @Inject constructor(
         try {
             val resolver = context.contentResolver
             val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-            resolver.openInputStream(source)?.use { BitmapFactory.decodeStream(it, null, bounds) }
-                ?: return@withContext null
-            if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return@withContext null
+            val boundsStream = resolver.openInputStream(source)
+            if (boundsStream == null) {
+                Log.w(TAG, "Фото контакта: источник не открывается")
+                return@withContext null
+            }
+            // При inJustDecodeBounds decodeStream ВСЕГДА возвращает null: размеры кладутся в [bounds].
+            // Поэтому результат не проверяем, а смотрим на outWidth/outHeight — иначе любое фото считалось бы нечитаемым.
+            boundsStream.use { BitmapFactory.decodeStream(it, null, bounds) }
+            if (bounds.outWidth <= 0 || bounds.outHeight <= 0) {
+                Log.w(TAG, "Фото контакта: формат изображения не поддерживается")
+                return@withContext null
+            }
 
             val options = BitmapFactory.Options().apply {
                 inSampleSize = sampleSizeFor(bounds.outWidth, bounds.outHeight)
             }
             val bitmap = resolver.openInputStream(source)?.use { BitmapFactory.decodeStream(it, null, options) }
-                ?: return@withContext null
+            if (bitmap == null) {
+                Log.w(TAG, "Фото контакта: не удалось декодировать изображение")
+                return@withContext null
+            }
             decoded = bitmap
 
             val result = cropToSquare(bitmap, readRotationDegrees(source))
@@ -59,6 +72,7 @@ class ContactPhotoStore @Inject constructor(
             val file = File(dir, "${safeName(contactId)}-${System.currentTimeMillis()}.jpg")
             val written = FileOutputStream(file).use { result.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, it) }
             if (!written) {
+                Log.w(TAG, "Фото контакта: не удалось сохранить JPEG")
                 file.delete()
                 return@withContext null
             }
@@ -66,8 +80,10 @@ class ContactPhotoStore @Inject constructor(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
+            Log.w(TAG, "Фото контакта: сбой импорта (${e.javaClass.simpleName})")
             null
         } catch (e: OutOfMemoryError) {
+            Log.w(TAG, "Фото контакта: не хватило памяти")
             null
         } finally {
             if (cropped !== decoded) cropped?.recycle()
@@ -123,6 +139,7 @@ class ContactPhotoStore @Inject constructor(
     private fun safeName(contactId: String): String = contactId.filter { it.isLetterOrDigit() || it == '-' || it == '_' }.ifEmpty { "contact" }
 
     companion object {
+        private const val TAG = "ramka"
         const val DIR_NAME = "contact_photos"
         const val MAX_SIDE_PX = 512
         private const val JPEG_QUALITY = 88

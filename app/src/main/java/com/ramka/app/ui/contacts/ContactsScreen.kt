@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.Public
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -39,6 +40,7 @@ import android.content.ActivityNotFoundException
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.ramka.app.connection.ColorYggdrasil
 import com.ramka.app.connection.ConnectionLogo
 import com.ramka.app.connection.ConnectionIndicatorViewModel
 import com.ramka.app.connection.resolveConnectionState
@@ -47,9 +49,13 @@ import com.ramka.app.panic.findActivity
 import com.ramka.app.panic.panicLogoTrigger
 import com.ramka.app.ui.call.CallViewModel
 import com.ramka.app.ui.call.activityCallViewModel
+import com.ramka.app.ui.chat.ChannelBadge
 import com.ramka.app.ui.theme.RamkaAccent
 import com.ramka.domain.call.CallState
 import com.ramka.domain.model.Contact
+import com.ramka.domain.model.TransportChannel
+import com.ramka.domain.util.ContactNetworkAddress
+import com.ramka.domain.util.YggdrasilAddress
 
 private enum class NotificationPermissionUiState { NONE, DENIED, PERMANENTLY_DENIED }
 
@@ -65,6 +71,7 @@ fun ContactsScreen(
     callViewModel: CallViewModel = activityCallViewModel()
 ) {
     val contacts by viewModel.contacts.collectAsState()
+    val activeChannels by viewModel.activeChannels.collectAsState()
 
     // Управление контактами (долгое нажатие). Храним только id: сам контакт берётся из актуального списка,
     // а rememberSaveable переживает пересоздание активити (в т.ч. пока открыта галерея).
@@ -72,6 +79,7 @@ fun ContactsScreen(
     var renameContactId by rememberSaveable { mutableStateOf<String?>(null) }
     var deleteContactId by rememberSaveable { mutableStateOf<String?>(null) }
     var photoTargetId by rememberSaveable { mutableStateOf<String?>(null) }
+    var yggContactId by rememberSaveable { mutableStateOf<String?>(null) }
     val haptic = LocalHapticFeedback.current
     val snackbarHostState = remember { SnackbarHostState() }
     val photoLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
@@ -95,7 +103,8 @@ fun ContactsScreen(
         network = link.network,
         relayConnected = link.relayConnected,
         peersDiscoveredInLan = isLanPeerDiscovered,
-        turnReady = link.turnReady // <-- ДОБАВЛЕНО: теперь логотип знает о статусе TURN
+        turnReady = link.turnReady, // <-- ДОБАВЛЕНО: теперь логотип знает о статусе TURN
+        yggdrasilActive = link.yggdrasilActive
     )
     
     val context = LocalContext.current
@@ -189,6 +198,7 @@ fun ContactsScreen(
                     items(contacts, key = { it.localId }) { contact ->
                         ContactRow(
                             contact = contact,
+                            channel = activeChannels[contact.localId],
                             onClick = { onOpenChat(contact.localId) },
                             onLongClick = {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -213,6 +223,10 @@ fun ContactsScreen(
             onRename = {
                 menuContactId = null
                 renameContactId = menuContact.localId
+            },
+            onEditYggdrasil = {
+                menuContactId = null
+                yggContactId = menuContact.localId
             },
             onPickPhoto = {
                 menuContactId = null
@@ -239,6 +253,18 @@ fun ContactsScreen(
             onConfirm = { name ->
                 renameContactId = null
                 viewModel.updateAlias(renameContact.localId, name)
+            }
+        )
+    }
+
+    val yggContact = yggContactId?.let { id -> contacts.firstOrNull { it.localId == id } }
+    if (yggContact != null) {
+        YggdrasilAddressDialog(
+            contact = yggContact,
+            onDismiss = { yggContactId = null },
+            onConfirm = { address ->
+                yggContactId = null
+                viewModel.updateYggmail(yggContact.localId, address)
             }
         )
     }
@@ -294,7 +320,7 @@ private fun EmptyContactsState(modifier: Modifier = Modifier) {
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun ContactRow(contact: Contact, onClick: () -> Unit, onLongClick: () -> Unit) {
+private fun ContactRow(contact: Contact, channel: TransportChannel?, onClick: () -> Unit, onLongClick: () -> Unit) {
     val hasUnread = contact.unreadCount > 0
     Row(
         modifier = Modifier
@@ -319,6 +345,21 @@ private fun ContactRow(contact: Contact, onClick: () -> Unit, onLongClick: () ->
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f)
         )
+        // Значок канала рисуется ТОЛЬКО у контактов с заполненным адресом (Yggdrasil/Yggmail); без адреса — вообще ничего.
+        // Известен реальный канал — показываем его, иначе нейтральный глобус «адрес задан, канал пока не определён».
+        if (!contact.yggmailAddress.isNullOrBlank()) {
+            Spacer(Modifier.width(8.dp))
+            if (channel != null) {
+                ChannelBadge(channel, size = 16.dp)
+            } else {
+                Icon(
+                    Icons.Filled.Public,
+                    contentDescription = "Адрес Yggdrasil/Yggmail задан",
+                    tint = MaterialTheme.colorScheme.secondary,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+        }
         if (hasUnread) {
             Spacer(Modifier.width(8.dp))
             UnreadBadge(count = contact.unreadCount)
@@ -350,6 +391,7 @@ private fun ContactActionsSheet(
     contact: Contact,
     onDismiss: () -> Unit,
     onRename: () -> Unit,
+    onEditYggdrasil: () -> Unit,
     onPickPhoto: () -> Unit,
     onDelete: () -> Unit
 ) {
@@ -387,6 +429,11 @@ private fun ContactActionsSheet(
                     Icons.Filled.Image,
                     if (contact.photoUri == null) "Добавить фото" else "Изменить фото",
                     onPickPhoto
+                )
+                ContactActionRow(
+                    Icons.Filled.Public,
+                    if (contact.yggmailAddress.isNullOrBlank()) "Адрес Yggdrasil" else "Изменить адрес Yggdrasil",
+                    onEditYggdrasil
                 )
                 ContactActionRow(Icons.Filled.Delete, "Удалить контакт", onDelete, destructive = true)
             }
@@ -447,3 +494,45 @@ private fun DeleteContactDialog(contact: Contact, onDismiss: () -> Unit, onConfi
         dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } }
     )
 }
+
+/**
+ * Yggmail-адрес контакта (необязательный). Пусто — контакт общается как раньше (локальная сеть и relay).
+ * Принимается IPv6 сети Yggdrasil: `user@[324:71e::53]` или просто `324:71e::53` (начинается с 2xx: или 3xx:).
+ */
+@Composable
+private fun YggdrasilAddressDialog(contact: Contact, onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
+    var text by rememberSaveable(contact.localId) { mutableStateOf(contact.yggmailAddress.orEmpty()) }
+    val invalid = text.isNotBlank() && !ContactNetworkAddress.isValid(text)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Адрес Yggdrasil") },
+        text = {
+            Column {
+                Text(
+                    "Необязательно. IPv6 Yggdrasil (прямое соединение) или почтовый адрес вида …@yggmail (резервный канал через почту).",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.secondary
+                )
+                Spacer(Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = it.take(MAX_YGGDRASIL_INPUT) },
+                    singleLine = true,
+                    isError = invalid,
+                    placeholder = { Text("user@[yggdrasil-ipv6]") },
+                    label = { Text("Yggmail-адрес") },
+                    supportingText = {
+                        if (invalid) Text("Нужен IPv6 Yggdrasil (2xx:/3xx:) или адрес вида …@yggmail")
+                    }
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(text) }, enabled = !invalid) { Text("Сохранить") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } }
+    )
+}
+
+private const val MAX_YGGDRASIL_INPUT = 120
+

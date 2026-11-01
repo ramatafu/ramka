@@ -7,6 +7,8 @@ import com.ramka.crypto.keys.KeyManager
 import com.ramka.domain.repository.ContactRepository
 import com.ramka.domain.usecase.AddContactUseCase
 import com.ramka.domain.usecase.Invite
+import com.ramka.domain.util.ContactNetworkAddress
+import com.ramka.domain.util.YggdrasilAddress
 import com.ramka.network.local.LanAddressUtil
 import com.ramka.network.protocol.InviteCodec
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -58,10 +60,12 @@ class QrViewModel @Inject constructor(
         _pendingVerification.value = PendingVerification(invite, fingerprint)
     }
 
-    fun confirmAddContact(alias: String) {
+    /** [yggmailAddress] необязателен; невалидный (не из диапазона Yggdrasil) молча не сохраняется — поле в диалоге это подсвечивает. */
+    fun confirmAddContact(alias: String, yggmailAddress: String? = null) {
         val invite = _pendingVerification.value?.invite ?: return
+        val ygg = yggmailAddress?.trim()?.takeIf { it.isNotEmpty() && ContactNetworkAddress.isValid(it) }
         viewModelScope.launch {
-            addContactUseCase(invite, alias.ifBlank { "Новый контакт" })
+            addContactUseCase(invite, alias.ifBlank { "Новый контакт" }, ygg)
             _pendingVerification.value = null
         }
     }

@@ -10,6 +10,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -24,6 +26,8 @@ import com.google.zxing.BarcodeFormat
 import com.google.zxing.qrcode.QRCodeWriter
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
+import com.ramka.domain.util.ContactNetworkAddress
+import com.ramka.domain.util.YggdrasilAddress
 
 /**
  * Экран «QR» — два режима, одноразовый код с верификацией после добавления (п. 8.4).
@@ -143,7 +147,7 @@ fun QrScreen(onDone: () -> Unit, viewModel: QrViewModel = hiltViewModel()) {
     pendingVerification?.let { pending ->
         KeyVerificationDialog(
             fingerprint = pending.fingerprint,
-            onConfirm = { alias -> viewModel.confirmAddContact(alias); onDone() },
+            onConfirm = { alias, ygg -> viewModel.confirmAddContact(alias, ygg); onDone() },
             onDismiss = viewModel::cancelVerification
         )
     }
@@ -174,13 +178,15 @@ private fun QrCodeImage(text: String) {
 
 /** Экран верификации ключа (п. 8.4) — отпечаток для сверки "из рук в руки" перед добавлением. */
 @Composable
-private fun KeyVerificationDialog(fingerprint: String, onConfirm: (String) -> Unit, onDismiss: () -> Unit) {
+private fun KeyVerificationDialog(fingerprint: String, onConfirm: (String, String?) -> Unit, onDismiss: () -> Unit) {
     var alias by remember { mutableStateOf(TextFieldValue("")) }
+    var ygg by remember { mutableStateOf(TextFieldValue("")) }
+    val yggInvalid = ygg.text.isNotBlank() && !ContactNetworkAddress.isValid(ygg.text)
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Верификация ключа") },
         text = {
-            Column {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 Text("Сверьте отпечаток с тем, что видит собеседник на своём устройстве:")
                 Spacer(Modifier.height(8.dp))
                 Text(
@@ -192,9 +198,22 @@ private fun KeyVerificationDialog(fingerprint: String, onConfirm: (String) -> Un
                 Text("Если отпечатки совпадают — ключ подлинный. Задайте локальный псевдоним:")
                 Spacer(Modifier.height(8.dp))
                 OutlinedTextField(value = alias, onValueChange = { alias = it }, placeholder = { Text("Псевдоним") })
+                Spacer(Modifier.height(12.dp))
+                // Необязательно: адрес собеседника в сети Yggdrasil (прямой канал без relay).
+                OutlinedTextField(
+                    value = ygg,
+                    onValueChange = { ygg = it },
+                    singleLine = true,
+                    isError = yggInvalid,
+                    label = { Text("Yggmail-адрес (необязательно)") },
+                    placeholder = { Text("user@[yggdrasil-ipv6]") },
+                    supportingText = { if (yggInvalid) Text("Нужен IPv6 Yggdrasil (2xx:/3xx:) или адрес вида …@yggmail") }
+                )
             }
         },
-        confirmButton = { TextButton(onClick = { onConfirm(alias.text) }) { Text("Добавить") } },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(alias.text, ygg.text.takeIf { it.isNotBlank() }) }, enabled = !yggInvalid) { Text("Добавить") }
+        },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } }
     )
 }

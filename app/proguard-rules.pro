@@ -27,3 +27,17 @@
 # R8 без этого правила переименует/удалит их в release-сборке.
 -keep class org.webrtc.** { *; }
 -dontwarn org.webrtc.**
+
+# 5. Yggmail (JavaMail, com.sun.mail:android-mail):
+# провайдеры протоколов и обработчики MIME создаются по именам из META-INF/javamail.* и mailcap, R8 их не видит.
+-keep class javax.mail.** { *; }
+-keep class com.sun.mail.** { *; }
+-keep class javax.activation.** { *; }
+-keep class com.sun.activation.** { *; }
+-dontwarn javax.mail.**
+-dontwarn com.sun.mail.**
+-dontwarn javax.activation.**
+-dontwarn java.awt.**
+-dontwarn javax.security.sasl.**
+-dontwarn javax.naming.**
+-dontwarn org.apache.harmony.**

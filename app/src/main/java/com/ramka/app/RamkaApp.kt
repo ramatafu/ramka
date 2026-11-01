@@ -6,6 +6,7 @@ import com.ramka.app.background.BackgroundDeliveryController
 import com.ramka.app.discovery.LanPresenceCoordinator
 import com.ramka.app.discovery.LanVisibilityController
 import com.ramka.app.panic.PanicWipe
+import com.ramka.app.yggmail.YggmailController
 import com.ramka.data.incoming.IncomingMessageProcessor
 import com.ramka.domain.relay.RelayHealthMonitor
 import com.ramka.app.call.CallAlerts
@@ -33,6 +34,7 @@ class RamkaApp : Application() {
     @Inject lateinit var messageRepository: MessageRepository
     @Inject lateinit var contactRepository: ContactRepository
     @Inject lateinit var callAlerts: CallAlerts
+    @Inject lateinit var yggmailController: YggmailController
     @Inject lateinit var incomingFileStore: IncomingFileStore
 
     override fun onCreate() {
@@ -49,6 +51,9 @@ class RamkaApp : Application() {
 
         // Входящие звонки, пока экрана нет: рингтон, вибрация, баннер (см. CallAlerts).
         callAlerts.start()
+
+        // Необязательный канал Yggmail: фоновый опрос планируется, только если он включён, настроен и готов.
+        yggmailController.refreshSchedule()
 
         appScope.launch {
             try {

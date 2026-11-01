@@ -70,6 +70,37 @@ class PickedFileImporter @Inject constructor(
         // Размер берём по факту скопированных байт: провайдер может не сообщать SIZE.
         PreparedFile(displayName, copiedBytes, mimeType, Uri.fromFile(target).toString())
     }
+
+    /**
+     * Забирает готовую запись голосового ([source] во временном кэше) во внутреннее хранилище отправки —
+     * как обычный файл. Исходный файл при любом исходе не остаётся: переносится или удаляется.
+     */
+    suspend fun importRecorded(source: File, displayName: String, mimeType: String): PreparedFile = withContext(Dispatchers.IO) {
+        val size = source.length()
+        if (size <= 0L) {
+            source.delete()
+            throw EmptyFileException()
+        }
+        if (size > FileTransferConfig.MAX_FILE_SIZE_BYTES) {
+            source.delete()
+            throw FileTooLargeException(FileTransferConfig.MAX_FILE_SIZE_BYTES)
+        }
+        val dir = File(context.filesDir, OUTGOING_DIR)
+        if (!dir.isDirectory && !dir.mkdirs()) {
+            source.delete()
+            throw IOException("Cannot create $dir")
+        }
+        val target = File(dir, generateStoredName(pickExtension(displayName, null)))
+        if (!source.renameTo(target)) {
+            // Кэш и filesDir обычно на одном разделе (переименование мгновенно), но на всякий случай копируем.
+            try {
+                source.inputStream().use { copyToFile(it, target, FileTransferConfig.MAX_FILE_SIZE_BYTES) }
+            } finally {
+                source.delete()
+            }
+        }
+        PreparedFile(displayName, size, mimeType, Uri.fromFile(target).toString())
+    }
 }
 
 internal const val OUTGOING_DIR = "outgoing_files"

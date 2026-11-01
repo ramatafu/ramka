@@ -10,7 +10,7 @@ import net.sqlcipher.database.SupportFactory
 
 @Database(
     entities = [ContactEntity::class, MessageEntity::class, OutboxEntity::class],
-    version = 6,
+    version = 7,
     exportSchema = true
 )
 abstract class RamkaDatabase : RoomDatabase() {
@@ -95,6 +95,16 @@ abstract class RamkaDatabase : RoomDatabase() {
         }
 
         /**
+         * v6 -> v7: колонка `contacts.yggmailAddress` (необязательный адрес в сети Yggdrasil). Nullable без
+         * DEFAULT: у существующих контактов NULL, ничего не теряется, они работают как раньше.
+         */
+        val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `contacts` ADD COLUMN `yggmailAddress` TEXT")
+            }
+        }
+
+        /**
          * Пароль БД — случайный ключ, сгенерированный один раз и хранящийся
          * в [com.ramka.crypto.securestorage.SecureKeyStore] (вызывающая сторона
          * передаёт его сюда, чтобы storage-модуль не зависел от crypto напрямую).
@@ -103,7 +113,7 @@ abstract class RamkaDatabase : RoomDatabase() {
             val factory = SupportFactory(passphrase)
             return Room.databaseBuilder(context, RamkaDatabase::class.java, "ramka.db")
                 .openHelperFactory(factory)
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
                 .build()
         }
     }

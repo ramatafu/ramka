@@ -19,6 +19,9 @@ interface ContactRepository {
 
     /** Локальное фото контакта (file:// во внутреннем хранилище); null — убрать. Никуда не передаётся. */
     suspend fun updatePhotoUri(localId: String, photoUri: String?)
+
+    /** Yggdrasil-адрес контакта (уже проверенный [com.ramka.domain.util.YggdrasilAddress]); null — убрать. Только локально. */
+    suspend fun updateYggmailAddress(localId: String, address: String?)
     suspend fun updateLastKnownAddress(localId: String, address: com.ramka.domain.model.NetworkAddress)
     suspend fun markKeyChanged(localId: String, newPublicKey: ByteArray)
     suspend fun removeContact(localId: String)

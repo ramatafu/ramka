@@ -20,6 +20,10 @@ class ContactRepositoryImpl(private val dao: ContactDao) : ContactRepository {
         dao.upsert(contact.toEntity())
     }
 
+    override suspend fun updateYggmailAddress(localId: String, address: String?) {
+        dao.updateYggmailAddress(localId, address)
+    }
+
     override suspend fun getOrCreateSelfContact(): Contact {
         dao.getById(ContactConstants.SELF_CONTACT_ID)?.let { return it.toDomain() }
         dao.insertIgnore(selfContactEntity())
@@ -77,7 +81,8 @@ private fun ContactEntity.toDomain(): Contact = Contact(
     addedAtEpochDay = addedAtEpochDay,
     unreadCount = unreadCount,
     photoUri = photoUri,
-    isSelf = isSelf
+    isSelf = isSelf,
+    yggmailAddress = yggmailAddress
 )
 
 private fun Contact.toEntity(): ContactEntity = ContactEntity(
@@ -100,7 +105,8 @@ private fun Contact.toEntity(): ContactEntity = ContactEntity(
     addedAtEpochDay = addedAtEpochDay,
     unreadCount = unreadCount,
     photoUri = photoUri,
-    isSelf = isSelf
+    isSelf = isSelf,
+    yggmailAddress = yggmailAddress
 )
 
 /** Ключей у «Избранного» нет: пустые Base64-строки (контакт не участвует ни в рукопожатии, ни в доставке). */

@@ -1,5 +1,6 @@
 package com.ramka.app.ui.chat
 
+import android.Manifest
 import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.content.ClipData
@@ -38,6 +39,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.ui.platform.LocalLifecycleOwner
@@ -53,6 +55,7 @@ import com.ramka.domain.model.MessageBody
 import com.ramka.domain.model.MessageDirection
 import com.ramka.domain.model.ContactConstants
 import com.ramka.domain.model.MessageStatus
+import com.ramka.domain.model.asVoice
 import kotlinx.coroutines.launch
 import java.io.File
 import java.text.SimpleDateFormat
@@ -171,6 +174,7 @@ fun ChatScreen(
     val listState = rememberLazyListState()
     val nearBottomPx = with(LocalDensity.current) { NEAR_BOTTOM_DP.dp.roundToPx() }
     var stickToBottom by remember { mutableStateOf(true) }
+    var hasInitialScroll by remember { mutableStateOf(false) }
 
     // «Пользователь внизу» обновляем только по реальному скроллу. Эмиссии, в которых изменилось число
     // элементов, пропускаем: при вставке нового сообщения список сам сдвигает firstVisibleItemIndex на 1
@@ -191,10 +195,19 @@ fun ChatScreen(
 
     val newest = messages.lastOrNull()
     LaunchedEffect(newest?.localId) {
-        // Открытие чата / новое сообщение: вниз, если пользователь внизу. Своё отправленное сообщение
-        // показываем всегда — иначе отправитель, читавший историю, не увидит собственного сообщения.
-        if (newest != null && (stickToBottom || newest.direction == MessageDirection.OUTGOING)) {
-            listState.scrollToItem(0)
+        if (!hasInitialScroll) {
+            // Первоначальная загрузка: баннер без ключа не якорит позицию, поэтому список после
+            // вставки сообщений уже стоит на индексе 0 (самое новое внизу). Страховочный скролл
+            // без задержек: если позиция вдруг не нулевая — выравниваем мгновенно, без мигания.
+            if (newest != null) {
+                listState.scrollToItem(0)
+                hasInitialScroll = true
+            }
+        } else {
+            // Новые сообщения: скроллим, только если пользователь внизу или это своё сообщение
+            if (newest != null && (stickToBottom || newest.direction == MessageDirection.OUTGOING)) {
+                listState.scrollToItem(0)
+            }
         }
     }
 
@@ -222,6 +235,20 @@ fun ChatScreen(
 
     LaunchedEffect(viewModel) {
         viewModel.events.collect { text -> showMessage(text) }
+    }
+
+    // Голосовые сообщения: запись/воспроизведение живут во ViewModel, здесь только состояние и разрешение.
+    val recording by viewModel.recording.collectAsState()
+    val activeChannel by viewModel.activeChannel.collectAsState()
+    val voicePlayback by viewModel.voicePlayback.collectAsState()
+    var willCancelRecording by remember { mutableStateOf(false) }
+    val micPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        showMessage(
+            if (granted) "Удерживайте кнопку микрофона, чтобы записать сообщение"
+            else "Разрешите доступ к микрофону для записи голосовых сообщений"
+        )
     }
 
     // LaunchedEffect, который обрабатывает запрос на открытие
@@ -266,6 +293,11 @@ fun ChatScreen(
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
+                        // Значок активного канала: Wi-Fi / Yggdrasil / relay.
+                        activeChannel?.let { channel ->
+                            Spacer(Modifier.width(8.dp))
+                            ChannelBadge(channel)
+                        }
                     }
                 },
                 navigationIcon = {
@@ -312,6 +344,8 @@ fun ChatScreen(
                         message = message,
                         onRetryFile = viewModel::retryFile,
                         offlineSignalSent = message.localId in notifiedFiles,
+                        isVoicePlaying = voicePlayback.playing && voicePlayback.messageId == message.localId,
+                        onToggleVoice = viewModel::toggleVoice,
                         onOpenFile = { body ->
                             body.uri?.let { uri ->
                                 viewModel.onFileClicked(uri, body.fileName, body.mimeType)
@@ -337,9 +371,11 @@ fun ChatScreen(
                     Spacer(Modifier.height(6.dp))
                 }
                 // reverseLayout: последний в коде = самый верхний на экране, поэтому подсказка о шифровании
-                // идёт ПОСЛЕ сообщений. Это один item без записи в БД: индекс 0 по-прежнему самое новое
-                // сообщение, автопрокрутка не затронута, а в пустом чате подсказка всё равно видна.
-                item(key = ENCRYPTION_BANNER_KEY, contentType = "encryption_banner") {
+                // идёт ПОСЛЕ сообщений. КЛЮЧА У БАННЕРА НЕТ НАМЕРЕННО: с ключом LazyListState якорил бы
+                // первоначальную позицию по баннеру (единственному видимому элементу пустого списка) и после
+                // загрузки сообщений показывал бы начало чата с последующим прыжком вниз. Без ключа позиция
+                // держится по индексу 0 — самое новое сообщение внизу, прыжка нет.
+                item(contentType = "encryption_banner") {
                     EncryptionInfoBanner()
                 }
             }
@@ -349,7 +385,29 @@ fun ChatScreen(
                 text = viewModel.draftText,
                 onTextChange = viewModel::onDraftChanged,
                 onSend = viewModel::sendDraft,
-                onAttach = { filePickerLauncher.launch("*/*") }
+                onAttach = { filePickerLauncher.launch("*/*") },
+                recording = recording.active,
+                recordSeconds = recording.elapsedSeconds,
+                willCancel = willCancelRecording,
+                hasMicPermission = {
+                    ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
+                        PackageManager.PERMISSION_GRANTED
+                },
+                onRequestMicPermission = { micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO) },
+                onMicTap = { showMessage("Удерживайте кнопку микрофона, чтобы записать сообщение") },
+                onRecordStart = {
+                    willCancelRecording = false
+                    viewModel.startRecording()
+                },
+                onRecordDragStateChange = { willCancelRecording = it },
+                onRecordEnd = { cancelled ->
+                    willCancelRecording = false
+                    if (cancelled) viewModel.cancelRecording() else viewModel.stopRecording()
+                },
+                onRecordCancelTap = {
+                    willCancelRecording = false
+                    viewModel.cancelRecording()
+                }
             )
         }
     }
@@ -388,6 +446,8 @@ private fun MessageBubble(
     message: Message,
     onRetryFile: (String) -> Unit,
     offlineSignalSent: Boolean,
+    isVoicePlaying: Boolean,
+    onToggleVoice: (Message, MessageBody.File) -> Unit,
     onOpenFile: (MessageBody.File) -> Unit,
     menuState: MessageContextMenuState?,
     onLongClick: (Message, Offset) -> Unit,
@@ -412,14 +472,31 @@ private fun MessageBubble(
                         text = body.text,
                         color = MaterialTheme.colorScheme.onBackground
                     )
-                    is MessageBody.File -> FileBubble(
-                        body = body,
-                        isOutgoing = isOutgoing,
-                        status = message.status,
-                        onRetry = { onRetryFile(message.localId) },
-                        onOpen = { onOpenFile(body) },
-                        signalSent = offlineSignalSent
-                    )
+                    is MessageBody.File -> {
+                        // Голосовое — тот же файл, но с плеером вместо имени и размера.
+                        val voice = body.asVoice()
+                        if (voice != null) {
+                            VoiceBubble(
+                                body = body,
+                                voice = voice,
+                                isOutgoing = isOutgoing,
+                                status = message.status,
+                                isPlaying = isVoicePlaying,
+                                onPlayPause = { onToggleVoice(message, body) },
+                                onRetry = { onRetryFile(message.localId) },
+                                signalSent = offlineSignalSent
+                            )
+                        } else {
+                            FileBubble(
+                                body = body,
+                                isOutgoing = isOutgoing,
+                                status = message.status,
+                                onRetry = { onRetryFile(message.localId) },
+                                onOpen = { onOpenFile(body) },
+                                signalSent = offlineSignalSent
+                            )
+                        }
+                    }
                 }
                 Spacer(Modifier.height(4.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -462,7 +539,17 @@ private fun MessageInputBar(
     text: String,
     onTextChange: (String) -> Unit,
     onSend: () -> Unit,
-    onAttach: () -> Unit
+    onAttach: () -> Unit,
+    recording: Boolean,
+    recordSeconds: Int,
+    willCancel: Boolean,
+    hasMicPermission: () -> Boolean,
+    onRequestMicPermission: () -> Unit,
+    onMicTap: () -> Unit,
+    onRecordStart: () -> Unit,
+    onRecordDragStateChange: (Boolean) -> Unit,
+    onRecordEnd: (cancelled: Boolean) -> Unit,
+    onRecordCancelTap: () -> Unit
 ) {
     // imePadding здесь НЕ нужен (он на родительском Column). navigationBarsPadding стоит внутри Surface:
     // фон поля ввода доходит до края экрана под панелью навигации; при открытой клавиатуре этот
@@ -478,19 +565,43 @@ private fun MessageInputBar(
                 .padding(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(onClick = onAttach) {
-                Icon(Icons.Filled.AttachFile, contentDescription = "Прикрепить файл", tint = MaterialTheme.colorScheme.onSurface)
+            if (recording) {
+                RecordingBar(
+                    seconds = recordSeconds,
+                    willCancel = willCancel,
+                    onCancel = onRecordCancelTap,
+                    modifier = Modifier.weight(1f)
+                )
+            } else {
+                IconButton(onClick = onAttach) {
+                    Icon(Icons.Filled.AttachFile, contentDescription = "Прикрепить файл", tint = MaterialTheme.colorScheme.onSurface)
+                }
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = onTextChange,
+                    modifier = Modifier.weight(1f),
+                    placeholder = { Text("Сообщение") },
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                    maxLines = 4
+                )
             }
-            OutlinedTextField(
-                value = text,
-                onValueChange = onTextChange,
-                modifier = Modifier.weight(1f),
-                placeholder = { Text("Сообщение") },
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                maxLines = 4
-            )
-            IconButton(onClick = onSend, enabled = text.isNotBlank()) {
-                Icon(Icons.Filled.Send, contentDescription = "Отправить", tint = RamkaAccent)
+            // Пустое поле — микрофон, есть текст — «Отправить». Кнопка записи стоит на одном месте в
+            // композиции всё время записи (текст пуст), поэтому удерживаемый палец не теряется.
+            if (text.isNotBlank() && !recording) {
+                IconButton(onClick = onSend) {
+                    Icon(Icons.Filled.Send, contentDescription = "Отправить", tint = RamkaAccent)
+                }
+            } else {
+                VoiceRecordButton(
+                    recording = recording,
+                    willCancel = willCancel,
+                    hasPermission = hasMicPermission,
+                    onRequestPermission = onRequestMicPermission,
+                    onTap = onMicTap,
+                    onRecordStart = onRecordStart,
+                    onDragStateChange = onRecordDragStateChange,
+                    onRecordEnd = onRecordEnd
+                )
             }
         }
     }

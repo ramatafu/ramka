@@ -23,7 +23,9 @@ data class ContactEntity(
     // Локальное фото (file:// во внутреннем хранилище), миграция 4 -> 5. Только на этом устройстве.
     val photoUri: String? = null,
     // Служебный контакт «Избранное» (миграция 5 -> 6). Не удаляется, закреплён вверху списка.
-    val isSelf: Boolean = false
+    val isSelf: Boolean = false,
+    // Адрес в сети Yggdrasil (миграция 6 -> 7). Необязателен, только на этом устройстве.
+    val yggmailAddress: String? = null
 )
 
 @Dao
@@ -47,6 +49,9 @@ interface ContactDao {
 
     @Query("UPDATE contacts SET photoUri = :photoUri WHERE localId = :localId")
     suspend fun updatePhotoUri(localId: String, photoUri: String?)
+
+    @Query("UPDATE contacts SET yggmailAddress = :address WHERE localId = :localId")
+    suspend fun updateYggmailAddress(localId: String, address: String?)
 
     @Query("""
         UPDATE contacts SET addressType = :type, addressHost = :host, addressPort = :port

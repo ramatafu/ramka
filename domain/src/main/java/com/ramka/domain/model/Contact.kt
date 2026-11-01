@@ -20,6 +20,7 @@ import java.util.Arrays
  *   (см. HandleIncomingTextUseCase) и обнуляется при открытии чата вместе с READ-ACK.
  * @property photoUri локальное фото контакта (file:// во внутреннем хранилище приложения) или null.
  *   Живёт ТОЛЬКО на этом устройстве: не входит в QR-приглашение и никогда не передаётся собеседнику.
+ * @property yggmailAddress необязательный адрес контакта в сети Yggdrasil; null — контакт без Yggdrasil.
  * @property isSelf служебный контакт «Избранное» (см. [ContactConstants]): заметки самому себе. Ключей нет
  *   (publicKey/signingPublicKey пустые — вместо null, чтобы не трогать криптоядро), по сети с ним ничего
  *   не отправляется ([com.ramka.domain.usecase.AttemptDeliveryUseCase] такой контакт отсекает), удалить его нельзя.
@@ -34,7 +35,8 @@ data class Contact(
     val addedAtEpochDay: Long,
     val unreadCount: Int = 0,
     val photoUri: String? = null,
-    val isSelf: Boolean = false
+    val isSelf: Boolean = false,
+    val yggmailAddress: String? = null
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -49,6 +51,7 @@ data class Contact(
         if (unreadCount != other.unreadCount) return false
         if (photoUri != other.photoUri) return false
         if (isSelf != other.isSelf) return false
+        if (yggmailAddress != other.yggmailAddress) return false
         return true
     }
 
@@ -63,6 +66,7 @@ data class Contact(
         result = 31 * result + unreadCount
         result = 31 * result + (photoUri?.hashCode() ?: 0)
         result = 31 * result + isSelf.hashCode()
+        result = 31 * result + (yggmailAddress?.hashCode() ?: 0)
         return result
     }
 }

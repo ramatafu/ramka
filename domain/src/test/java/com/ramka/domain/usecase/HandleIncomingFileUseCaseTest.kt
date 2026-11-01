@@ -57,6 +57,9 @@ private class FakeStore : IncomingFileStore {
     }
 
     override suspend fun discardAll() = files.clear()
+
+    // ✅ ДОБАВЛЕНО: Реализация нового метода из интерфейса IncomingFileStore
+    override suspend fun getDecryptedFileUri(transferId: String, fileName: String): String? = null
 }
 
 private class CountingContacts(private val delegate: ContactRepository = StubContactRepository()) :

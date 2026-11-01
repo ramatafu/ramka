@@ -39,6 +39,22 @@ class AppPreferences(context: Context) : BackgroundDeliveryPrefs, MdnsPrefs {
         get() = prefs.getBoolean(KEY_CALL_VIBRATION, true)
         set(value) = prefs.edit().putBoolean(KEY_CALL_VIBRATION, value).apply()
 
+    /**
+     * Использовать Yggdrasil для контактов с Yggmail-адресом (по умолчанию включено). Само по себе включение
+     * ничего не запускает: канал пробуется, только если на устройстве есть системный интерфейс Yggdrasil.
+     */
+    var yggdrasilEnabled: Boolean
+        get() = prefs.getBoolean(KEY_YGGDRASIL, true)
+        set(value) = prefs.edit().putBoolean(KEY_YGGDRASIL, value).apply()
+
+    /**
+     * Канал Yggmail (почта через ваш Yggmail-сервер, самый последний резерв). Необязательная функция: по умолчанию
+     * ВЫКЛЮЧЕНА, пока пользователь сам не настроит сервер и не включит тумблер.
+     */
+    var yggmailEnabled: Boolean
+        get() = prefs.getBoolean(KEY_YGGMAIL, false)
+        set(value) = prefs.edit().putBoolean(KEY_YGGMAIL, value).apply()
+
     fun legacyRelaySnapshot(secrets: RelaySecrets): LegacyRelaySnapshot? {
         val enabled = prefs.getBoolean(KEY_RELAY_ENABLED, false)
         val address = prefs.getString(KEY_RELAY_ADDRESS, "")?.takeIf { it.isNotBlank() }
@@ -65,6 +81,8 @@ class AppPreferences(context: Context) : BackgroundDeliveryPrefs, MdnsPrefs {
         private const val KEY_MDNS = "mdns_enabled"
         private const val KEY_CALL_RINGTONE = "call_ringtone_enabled"
         private const val KEY_CALL_VIBRATION = "call_vibration_enabled"
+        private const val KEY_YGGDRASIL = "yggdrasil_enabled"
+        private const val KEY_YGGMAIL = "yggmail_enabled"
         private const val KEY_RELAY_ENABLED = "relay_enabled"
         private const val KEY_RELAY_ADDRESS = "relay_address"
         private const val KEY_RELAY_PIN = "relay_pin"

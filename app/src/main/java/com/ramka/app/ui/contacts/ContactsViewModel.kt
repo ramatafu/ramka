@@ -11,9 +11,13 @@ import com.ramka.app.ui.chat.OUTGOING_DIR
 import com.ramka.domain.model.ContactConstants
 import com.ramka.domain.model.Message
 import com.ramka.domain.model.MessageBody
+import com.ramka.domain.model.TransportChannel
 import com.ramka.domain.repository.ContactRepository
 import com.ramka.domain.repository.MessageRepository
 import com.ramka.domain.repository.OutboxRepository
+import com.ramka.domain.util.ActiveChannelTracker
+import com.ramka.domain.util.ContactNetworkAddress
+import com.ramka.domain.util.YggdrasilAddress
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
@@ -21,6 +25,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -38,11 +43,15 @@ class ContactsViewModel @Inject constructor(
     private val outboxRepository: OutboxRepository,
     private val photoStore: ContactPhotoStore,
     private val incomingFileStore: AndroidIncomingFileStore,
-    private val lanVisibilityController: LanVisibilityController
+    private val lanVisibilityController: LanVisibilityController,
+    channelTracker: ActiveChannelTracker
 ) : ViewModel() {
 
     val contacts = contactRepository.observeContacts()
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+
+    /** Реально использованный канал по контактам (для значка в списке: только у контактов с Yggmail/Yggdrasil-адресом). */
+    val activeChannels: StateFlow<Map<String, TransportChannel>> = channelTracker.channels
 
     // Логика запроса разрешений (из твоего оригинального кода)
     var hasAskedNotificationPermissionBefore = false
@@ -83,7 +92,7 @@ class ContactsViewModel @Inject constructor(
      * в БД пишется file:// URI, старый файл фото удаляется. Собеседнику фото не передаётся.
      */
     fun updatePhoto(contactId: String, source: Uri) {
-        if (contactId == ContactConstants.SELF_CONTACT_ID) return // у «Избранного» всегда ⭐
+        if (contactId == ContactConstants.SELF_CONTACT_ID) return // у «Избранного» всегда звезда
         viewModelScope.launch {
             try {
                 val previous = contactRepository.getContact(contactId)?.photoUri
@@ -107,6 +116,28 @@ class ContactsViewModel @Inject constructor(
                 throw e
             } catch (e: Exception) {
                 _events.trySend("Не удалось сохранить фото")
+            }
+        }
+    }
+
+    /**
+     * Yggdrasil-адрес контакта. Пустая строка — убрать адрес; иначе принимается только адрес из диапазона
+     * Yggdrasil `200::/7` (см. [YggdrasilAddress]). Хранится только на этом устройстве.
+     */
+    fun updateYggmail(contactId: String, input: String) {
+        if (contactId == ContactConstants.SELF_CONTACT_ID) return
+        val address = input.trim()
+        if (address.isNotEmpty() && !ContactNetworkAddress.isValid(address)) {
+            _events.trySend("Нужен IPv6 Yggdrasil (200::/7) или адрес вида …@yggmail")
+            return
+        }
+        viewModelScope.launch {
+            try {
+                contactRepository.updateYggmailAddress(contactId, address.ifEmpty { null })
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _events.trySend("Не удалось сохранить адрес")
             }
         }
     }

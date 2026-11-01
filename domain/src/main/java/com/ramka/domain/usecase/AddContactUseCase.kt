@@ -14,7 +14,7 @@ import java.util.UUID
 class AddContactUseCase(
     private val contactRepository: ContactRepository
 ) {
-    suspend operator fun invoke(invite: Invite, alias: String): Contact {
+    suspend operator fun invoke(invite: Invite, alias: String, yggmailAddress: String? = null): Contact {
         val contact = Contact(
             localId = UUID.randomUUID().toString(),
             alias = alias,
@@ -22,7 +22,8 @@ class AddContactUseCase(
             signingPublicKey = invite.signingPublicKey,
             lastKnownAddress = invite.address,
             verification = KeyVerificationStatus.VERIFIED_BY_QR,
-            addedAtEpochDay = System.currentTimeMillis() / 86_400_000L
+            addedAtEpochDay = System.currentTimeMillis() / 86_400_000L,
+            yggmailAddress = yggmailAddress?.trim()?.takeIf { it.isNotEmpty() }
         )
         contactRepository.addContact(contact)
         return contact

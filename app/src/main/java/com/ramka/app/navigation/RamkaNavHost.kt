@@ -20,7 +20,8 @@ import com.ramka.app.ui.relay.RelayEditScreen
 import com.ramka.app.ui.relay.RelayListScreen
 import com.ramka.app.ui.relay.TurnGuideScreen
 import com.ramka.app.ui.relayguide.RelayGuideScreen
-import com.ramka.app.ui.settings.NetworkServersScreen // <-- ДОБАВЛЕНО
+import com.ramka.app.ui.settings.NetworkServersScreen
+import com.ramka.app.ui.settings.ProxySettingsScreen // <-- ДОБАВЛЕНО: импорт нового экрана
 import com.ramka.app.ui.settings.SettingsScreen
 import com.ramka.app.ui.speedtest.SpeedTestScreen
 import com.ramka.app.ui.turn.TurnServerEditScreen
@@ -36,7 +37,8 @@ object Routes {
     const val CHAT = "chat/{contactId}"
     const val QR = "qr"
     const val SETTINGS = "settings"
-    const val NETWORK_SERVERS = "network_servers" // <-- ДОБАВЛЕНО
+    const val NETWORK_SERVERS = "network_servers"
+    const val PROXY_SETTINGS = "proxy_settings" // <-- ДОБАВЛЕНО: маршрут для прокси
     const val ABOUT = "about"
     const val RELAY_GUIDE = "relay_guide"
     const val TURN_GUIDE = "turn_guide"
@@ -121,18 +123,26 @@ fun RamkaNavHost() {
         composable(Routes.QR) {
             QrScreen(onDone = { navController.popBackStack() })
         }
-        
+
         // --- ОБНОВЛЕННЫЙ ВЫЗОВ SettingsScreen ---
         composable(Routes.SETTINGS) {
             SettingsScreen(
                 onBack = { navController.popBackStack() },
                 onOpenNetworkServers = { navController.navigate(Routes.NETWORK_SERVERS) },
+                onOpenProxySettings = { navController.navigate(Routes.PROXY_SETTINGS) }, // <-- ДОБАВЛЕНО
                 onOpenAbout = { navController.navigate(Routes.ABOUT) }
             )
         }
 
         composable(Routes.ABOUT) {
             AboutScreen(onBack = { navController.popBackStack() })
+        }
+
+        // --- НОВЫЙ ЭКРАН: Настройки прокси ---
+        composable(Routes.PROXY_SETTINGS) { // <-- ДОБАВЛЕНО
+            ProxySettingsScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
         }
 
         // --- НОВЫЙ ЭКРАН: Сеть и серверы ---

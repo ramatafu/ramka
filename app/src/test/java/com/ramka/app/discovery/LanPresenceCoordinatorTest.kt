@@ -1,5 +1,6 @@
 package com.ramka.app.discovery
 
+import com.ramka.network.local.DiscoveredPeer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -26,16 +27,15 @@ class LanPresenceCoordinatorTest {
     @After
     fun tearDown() = scope.cancel()
 
-    /** Фейковый NSD: пишет события в общий журнал и умеет «находить» пиров. */
     private class Env(initiallyEnabled: Boolean) {
         val enabled = MutableStateFlow(initiallyEnabled)
         val events = CopyOnWriteArrayList<String>()
-        val peers = MutableSharedFlow<Int>(extraBufferCapacity = 16)
-        val discoveryActive = AtomicInteger(0) // сколько подписок на поиск живо сейчас
+        val peers = MutableSharedFlow<DiscoveredPeer>(extraBufferCapacity = 16)
+        val discoveryActive = AtomicInteger(0)
         val processed = AtomicInteger(0)
         private val names = AtomicInteger(0)
 
-        var discoveryFlow: () -> Flow<Any?> = {
+        var discoveryFlow: () -> Flow<DiscoveredPeer> = {
             flow {
                 discoveryActive.incrementAndGet()
                 events += "discovery:start"
@@ -68,18 +68,15 @@ class LanPresenceCoordinatorTest {
     }
 
     private suspend fun Env.emitPeer() {
-        // подписка на SharedFlow может оформиться чуть позже старта: ждём, пока поиск реально активен
         eventually { discoveryActive.get() > 0 }
-        peers.emit(1)
+        peers.emit(DiscoveredPeer(host = "127.0.0.1", port = 1234))
     }
 
     @Test
     fun `enabled at start registers once and starts discovery`() = runBlocking {
         val env = Env(initiallyEnabled = true)
         env.coordinator().start(scope)
-
         eventually { env.discoveryActive.get() == 1 }
-
         assertEquals(listOf("register:n1", "discovery:start"), env.events.toList())
     }
 
@@ -88,7 +85,6 @@ class LanPresenceCoordinatorTest {
         val env = Env(initiallyEnabled = false)
         env.coordinator().start(scope)
         delay(300)
-
         assertTrue("ни регистрации, ни поиска: ${env.events}", env.events.isEmpty())
     }
 
@@ -97,10 +93,8 @@ class LanPresenceCoordinatorTest {
         val env = Env(initiallyEnabled = true)
         env.coordinator().start(scope)
         eventually { env.discoveryActive.get() == 1 }
-
         env.enabled.value = false
         eventually { env.events.contains("unregister") }
-
         assertEquals(0, env.discoveryActive.get())
         assertEquals(listOf("register:n1", "discovery:start", "discovery:stop", "unregister"), env.events.toList())
     }
@@ -110,12 +104,10 @@ class LanPresenceCoordinatorTest {
         val env = Env(initiallyEnabled = true)
         env.coordinator().start(scope)
         eventually { env.discoveryActive.get() == 1 }
-
         env.enabled.value = false
         eventually { env.events.contains("unregister") }
         env.enabled.value = true
         eventually { env.discoveryActive.get() == 1 }
-
         assertEquals(
             listOf(
                 "register:n1", "discovery:start", "discovery:stop", "unregister",
@@ -129,15 +121,12 @@ class LanPresenceCoordinatorTest {
     fun `discovered peer triggers outbox processing only while enabled`() = runBlocking {
         val env = Env(initiallyEnabled = true)
         env.coordinator().start(scope)
-
         env.emitPeer()
         eventually { env.processed.get() == 1 }
-
         env.enabled.value = false
         eventually { env.discoveryActive.get() == 0 }
-        env.peers.emit(2) // пира «нашли», но подписки на поиск уже нет
+        env.peers.emit(DiscoveredPeer(host = "127.0.0.1", port = 1234))
         delay(300)
-
         assertEquals(1, env.processed.get())
     }
 
@@ -146,14 +135,12 @@ class LanPresenceCoordinatorTest {
         val env = Env(initiallyEnabled = true)
         env.coordinator().start(scope)
         eventually { env.discoveryActive.get() == 1 }
-
         repeat(10) {
             env.enabled.value = false
             env.enabled.value = true
         }
         env.enabled.value = true
         delay(500)
-
         var active = 0
         for (event in env.events) {
             if (event.startsWith("register:")) active++
@@ -170,9 +157,7 @@ class LanPresenceCoordinatorTest {
         env.discoveryFlow = { flow { throw IllegalStateException("NSD недоступен") } }
         env.coordinator().start(scope)
         delay(300)
-
         assertEquals("поиск упал, вещание не снято", listOf("register:n1"), env.events.toList())
-
         env.enabled.value = false
         eventually { env.events.contains("unregister") }
         assertEquals(listOf("register:n1", "unregister"), env.events.toList())
@@ -184,7 +169,6 @@ class LanPresenceCoordinatorTest {
         env.discoveryFlow = { flow { env.events += "discovery:done" } }
         env.coordinator().start(scope)
         delay(300)
-
         assertFalse("unregister не должен вызываться: ${env.events}", env.events.contains("unregister"))
         assertTrue(env.events.contains("register:n1"))
     }
@@ -198,11 +182,9 @@ class LanPresenceCoordinatorTest {
             env.processed.incrementAndGet()
         }
         env.coordinator().start(scope)
-
         env.emitPeer()
         env.emitPeer()
-        eventually { env.processed.get() == 1 } // вторая обработка прошла, первая упала молча
-
+        eventually { env.processed.get() == 1 }
         env.enabled.value = false
         eventually { env.events.contains("unregister") }
     }

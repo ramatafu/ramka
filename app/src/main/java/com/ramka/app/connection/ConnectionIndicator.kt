@@ -14,9 +14,10 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.ramka.app.R
 
-private val ColorP2p = Color(0xFF00FF41)
+internal val ColorP2p = Color(0xFF00FF41)
+internal val ColorYggdrasil = Color(0xFFB36BFF)
 private val ColorTurn = Color(0xFFFFD700)
-private val ColorRelay = Color(0xFF00BFFF)
+internal val ColorRelay = Color(0xFF00BFFF)
 private val ColorOffline = Color(0xFF808080)
 
 private const val GLOW_ALPHA = 0.45f
@@ -24,6 +25,7 @@ private const val CHANGE_MS = 300
 
 fun ConnectionState.indicatorColor(): Color = when (this) {
     ConnectionState.P2P -> ColorP2p
+    ConnectionState.YGGDRASIL -> ColorYggdrasil
     ConnectionState.TURN -> ColorTurn
     ConnectionState.RELAY -> ColorRelay
     ConnectionState.OFFLINE -> ColorOffline

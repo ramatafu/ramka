@@ -48,6 +48,20 @@ android {
     packaging {
         resources {
             excludes += "/META-INF/versions/9/OSGI-INF/MANIFEST.MF"
+            // Решаем конфликт дубликатов META-INF от библиотек JavaMail (android-mail и android-activation)
+            pickFirsts += setOf(
+                "META-INF/NOTICE.md",
+                "META-INF/LICENSE.md",
+                "META-INF/NOTICE",
+                "META-INF/LICENSE",
+                "META-INF/NOTICE.txt",
+                "META-INF/LICENSE.txt",
+                "META-INF/mailcap",
+                "META-INF/javamail.charset.map",
+                "META-INF/javamail.default.address.map",
+                "META-INF/javamail.default.providers",
+                "META-INF/DEPENDENCIES"
+            )
         }
     }
 }
@@ -71,13 +85,17 @@ dependencies {
     implementation("androidx.navigation:navigation-compose:2.7.7")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.4")
 
+    // Hilt для внедрения зависимостей (нужен для ProxySettingsViewModel)
     implementation("com.google.dagger:hilt-android:2.51.1")
     ksp("com.google.dagger:hilt-android-compiler:2.51.1")
     implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
 
     implementation("com.journeyapps:zxing-android-embedded:4.3.0")
     implementation("androidx.work:work-runtime-ktx:2.9.1")
+    
+    // DataStore для хранения настроек прокси (и других настроек)
     implementation("androidx.datastore:datastore-preferences:1.1.1")
+    
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
 
     // WebRTC для звонков. Версия 1.3.10 стабильна и совместима с compileSdk 34.
@@ -87,6 +105,10 @@ dependencies {
     // Это обходит фатальный баг EncryptedFile, где AAD привязывается к имени файла,
     // что ломает расшифровку после любого переименования (renameTo).
     implementation("com.google.crypto.tink:tink-android:1.13.0")
+
+    // Необязательный канал Yggmail (IMAP/SMTP): JavaMail для Android. Используется только в com.ramka.app.yggmail.
+    implementation("com.sun.mail:android-mail:1.6.7")
+    implementation("com.sun.mail:android-activation:1.6.7")
 
     testImplementation("junit:junit:4.13.2")
     // org.json в юнит-тестах: в android.jar он заглушка, а TurnServerCodec пользуется JSONArray/JSONObject.

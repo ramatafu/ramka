@@ -3,11 +3,17 @@ package com.ramka.app.di
 import android.content.Context
 import android.util.Log
 import com.ramka.app.data.TurnSettingsDataStore
+import com.ramka.app.offline.NoiseXOfflineSealer
 import com.ramka.app.relay.AndroidLocalNetworkDetector
 import com.ramka.app.relay.LocalNetworkDetector
 import com.ramka.app.relay.RelayPoolSettings
 import com.ramka.app.turn.TurnServerChecker
 import com.ramka.app.turn.TurnServerMonitor
+import com.ramka.app.yggmail.JavaMailYggmailMail
+import com.ramka.app.yggmail.YggmailConfigStore
+import com.ramka.app.yggmail.YggmailInbox
+import com.ramka.app.yggmail.YggmailMail
+import com.ramka.app.yggmail.YggmailTransport
 import com.ramka.crypto.keys.KeyManager
 import com.ramka.crypto.securestorage.SecureKeyStore
 import com.ramka.data.incoming.IncomingMessageProcessor
@@ -17,6 +23,8 @@ import com.ramka.data.repository.LanTransportRepository
 import com.ramka.data.repository.MessageRepositoryImpl
 import com.ramka.data.repository.OutboxRepositoryImpl
 import com.ramka.data.repository.RelayTransportRepository
+import com.ramka.data.repository.YggdrasilTransportRepository
+import com.ramka.domain.model.NetworkAddress
 import com.ramka.domain.relay.PoolRelayProvider
 import com.ramka.domain.relay.RelayChecker
 import com.ramka.domain.relay.RelayHealthMonitor
@@ -34,15 +42,21 @@ import com.ramka.domain.usecase.ProcessOutboxUseCase
 import com.ramka.domain.usecase.SendFileUseCase
 import com.ramka.domain.usecase.SendMessageUseCase
 import com.ramka.domain.usecase.SendReadAckUseCase
+import com.ramka.domain.util.ActiveChannelTracker
+import com.ramka.domain.util.ChannelSelector
 import com.ramka.domain.util.FileTransferTracker
 import com.ramka.domain.util.Jitter
+import com.ramka.domain.util.OfflinePacketSealer
 import com.ramka.domain.util.OfflineSignalTracker
+import com.ramka.domain.util.UnavailableOfflineSealer
+import com.ramka.domain.util.YggdrasilAddress
 import com.ramka.network.call.CallSignaling
 import com.ramka.network.local.LanDiscoveryService
 import com.ramka.network.local.SecureLanChannel
 import com.ramka.network.relay.KeyManagerRelayIdentity
 import com.ramka.network.relay.RelayClient
 import com.ramka.network.relay.TlsRelayConnector
+import com.ramka.network.ygg.YggdrasilNetwork
 import com.ramka.storage.db.RamkaDatabase
 import dagger.Module
 import dagger.Provides
@@ -145,6 +159,89 @@ object AppModule {
         appScope: CoroutineScope
     ): LanTransportRepository = LanTransportRepository(secureLanChannel, appScope)
 
+    // ---- Yggmail (необязательный канал store-and-forward через почту; полностью изолирован) ----
+
+    /**
+     * Запечатывание пакетов для офлайн-доставки (store-and-forward): односторонняя схема по мотивам Noise_X
+     * (DEVIATIONS.md, O-1…O-6). Открытый текст по почте не уходит никогда: без запечатывания канал не отправляет.
+     */
+    @Provides
+    @Singleton
+    fun provideOfflinePacketSealer(keyManager: KeyManager): OfflinePacketSealer = NoiseXOfflineSealer(keyManager)
+
+    @Provides
+    @Singleton
+    fun provideYggmailMail(): YggmailMail = JavaMailYggmailMail(
+        log = { android.util.Log.w("ramka", it) },
+        // Подробный обмен с сервером — только при «Проверить» в настройках, пароль скрыт: adb logcat -s ramka-yggmail
+        debugLog = { android.util.Log.d("ramka-yggmail", it) }
+    )
+
+    @Provides
+    @Singleton
+    fun provideYggmailInbox(
+        configStore: YggmailConfigStore,
+        mail: YggmailMail,
+        sealer: OfflinePacketSealer,
+        prefs: com.ramka.app.preferences.AppPreferences
+    ): YggmailInbox = YggmailInbox(configStore, mail, sealer, { prefs.yggmailEnabled }, { android.util.Log.w("ramka", it) })
+
+    @Provides
+    @Singleton
+    fun provideYggmailTransport(
+        configStore: YggmailConfigStore,
+        mail: YggmailMail,
+        sealer: OfflinePacketSealer,
+        inbox: YggmailInbox,
+        prefs: com.ramka.app.preferences.AppPreferences
+    ): YggmailTransport = YggmailTransport(
+        configSource = configStore,
+        mail = mail,
+        sealer = sealer,
+        incoming = inbox.packets,
+        enabled = { prefs.yggmailEnabled },
+        log = { android.util.Log.w("ramka", it) }
+    )
+
+    // ---- Yggdrasil (необязательный канал для контактов с Yggmail-адресом) ----
+
+    /**
+     * Отправка по Yggdrasil тем же защищённым каналом, что и LAN. Пробуется, только если включено в настройках
+     * и на устройстве есть системный интерфейс Yggdrasil (сама Ramka узел Yggdrasil не содержит).
+     */
+    @Provides
+    @Singleton
+    fun provideYggdrasilTransportRepository(
+        secureLanChannel: SecureLanChannel,
+        prefs: com.ramka.app.preferences.AppPreferences
+    ): YggdrasilTransportRepository = YggdrasilTransportRepository(secureLanChannel, LAN_PORT) {
+        prefs.yggdrasilEnabled && YggdrasilNetwork.hasActiveInterface()
+    }
+
+    /** Какой канал реально использован для каждого контакта в последний раз (индикация в чате). */
+    @Provides
+    @Singleton
+    fun provideActiveChannelTracker() = ActiveChannelTracker()
+
+    /** Прогноз канала для чата: локальная сеть → Yggdrasil (проверка связности) → relay. Отправкой не управляет. */
+    @Provides
+    @Singleton
+    fun provideChannelSelector(
+        relayPool: RelayPoolSettings,
+        localNetwork: LocalNetworkDetector,
+        prefs: com.ramka.app.preferences.AppPreferences,
+        yggmail: YggmailTransport
+    ): ChannelSelector = ChannelSelector(
+        isLocalNetworkAvailable = { contact -> contact.lastKnownAddress is NetworkAddress.Lan && localNetwork.isOnLocalNetwork() },
+        isYggdrasilReachable = { contact ->
+            val host = YggdrasilAddress.parse(contact.yggmailAddress.orEmpty())
+            host != null && YggdrasilNetwork.isReachable(host, LAN_PORT)
+        },
+        relayAvailable = { relayPool.pool.value.isActive },
+        yggdrasilEnabled = { prefs.yggdrasilEnabled && YggdrasilNetwork.hasActiveInterface() },
+        yggmailAvailable = { contact -> yggmail.canDeliver(contact) }
+    )
+
     // ---- Домашний relay (этап 3) ----
 
     /** Пул релеёв с приоритетами, паузами после ошибок и «залипанием»; пул из одного релея — частный случай. */
@@ -185,20 +282,30 @@ object AppModule {
 
     /**
      * Единственный TransportRepository для остального приложения (Outbox, ACK, приём):
-     * LAN и relay выбираются внутри. Пока relay выключен, поведение как до этапа 3.
+     * LAN, Yggdrasil и relay выбираются внутри (в таком порядке). Пока relay выключен, а у контакта нет
+     * Yggmail-адреса, поведение как до этапа 3.
      */
     @Provides
     @Singleton
     fun provideTransportRepository(
         lan: LanTransportRepository,
         relay: RelayTransportRepository,
+        ygg: YggdrasilTransportRepository,
         relayPool: RelayPoolSettings,
-        localNetwork: LocalNetworkDetector
+        localNetwork: LocalNetworkDetector,
+        prefs: com.ramka.app.preferences.AppPreferences,
+        activeChannels: ActiveChannelTracker,
+        yggmail: YggmailTransport
     ): TransportRepository = CompositeTransportRepository(
         lan = lan,
         relay = relay,
         relayEnabled = { relayPool.pool.value.isActive },
-        onLocalNetwork = localNetwork::isOnLocalNetwork
+        onLocalNetwork = localNetwork::isOnLocalNetwork,
+        ygg = ygg,
+        yggdrasilEnabled = { prefs.yggdrasilEnabled },
+        onChannelUsed = activeChannels::report,
+        yggmail = yggmail,
+        yggmailEnabled = { prefs.yggmailEnabled }
     )
 
     @Provides
