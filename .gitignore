@@ -21,4 +21,23 @@ build_OLD_APP/
 build_OLD_ROOT/
 app/build_OLD_APP/
 *.apk
+# === КРИТИЧНО: Локальные базы данных и кэш ===
+*.db
+*.db-shm
+*.db-wal
+*.db-journal
+databases/
+
+# === Ключи подписи и секреты ===
+*.jks
+*.keystore
+*.p12
+*.pfx
+secrets.xml
+secrets.properties
+keystore.properties
+
+# === Системный мусор ===
+.DS_Store
+Thumbs.db
 

@@ -118,6 +118,15 @@ class CallViewModel @Inject constructor(
     private var audioTrack: AudioTrack? = null
     private var previousAudioMode: Int? = null
 
+    private val speakerphone = SpeakerphoneController(context)
+    private val _isSpeakerOn = MutableStateFlow(false)
+
+    /**
+     * Громкая связь включена. Видеозвонок включает её сам, в аудиозвонке по умолчанию выключена (верхний динамик).
+     * Выбор пользователя держится до конца звонка; в новом звонке всё начинается заново.
+     */
+    val isSpeakerOn: StateFlow<Boolean> = _isSpeakerOn.asStateFlow()
+
     // R-1: по умолчанию звонок идёт ТОЛЬКО через TURN (relay): ни Google STUN, ни host/srflx-кандидаты, реальный IP
     // не раскрывается ни STUN-серверу, ни собеседнику.
     // TODO: Добавить тумблер "Разрешить прямое P2P-соединение (раскрывает IP)" в настройки
@@ -182,6 +191,12 @@ class CallViewModel @Inject constructor(
         track.setEnabled(videoEnabled)
         updateCapture()
         (_state.value as? CallState.Connected)?.let { _state.value = it.copy(isVideoEnabled = videoEnabled) }
+    }
+
+    /** Переключатель громкой связи на экране звонка; работает, пока у звонка есть медиа (набор или разговор). */
+    fun toggleSpeaker() = post {
+        if (peerConnection == null) return@post
+        applySpeaker(!_isSpeakerOn.value)
     }
 
     fun onUiStopped() = post {
@@ -533,7 +548,7 @@ class CallViewModel @Inject constructor(
 
         if (withLocalVideo) callHasVideo = startLocalVideo(factory, pc)
 
-        enterCommunicationAudioMode()
+        enterCommunicationAudioMode(speakerOn = CallAudioPolicy.speakerOnByDefault(withVideo = callHasVideo))
         return pc
     }
 
@@ -638,14 +653,23 @@ class CallViewModel @Inject constructor(
         callHasVideo = false
     }
 
-    private fun enterCommunicationAudioMode() {
+    private fun enterCommunicationAudioMode(speakerOn: Boolean) {
         val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager ?: return
         if (previousAudioMode == null) previousAudioMode = audioManager.mode
         audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
+        applySpeaker(speakerOn)
+    }
+
+    private fun applySpeaker(on: Boolean) {
+        speakerphone.setEnabled(on)
+        _isSpeakerOn.value = on
     }
 
     private fun exitCommunicationAudioMode() {
+        // Если режим связи не включали (звонок отклонён до создания медиа), в аудио-настройки системы не вмешиваемся.
         val previous = previousAudioMode ?: return
+        speakerphone.reset() // громкая связь выключена и выбор устройства связи сброшен
+        _isSpeakerOn.value = false
         (context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager)?.mode = previous
         previousAudioMode = null
     }

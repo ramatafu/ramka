@@ -5,6 +5,8 @@ import android.content.pm.PackageManager
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -24,9 +26,11 @@ import androidx.compose.material.icons.filled.CallEnd
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MicOff
+import androidx.compose.material.icons.filled.SpeakerPhone
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material.icons.filled.VideocamOff
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonColors
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -43,6 +47,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.semantics.contentDescription
@@ -73,13 +78,14 @@ fun CallScreen(
 ) {
     val state by viewModel.state.collectAsState()
     val peerName by viewModel.peerName.collectAsState()
+    val isSpeakerOn by viewModel.isSpeakerOn.collectAsState()
     val localTrack by viewModel.localVideoTrack.collectAsState()
     val remoteTrack by viewModel.remoteVideoTrack.collectAsState()
     val context = LocalContext.current
 
     var deniedMessage by remember { mutableStateOf<String?>(null) }
     var afterPermission by remember { mutableStateOf<((cameraGranted: Boolean) -> Unit)?>(null) }
-    
+
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
         val action = afterPermission
         afterPermission = null
@@ -90,7 +96,7 @@ fun CallScreen(
             if (state is CallState.Incoming) viewModel.rejectCall()
         }
     }
-    
+
     val withCallPermissions: (video: Boolean, action: (cameraGranted: Boolean) -> Unit) -> Unit = { video, action ->
         fun granted(permission: String) =
             ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
@@ -108,8 +114,6 @@ fun CallScreen(
         }
     }
 
-    // «Принять» нажато в баннере уведомления: как только появится входящий звонок этого контакта, отвечаем
-    // тем же путём, что и кнопка на экране (с проверкой разрешений микрофона/камеры).
     val acceptRequest by viewModel.acceptRequest.collectAsState()
     LaunchedEffect(state, acceptRequest) {
         val incoming = state as? CallState.Incoming ?: return@LaunchedEffect
@@ -183,6 +187,8 @@ fun CallScreen(
         onEndCall = viewModel::endCall,
         onToggleMute = viewModel::toggleMute,
         onToggleVideo = viewModel::toggleVideo,
+        isSpeakerOn = isSpeakerOn,
+        onToggleSpeaker = viewModel::toggleSpeaker,
         onClose = onClose,
     )
 }
@@ -207,6 +213,8 @@ fun CallContent(
     onEndCall: () -> Unit = {},
     onToggleMute: () -> Unit = {},
     onToggleVideo: () -> Unit = {},
+    isSpeakerOn: Boolean = false,
+    onToggleSpeaker: () -> Unit = {},
     onClose: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
@@ -268,10 +276,9 @@ fun CallContent(
             onEndCall = onEndCall,
             onToggleMute = onToggleMute,
             onToggleVideo = onToggleVideo,
+            isSpeakerOn = isSpeakerOn,
+            onToggleSpeaker = onToggleSpeaker,
             onClose = onClose,
-            // navigationBarsPadding() ПЕРЕД padding(24.dp): сначала отступ на высоту системной панели
-            // (кнопки или жестовая полоса), затем прежние 24dp. Приложение рисуется под системными панелями
-            // (enableEdgeToEdge), поэтому без этого кнопки оказывались под ними.
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
@@ -318,7 +325,6 @@ fun RemoteVideoView(
     )
 }
 
-// КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ: Правильный жизненный цикл для Compose
 @Composable
 fun WebRTCVideoView(
     track: VideoTrack?,
@@ -327,22 +333,19 @@ fun WebRTCVideoView(
     mirror: Boolean = false,
 ) {
     val context = LocalContext.current
-    // 1. Создаем рендерер ОДИН раз, пока существует этот Composable
     val renderer = remember { SurfaceViewRenderer(context) }
 
-    // 2. Инициализируем и освобождаем рендерер ОДИН раз за жизненный цикл экрана
     DisposableEffect(Unit) {
         renderer.init(eglBaseContext, null)
         renderer.setMirror(mirror)
         renderer.setEnableHardwareScaler(true)
         renderer.setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_FILL)
-        
+
         onDispose {
             renderer.release()
         }
     }
 
-    // 3. Привязываем видеопоток. Перезапускается ТОЛЬКО если изменился сам трек
     DisposableEffect(track) {
         track?.addSink(renderer)
         onDispose {
@@ -350,7 +353,6 @@ fun WebRTCVideoView(
         }
     }
 
-    // 4. Встраиваем в Compose
     AndroidView(
         factory = { renderer },
         modifier = modifier
@@ -368,6 +370,8 @@ private fun CallControls(
     onEndCall: () -> Unit,
     onToggleMute: () -> Unit,
     onToggleVideo: () -> Unit,
+    isSpeakerOn: Boolean,
+    onToggleSpeaker: () -> Unit,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -402,6 +406,19 @@ private fun CallControls(
                         onClick = onToggleVideo
                     )
                 }
+
+                // Вызов перегрузки с кастомным цветом (без параметра style)
+                CircleCallButton(
+                    icon = Icons.Filled.SpeakerPhone,
+                    description = if (isSpeakerOn) "Громкая связь включена, выключить" else "Громкая связь выключена, включить",
+                    containerColor = animateColorAsState(
+                        targetValue = if (isSpeakerOn) SpeakerActiveColor else SpeakerInactiveColor,
+                        animationSpec = tween(durationMillis = 200),
+                        label = "speakerColor"
+                    ).value,
+                    onClick = onToggleSpeaker
+                )
+
                 CircleCallButton(Icons.Filled.CallEnd, "Завершить звонок", CallButtonStyle.Danger, onEndCall)
             }
             is CallState.Ended, is CallState.Error -> CircleCallButton(Icons.Filled.Close, "Закрыть", CallButtonStyle.Tonal, onClose)
@@ -412,10 +429,12 @@ private fun CallControls(
 
 private enum class CallButtonStyle { Primary, Tonal, Danger }
 
+private val SpeakerActiveColor = Color(0xFF3B82F6)
+private val SpeakerInactiveColor = Color(0xFF6B7280)
+
 /**
- * Круглая кнопка звонка с иконкой Material (Filled). Цвета прежние: основной (Primary), тональный (Tonal),
- * красный (Danger); иконка берёт цвет содержимого кнопки. Подпись для TalkBack — в [description],
- * у самой иконки описания нет, чтобы оно не зачитывалось дважды.
+ * Круглая кнопка звонка (стандартная версия).
+ * onClick — последний параметр для поддержки trailing lambda.
  */
 @Composable
 private fun CircleCallButton(
@@ -432,6 +451,35 @@ private fun CircleCallButton(
             contentColor = MaterialTheme.colorScheme.onError,
         )
     }
+    CircleCallButtonContent(icon, description, colors, onClick)
+}
+
+/**
+ * Круглая кнопка звонка с кастомным цветом (для громкой связи).
+ * onClick — последний параметр для поддержки trailing lambda.
+ */
+@Composable
+private fun CircleCallButton(
+    icon: ImageVector,
+    description: String,
+    containerColor: Color,
+    onClick: () -> Unit,
+) {
+    CircleCallButtonContent(
+        icon = icon,
+        description = description,
+        colors = ButtonDefaults.buttonColors(containerColor = containerColor, contentColor = Color.White),
+        onClick = onClick,
+    )
+}
+
+@Composable
+private fun CircleCallButtonContent(
+    icon: ImageVector,
+    description: String,
+    colors: ButtonColors,
+    onClick: () -> Unit,
+) {
     Button(
         onClick = onClick,
         modifier = Modifier
