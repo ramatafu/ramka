@@ -30,6 +30,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -59,6 +60,9 @@ import com.ramka.domain.util.YggdrasilAddress
 
 private enum class NotificationPermissionUiState { NONE, DENIED, PERMANENTLY_DENIED }
 
+// Золото Морровинда: тёплый, насыщенный оттенок, отлично читаемый на тёмном фоне
+private val MorrowindGold = Color(0xFFD4AF37)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ContactsScreen(
@@ -73,8 +77,6 @@ fun ContactsScreen(
     val contacts by viewModel.contacts.collectAsState()
     val activeChannels by viewModel.activeChannels.collectAsState()
 
-    // Управление контактами (долгое нажатие). Храним только id: сам контакт берётся из актуального списка,
-    // а rememberSaveable переживает пересоздание активити (в т.ч. пока открыта галерея).
     var menuContactId by rememberSaveable { mutableStateOf<String?>(null) }
     var renameContactId by rememberSaveable { mutableStateOf<String?>(null) }
     var deleteContactId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -91,19 +93,17 @@ fun ContactsScreen(
         viewModel.events.collect { snackbarHostState.showSnackbar(it) }
     }
     
-    // <-- СЛУШАЕМ состояние обнаружения пира -->
     val isLanPeerDiscovered by viewModel.isLanPeerDiscovered.collectAsState()
     
     val callState by callViewModel.state.collectAsState()
     val link by connectionViewModel.link.collectAsState()
     
-    // <-- ИЗМЕНЕНО: добавлен параметр turnReady -->
     val connection = resolveConnectionState(
         callConnected = callState is CallState.Connected,
         network = link.network,
         relayConnected = link.relayConnected,
         peersDiscoveredInLan = isLanPeerDiscovered,
-        turnReady = link.turnReady, // <-- ДОБАВЛЕНО: теперь логотип знает о статусе TURN
+        turnReady = link.turnReady,
         yggdrasilActive = link.yggdrasilActive
     )
     
@@ -206,7 +206,6 @@ fun ContactsScreen(
                             }
                         )
                     }
-                    // Только «Избранное» в списке — подсказка, как добавить первого собеседника.
                     if (contacts.none { !it.isSelf }) {
                         item(key = "no_contacts_hint") { NoContactsHint() }
                     }
@@ -322,6 +321,8 @@ private fun EmptyContactsState(modifier: Modifier = Modifier) {
 @Composable
 private fun ContactRow(contact: Contact, channel: TransportChannel?, onClick: () -> Unit, onLongClick: () -> Unit) {
     val hasUnread = contact.unreadCount > 0
+    val isFavorite = contact.isSelf // "Избранное" в Ramka
+    
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -333,20 +334,25 @@ private fun ContactRow(contact: Contact, channel: TransportChannel?, onClick: ()
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        ContactAvatar(alias = contact.displayName(), photoUri = contact.photoUri, isSelf = contact.isSelf)
+        ContactAvatar(alias = contact.displayName(), photoUri = contact.photoUri, isSelf = isFavorite)
         Spacer(Modifier.width(12.dp))
         Text(
             contact.displayName(),
             style = MaterialTheme.typography.bodyLarge.copy(
-                fontWeight = if (hasUnread) FontWeight.Bold else FontWeight.Normal
+                // Делаем жирным, если есть непрочитанные ИЛИ если это Избранное
+                fontWeight = if (hasUnread || isFavorite) FontWeight.Bold else FontWeight.Normal
             ),
-            color = if (hasUnread) RamkaAccent else MaterialTheme.colorScheme.onBackground,
+            // ИЗМЕНЕНИЕ ЗДЕСЬ: Золотой цвет для Избранного
+            color = when {
+                isFavorite -> MorrowindGold
+                hasUnread -> RamkaAccent
+                else -> MaterialTheme.colorScheme.onBackground
+            },
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f)
         )
-        // Значок канала рисуется ТОЛЬКО у контактов с заполненным адресом (Yggdrasil/Yggmail); без адреса — вообще ничего.
-        // Известен реальный канал — показываем его, иначе нейтральный глобус «адрес задан, канал пока не определён».
+        
         if (!contact.yggmailAddress.isNullOrBlank()) {
             Spacer(Modifier.width(8.dp))
             if (channel != null) {
@@ -378,13 +384,12 @@ private fun UnreadBadge(count: Int) {
         Text(
             text = if (count > 99) "99+" else count.toString(),
             style = MaterialTheme.typography.labelSmall,
-            color = androidx.compose.ui.graphics.Color.Black,
+            color = Color.Black,
             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
         )
     }
 }
 
-/** Меню действий над контактом (долгое нажатие): имя, фото, удаление. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ContactActionsSheet(
@@ -423,7 +428,6 @@ private fun ContactActionsSheet(
                 )
             }
             ContactActionRow(Icons.Filled.Edit, "Изменить имя", onRename)
-            // «Избранное»: фото всегда звезда, удалить нельзя — остаётся только переименование.
             if (!contact.isSelf) {
                 ContactActionRow(
                     Icons.Filled.Image,
@@ -495,10 +499,6 @@ private fun DeleteContactDialog(contact: Contact, onDismiss: () -> Unit, onConfi
     )
 }
 
-/**
- * Yggmail-адрес контакта (необязательный). Пусто — контакт общается как раньше (локальная сеть и relay).
- * Принимается IPv6 сети Yggdrasil: `user@[324:71e::53]` или просто `324:71e::53` (начинается с 2xx: или 3xx:).
- */
 @Composable
 private fun YggdrasilAddressDialog(contact: Contact, onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
     var text by rememberSaveable(contact.localId) { mutableStateOf(contact.yggmailAddress.orEmpty()) }
@@ -535,4 +535,3 @@ private fun YggdrasilAddressDialog(contact: Contact, onDismiss: () -> Unit, onCo
 }
 
 private const val MAX_YGGDRASIL_INPUT = 120
-

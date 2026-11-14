@@ -33,11 +33,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
@@ -45,21 +47,23 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import androidx.compose.ui.text.style.TextOverflow
 import com.ramka.app.ui.contacts.ContactAvatar
 import com.ramka.app.ui.contacts.displayName
 import com.ramka.app.ui.theme.RamkaAccent
 import com.ramka.app.ui.theme.RamkaBubbleOutgoing
+import com.ramka.domain.model.ContactConstants
 import com.ramka.domain.model.Message
 import com.ramka.domain.model.MessageBody
 import com.ramka.domain.model.MessageDirection
-import com.ramka.domain.model.ContactConstants
 import com.ramka.domain.model.MessageStatus
 import com.ramka.domain.model.asVoice
 import kotlinx.coroutines.launch
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
+
+// Золото Морровинда: для заголовка чата с "Избранным"
+private val MorrowindGold = Color(0xFFD4AF37)
 
 // 1. Класс запроса на открытие файла
 data class OpenFileRequest(val uri: Uri, val mimeType: String?, val fileName: String?)
@@ -289,9 +293,11 @@ fun ChatScreen(
                             Spacer(Modifier.width(10.dp))
                         }
                         Text(
-                            contact?.displayName() ?: "…",
+                            text = contact?.displayName() ?: "…",
                             maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                            overflow = TextOverflow.Ellipsis,
+                            // ИЗМЕНЕНИЕ ЗДЕСЬ: Золотой цвет для "Избранного"
+                            color = if (isSelfChat) MorrowindGold else MaterialTheme.colorScheme.onSurface
                         )
                         // Значок активного канала: Wi-Fi / Yggdrasil / relay.
                         activeChannel?.let { channel ->

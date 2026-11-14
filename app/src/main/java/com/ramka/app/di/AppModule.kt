@@ -2,6 +2,7 @@ package com.ramka.app.di
 
 import android.content.Context
 import android.util.Log
+import com.ramka.app.data.ProxyDataStore
 import com.ramka.app.data.TurnSettingsDataStore
 import com.ramka.app.offline.NoiseXOfflineSealer
 import com.ramka.app.relay.AndroidLocalNetworkDetector
@@ -53,6 +54,7 @@ import com.ramka.domain.util.YggdrasilAddress
 import com.ramka.network.call.CallSignaling
 import com.ramka.network.local.LanDiscoveryService
 import com.ramka.network.local.SecureLanChannel
+import com.ramka.network.proxy.ProxyManager
 import com.ramka.network.relay.KeyManagerRelayIdentity
 import com.ramka.network.relay.RelayClient
 import com.ramka.network.relay.TlsRelayConnector
@@ -158,6 +160,13 @@ object AppModule {
         secureLanChannel: SecureLanChannel,
         appScope: CoroutineScope
     ): LanTransportRepository = LanTransportRepository(secureLanChannel, appScope)
+
+    // ---- Прокси ----
+
+    /** Единая точка решения «идти ли через прокси»; следит за настройками, пересоздавать ничего не нужно. */
+    @Provides
+    @Singleton
+    fun provideProxyManager(store: ProxyDataStore, appScope: CoroutineScope): ProxyManager = ProxyManager(store, appScope)
 
     // ---- Yggmail (необязательный канал store-and-forward через почту; полностью изолирован) ----
 

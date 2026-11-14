@@ -2,10 +2,13 @@ package com.ramka.app.ui.about
 
 import android.content.Context
 import android.content.pm.PackageManager
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -32,17 +35,24 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
 
 private const val GITHUB_TEXT = "github.com/ramatafu/ramka"
 private const val GITHUB_URL = "https://github.com/ramatafu/ramka"
@@ -53,6 +63,18 @@ fun AboutScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     val versionName = remember { readVersionName(context) }
     val uriHandler = LocalUriHandler.current
+
+    // Логика пасхалки: счётчик нажатий и флаг показа терминала
+    var tapCount by remember { mutableStateOf(0) }
+    var showTerminal by remember { mutableStateOf(false) }
+
+    // Сбрасываем счётчик, если пользователь перестал нажимать на 1.5 секунды
+    LaunchedEffect(tapCount) {
+        if (tapCount > 0) {
+            delay(1500)
+            tapCount = 0
+        }
+    }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.surface,
@@ -80,7 +102,18 @@ fun AboutScreen(onBack: () -> Unit) {
             Text(
                 text = "Версия $versionName",
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface
+                color = MaterialTheme.colorScheme.onSurface,
+                // Скрытый клик без визуальной ряби (indication = null)
+                modifier = Modifier.clickable(
+                    indication = null,
+                    interactionSource = remember { MutableInteractionSource() }
+                ) {
+                    tapCount++
+                    if (tapCount >= 7) {
+                        showTerminal = true
+                        tapCount = 0
+                    }
+                }
             )
 
             Spacer(Modifier.height(24.dp))
@@ -105,13 +138,13 @@ fun AboutScreen(onBack: () -> Unit) {
             Spacer(Modifier.height(24.dp))
             AboutSection(icon = Icons.Filled.Link, title = "Ресурсы") {
                 GithubLink(onClick = {
-                    // Нет браузера на устройстве — не падаем, просто ничего не делаем.
                     runCatching { uriHandler.openUri(GITHUB_URL) }
                 })
                 AboutLine("Лицензия: GNU GPLv3")
             }
 
-            Spacer(Modifier.height(48.dp))
+            Spacer(Modifier.height(120.dp))
+            
             val faint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
             Text(
                 text = "Я не хочу знать, кто ты такой. Ты только что появился здесь.",
@@ -130,6 +163,11 @@ fun AboutScreen(onBack: () -> Unit) {
             )
             Spacer(Modifier.height(16.dp))
         }
+    }
+
+    // Показываем оверлей терминала, если он активирован
+    if (showTerminal) {
+        TerminalEasterEgg(onDismiss = { showTerminal = false })
     }
 }
 
@@ -154,7 +192,6 @@ private fun AboutSection(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        // Содержимое выровнено по тексту заголовка (20.dp иконка + 12.dp отступ).
         Column(
             modifier = Modifier.padding(start = 32.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -173,7 +210,6 @@ private fun AboutLine(text: String) {
     )
 }
 
-/** Ссылка цвета primary; подчёркивается, пока палец на ней. */
 @Composable
 private fun GithubLink(onClick: () -> Unit) {
     val interactionSource = remember { MutableInteractionSource() }
@@ -192,11 +228,6 @@ private fun GithubLink(onClick: () -> Unit) {
     )
 }
 
-/**
- * Версия берётся из PackageManager, а не из BuildConfig: в app/build.gradle.kts не включён
- * buildFeatures.buildConfig, и ради одной строки менять сборку не нужно. Значение то же —
- * RAMKA_VERSION_NAME из gradle.properties.
- */
 @Suppress("DEPRECATION")
 private fun readVersionName(context: Context): String =
     try {
@@ -204,3 +235,70 @@ private fun readVersionName(context: Context): String =
     } catch (_: PackageManager.NameNotFoundException) {
         "—"
     }
+
+// ============================================================================
+// ПАСХАЛКА: Терминал в стиле Kali Linux
+// ============================================================================
+
+private val KaliGreen = Color(0xFF00FF41)
+
+@Composable
+fun TerminalEasterEgg(onDismiss: () -> Unit) {
+    var cursorVisible by remember { mutableStateOf(true) }
+
+    // Мигающий курсор (классический терминальный ритм 500мс)
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(500)
+            cursorVisible = !cursorVisible
+        }
+    }
+
+    // Закрытие по системной кнопке "Назад"
+    BackHandler(enabled = true) {
+        onDismiss()
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black)
+            .clickable { onDismiss() } // Закрытие по тапу в любом месте экрана
+    ) {
+        Column(
+            modifier = Modifier
+                // ИЗМЕНЕНИЕ ЗДЕСЬ: Опустили текст вниз (top = 120.dp)
+                .padding(top = 120.dp, start = 24.dp, end = 24.dp)
+                .align(Alignment.TopStart)
+        ) {
+            Text(
+                text = "Ramka OS v1.0.0 (tty1)\nRamka: a privacy-first P2P messenger.\n\n",
+                color = KaliGreen,
+                fontFamily = FontFamily.Monospace,
+                fontSize = 14.sp
+            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "root@ramka:~# ",
+                    color = KaliGreen,
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 16.sp
+                )
+                // Мигающий блок-курсор
+                Text(
+                    text = "█",
+                    color = if (cursorVisible) KaliGreen else Color.Black,
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 16.sp
+                )
+            }
+            Text(
+                text = "[ нажми Назад , чтобы выйти ]",
+                color = Color.Gray,
+                fontFamily = FontFamily.Monospace,
+                fontSize = 12.sp,
+                modifier = Modifier.padding(top = 48.dp)
+            )
+        }
+    }
+}
