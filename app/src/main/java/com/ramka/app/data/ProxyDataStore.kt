@@ -13,11 +13,14 @@ import com.ramka.crypto.securestorage.SecureKeyStore
 import com.ramka.network.proxy.ProxySettings
 import com.ramka.network.proxy.ProxySettingsSource
 import com.ramka.network.proxy.ProxyType
+import android.util.Log
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
@@ -36,17 +39,25 @@ private val Context.proxyDataStore: DataStore<Preferences> by preferencesDataSto
  */
 @Singleton
 class ProxyDataStore @Inject constructor(
-    @ApplicationContext context: Context,
+    @ApplicationContext private val context: Context,
     private val secureKeyStore: SecureKeyStore
 ) : ProxySettingsSource {
 
     private val dataStore: DataStore<Preferences> = context.proxyDataStore
 
+    @Volatile
+    private var legacyChecked = false
+
     /** Запись по одной: пароль и остальные поля сохраняются согласованно. */
     private val mutex = Mutex()
 
     /** Настройки по мере изменения; повреждённый файл читается как «прокси выключен». */
-    override val settings: Flow<ProxySettings> = dataStore.data
+    override val settings: Flow<ProxySettings> = flow {
+        // Перенос из старого хранилища идёт ДО первого значения: [com.ramka.network.proxy.ProxyManager] не примет
+        // решение «идти напрямую», пока настройки не перенесены.
+        ensureLegacyMigrated()
+        emitAll(dataStore.data)
+    }
         .catch { e -> if (e is IOException) emit(emptyPreferences()) else throw e }
         .map { prefs -> decode(prefs) }
         .distinctUntilChanged()
@@ -63,20 +74,49 @@ class ProxyDataStore @Inject constructor(
         if (settings.enabled) {
             settings.validate()?.let { throw IllegalArgumentException(it) }
         }
+        ensureLegacyMigrated()
+        mutex.withLock { writeLocked(settings) }
+    }
+
+    /** Запись без блокировки: вызывающий уже держит [mutex]. */
+    private suspend fun writeLocked(settings: ProxySettings) {
+        withContext(Dispatchers.IO) {
+            // Пароль первым: если защищённое хранилище откажет, остальные поля не успеют измениться.
+            if (settings.password.isEmpty()) secureKeyStore.remove(KEY_PASSWORD)
+            else secureKeyStore.putBytes(KEY_PASSWORD, settings.password.toByteArray())
+            dataStore.edit { prefs ->
+                prefs[KEY_ENABLED] = settings.enabled
+                prefs[KEY_TYPE] = settings.type.name
+                prefs[KEY_HOST] = settings.host.trim()
+                prefs[KEY_PORT] = settings.port
+                prefs[KEY_USERNAME] = settings.username
+                // Счётчик: смена одного только пароля не меняет ничего в DataStore и иначе не дошла бы до подписчиков.
+                prefs[KEY_REVISION] = (prefs[KEY_REVISION] ?: 0) + 1
+            }
+        }
+    }
+
+    /**
+     * Один раз за запуск процесса: если остался файл старого хранилища (пароль открытым текстом), переносит
+     * настройки сюда и удаляет файл. Не удалось записать, файл остаётся, перенос повторится при следующем запуске.
+     */
+    private suspend fun ensureLegacyMigrated() {
+        if (legacyChecked) return
         mutex.withLock {
+            if (legacyChecked) return
             withContext(Dispatchers.IO) {
-                // Пароль первым: если защищённое хранилище откажет, остальные поля не успеют измениться.
-                if (settings.password.isEmpty()) secureKeyStore.remove(KEY_PASSWORD)
-                else secureKeyStore.putBytes(KEY_PASSWORD, settings.password.toByteArray())
-                dataStore.edit { prefs ->
-                    prefs[KEY_ENABLED] = settings.enabled
-                    prefs[KEY_TYPE] = settings.type.name
-                    prefs[KEY_HOST] = settings.host.trim()
-                    prefs[KEY_PORT] = settings.port
-                    prefs[KEY_USERNAME] = settings.username
-                    // Счётчик: смена одного только пароля не меняет ничего в DataStore и иначе не дошла бы до подписчиков.
-                    prefs[KEY_REVISION] = (prefs[KEY_REVISION] ?: 0) + 1
+                when (val legacy = LegacyProxyMigration.read(context)) {
+                    LegacyProxyMigration.Legacy.Absent -> Unit
+                    LegacyProxyMigration.Legacy.Unreadable -> LegacyProxyMigration.deleteFiles(context)
+                    is LegacyProxyMigration.Legacy.Found -> try {
+                        writeLocked(LegacyProxyMigration.normalize(legacy.settings))
+                        LegacyProxyMigration.deleteFiles(context)
+                    } catch (e: Exception) {
+                        Log.w("ramka", "Перенос настроек прокси не удался: ${e.javaClass.simpleName}")
+                        return@withContext // legacyChecked не ставим: повторим при следующем обращении
+                    }
                 }
+                legacyChecked = true
             }
         }
     }
@@ -85,6 +125,7 @@ class ProxyDataStore @Inject constructor(
     suspend fun clear() {
         mutex.withLock {
             withContext(Dispatchers.IO) {
+                LegacyProxyMigration.deleteFiles(context) // старый файл с открытым паролем тоже стираем
                 secureKeyStore.remove(KEY_PASSWORD)
                 dataStore.edit { it.clear() }
             }

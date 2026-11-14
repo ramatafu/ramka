@@ -17,6 +17,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.ramka.network.proxy.ProxyType
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -24,7 +25,7 @@ fun ProxySettingsScreen(
     viewModel: ProxySettingsViewModel = hiltViewModel(),
     onNavigateBack: () -> Unit
 ) {
-    val config by viewModel.proxyConfig.collectAsState()
+    val form by viewModel.form.collectAsState()
     var passwordVisible by remember { mutableStateOf(false) }
 
     Scaffold(
@@ -55,13 +56,14 @@ fun ProxySettingsScreen(
             ) {
                 Text("Использовать прокси", style = MaterialTheme.typography.titleMedium)
                 Switch(
-                    checked = config.isEnabled,
-                    onCheckedChange = { viewModel.setEnabled(it) }
+                    checked = form.enabled,
+                    onCheckedChange = { viewModel.setEnabled(it) },
+                    enabled = form.loaded
                 )
             }
 
             // Поля конфигурации (показываются только если прокси включен)
-            if (config.isEnabled) {
+            if (form.enabled) {
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(
                         modifier = Modifier.padding(16.dp),
@@ -71,20 +73,20 @@ fun ProxySettingsScreen(
                         Text("Тип прокси", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             FilterChip(
-                                selected = config.type == "SOCKS5",
-                                onClick = { viewModel.setType("SOCKS5") },
+                                selected = form.type == ProxyType.SOCKS5,
+                                onClick = { viewModel.setType(ProxyType.SOCKS5) },
                                 label = { Text("SOCKS5") }
                             )
                             FilterChip(
-                                selected = config.type == "HTTP",
-                                onClick = { viewModel.setType("HTTP") },
+                                selected = form.type == ProxyType.HTTP,
+                                onClick = { viewModel.setType(ProxyType.HTTP) },
                                 label = { Text("HTTP") }
                             )
                         }
 
                         // Хост
                         OutlinedTextField(
-                            value = config.host,
+                            value = form.host,
                             onValueChange = { viewModel.setHost(it) },
                             label = { Text("Хост (IP или домен)") },
                             modifier = Modifier.fillMaxWidth(),
@@ -93,7 +95,7 @@ fun ProxySettingsScreen(
 
                         // Порт
                         OutlinedTextField(
-                            value = if (config.port == 0) "" else config.port.toString(),
+                            value = form.portText,
                             onValueChange = { viewModel.setPort(it) },
                             label = { Text("Порт") },
                             modifier = Modifier.fillMaxWidth(),
@@ -103,7 +105,7 @@ fun ProxySettingsScreen(
 
                         // Логин (опционально)
                         OutlinedTextField(
-                            value = config.username,
+                            value = form.username,
                             onValueChange = { viewModel.setUsername(it) },
                             label = { Text("Логин (опционально)") },
                             modifier = Modifier.fillMaxWidth(),
@@ -112,7 +114,7 @@ fun ProxySettingsScreen(
 
                         // Пароль (опционально, скрытый по умолчанию)
                         OutlinedTextField(
-                            value = config.password,
+                            value = form.password,
                             onValueChange = { viewModel.setPassword(it) },
                             label = { Text("Пароль (опционально)") },
                             modifier = Modifier.fillMaxWidth(),
@@ -128,8 +130,28 @@ fun ProxySettingsScreen(
                             },
                             singleLine = true
                         )
+
+                        form.error?.let {
+                            Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
+                        }
+                        if (form.saved && form.error == null) {
+                            Text("Сохранено", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodyMedium)
+                        }
+                        Button(
+                            onClick = { viewModel.save() },
+                            enabled = form.loaded && form.dirty,
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text("Сохранить") }
                     }
                 }
+
+                Text(
+                    "Через прокси идут соединение с релеем и тест скорости. Локальная сеть, Yggdrasil и звонки (TURN) " +
+                        "прокси не используют. Если прокси включён, но не отвечает, соединение не устанавливается " +
+                        "(напрямую оно не пойдёт). Пароль хранится в защищённом хранилище Android.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
     }
