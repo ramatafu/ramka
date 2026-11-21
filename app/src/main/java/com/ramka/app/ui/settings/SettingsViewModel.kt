@@ -52,6 +52,9 @@ class SettingsViewModel @Inject constructor(
     var callVibration by mutableStateOf(prefs.callVibrationEnabled)
         private set
 
+    var allowDirectP2p by mutableStateOf(prefs.allowDirectP2pEnabled)
+        private set
+
     var yggdrasil by mutableStateOf(prefs.yggdrasilEnabled)
         private set
 
@@ -184,6 +187,11 @@ class SettingsViewModel @Inject constructor(
     fun onCallVibrationChanged(enabled: Boolean) {
         prefs.callVibrationEnabled = enabled
         callVibration = enabled
+    }
+
+    fun onAllowDirectP2pChanged(enabled: Boolean) {
+        prefs.allowDirectP2pEnabled = enabled
+        allowDirectP2p = enabled
     }
 
     fun openHintManually() { showHint = true }

@@ -19,7 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 
-/** Экран «Звонки»: звук и вибрация при входящем звонке. Логика сохранения в [SettingsViewModel] не менялась. */
+/** Экран «Звонки»: звук, вибрация и настройки P2P при входящем звонке. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CallSettingsScreen(
@@ -62,6 +62,15 @@ fun CallSettingsScreen(
                     checked = viewModel.callVibration,
                     enabled = true,
                     onCheckedChange = viewModel::onCallVibrationChanged
+                )
+            }
+            SettingsCard {
+                SettingSwitchRow(
+                    title = "Прямое P2P-соединение",
+                    description = "Звонки в одной сети идут напрямую. Раскрывает ваш IP собеседнику. Без него звонок идёт только через TURN-сервер.",
+                    checked = viewModel.allowDirectP2p,
+                    enabled = true,
+                    onCheckedChange = viewModel::onAllowDirectP2pChanged
                 )
             }
         }
