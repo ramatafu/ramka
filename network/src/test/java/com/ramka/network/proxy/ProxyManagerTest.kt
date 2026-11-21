@@ -102,4 +102,65 @@ class ProxyManagerTest {
         assertTrue(done)
         assertEquals(1234, (result!!.address() as InetSocketAddress).port)
     }
+
+    @Test fun usableSettingsIsNullWhenDisabled() {
+        assertNull(ProxyManager(FakeSource(ProxySettings.DISABLED), scope).usableSettings())
+    }
+
+    @Test fun usableSettingsCarriesCredentials() {
+        val s = ProxySettings(true, ProxyType.HTTP, "proxy.example.org", 8080, "user", "secret")
+        val got = ProxyManager(FakeSource(s), scope).usableSettings()!!
+        assertEquals("user", got.username)
+        assertEquals("secret", got.password)
+    }
+
+    @Test fun usableSettingsFailsClosedWhenInvalid() {
+        try {
+            ProxyManager(FakeSource(ProxySettings(enabled = true, host = "", port = 1080)), scope).usableSettings()
+            fail("ожидали ProxyMisconfiguredException")
+        } catch (_: ProxyMisconfiguredException) {
+        }
+    }
+
+    @Test fun awaitUsableSettingsTimesOutAsNotReady() = runBlocking {
+        val never = object : ProxySettingsSource {
+            override val settings: Flow<ProxySettings> = MutableSharedFlow() // ничего не выдаёт
+        }
+        try {
+            ProxyManager(never, scope).awaitUsableSettings(timeoutMillis = 50)
+            fail("ожидали ProxyNotReadyException")
+        } catch (_: ProxyNotReadyException) {
+        }
+    }
+
+    @Test fun generationGrowsOnlyWhenTheRouteChanges() {
+        val source = FakeSource(ProxySettings.DISABLED)
+        val manager = ProxyManager(source, scope)
+        assertEquals(0L, manager.generation.value)                       // первая загрузка не смена маршрута
+
+        source.state.value = ProxySettings.DISABLED.copy(host = "edited.example.org")
+        assertEquals(0L, manager.generation.value)                       // выключенный прокси: маршрут «напрямую» прежний
+
+        source.state.value = enabled()
+        assertEquals(1L, manager.generation.value)                       // включили
+        source.state.value = enabled(port = 9050)
+        assertEquals(2L, manager.generation.value)                       // сменили порт
+        source.state.value = enabled(port = 9050).copy(password = "new")
+        assertEquals(3L, manager.generation.value)                       // сменили только пароль
+        source.state.value = ProxySettings.DISABLED
+        assertEquals(4L, manager.generation.value)                       // выключили
+    }
+
+    @Test fun initialEnabledSettingsAreNotAChange() {
+        assertEquals(0L, ProxyManager(FakeSource(enabled()), scope).generation.value)
+    }
+
+    @Test fun listenersRunAfterNewSettingsAndGenerationAreInPlace() {
+        val source = FakeSource(ProxySettings.DISABLED)
+        val manager = ProxyManager(source, scope)
+        val seen = mutableListOf<Pair<Long, Boolean>>()
+        manager.addRouteChangeListener { seen += manager.generation.value to manager.settings().enabled }
+        source.state.value = enabled()
+        assertEquals(listOf(1L to true), seen)
+    }
 }

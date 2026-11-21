@@ -43,6 +43,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.ramka.app.connection.ConnectionStatusHelpButton
 import com.ramka.app.data.TurnServerEntry
 import com.ramka.app.turn.TurnServerStatus
 
@@ -80,6 +81,7 @@ fun TurnServerListScreen(
                     }
                 },
                 actions = {
+                    ConnectionStatusHelpButton()
                     TextButton(onClick = onOpenTurnGuide) {
                         Text(
                             "!",

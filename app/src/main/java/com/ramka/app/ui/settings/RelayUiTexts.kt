@@ -38,6 +38,7 @@ internal fun failureText(failure: RelayFailure): String = when (failure) {
     RelayFailure.BUSY -> "relay временно ограничил доступ (слишком много запросов или неверных токенов)"
     RelayFailure.REPLACED -> "это устройство вытеснено другим устройством с теми же ключами"
     RelayFailure.INTERNAL -> "внутренняя ошибка relay"
+    RelayFailure.PROXY -> "не удалось подключиться через прокси: проверьте адрес, порт и логин в настройках прокси"
 }
 
 /** Новое поле «метка» (в старой форме его не было). */

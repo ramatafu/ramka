@@ -78,8 +78,11 @@ class SendFileUseCase(
     /**
      * Передаёт файл сообщения [messageLocalId]; безопасно вызывать и для первой отправки, и для
      * повтора из FAILED. @return true, если все пакеты ушли (статус SENT).
+     *
+     * @param notifyPeer false для автоповтора при восстановлении связи: при обрыве собеседнику не уходит текстовый
+     *   сигнал [OfflineFileSignal] (иначе он получил бы до трёх лишних «Вам пытаются отправить файл»).
      */
-    suspend fun transfer(messageLocalId: String): Boolean {
+    suspend fun transfer(messageLocalId: String, notifyPeer: Boolean = true): Boolean {
         val message = messageRepository.getMessage(messageLocalId) ?: return false
         val body = message.body as? MessageBody.File ?: return false
         if (message.direction != MessageDirection.OUTGOING) return false
@@ -99,7 +102,7 @@ class SendFileUseCase(
                 messageRepository.updateStatus(messageLocalId, MessageStatus.SENT)
             } else {
                 markFailed(messageLocalId, lastPercent)
-                if (outcome == SendOutcome.CONNECTION_FAILED) notifyConnectionFailed(message)
+                if (outcome == SendOutcome.CONNECTION_FAILED && notifyPeer) notifyConnectionFailed(message)
             }
             return outcome == SendOutcome.OK
         } catch (e: CancellationException) {

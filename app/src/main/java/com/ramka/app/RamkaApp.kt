@@ -5,6 +5,7 @@ import android.util.Log
 import com.ramka.app.background.BackgroundDeliveryController
 import com.ramka.app.discovery.LanPresenceCoordinator
 import com.ramka.app.discovery.LanVisibilityController
+import com.ramka.app.outbox.ConnectionRestoredResender
 import com.ramka.app.panic.PanicWipe
 import com.ramka.app.yggmail.YggmailController
 import com.ramka.data.incoming.IncomingMessageProcessor
@@ -31,6 +32,7 @@ class RamkaApp : Application() {
     @Inject lateinit var backgroundDeliveryController: BackgroundDeliveryController
     @Inject lateinit var lanVisibilityController: LanVisibilityController
     @Inject lateinit var relayHealthMonitor: RelayHealthMonitor
+    @Inject lateinit var connectionRestoredResender: ConnectionRestoredResender
     @Inject lateinit var messageRepository: MessageRepository
     @Inject lateinit var contactRepository: ContactRepository
     @Inject lateinit var callAlerts: CallAlerts
@@ -83,15 +85,14 @@ class RamkaApp : Application() {
                 // Сообщаем контроллеру, что пир найден (это зажжет зеленый логотип)
                 lanVisibilityController.notifyPeerDiscovered(peer)
 
-                // Запускаем обработку очереди сообщений
-                appScope.launch { 
-                    processOutboxUseCase.processDue(System.currentTimeMillis()) 
-                }
+                // Появился канал: сразу повторяем неотправленное (очередь и файлы), не дожидаясь backoff
+                connectionRestoredResender.onConnectionAvailable()
             }
         ).start(appScope)
 
         backgroundDeliveryController.applyScheduling()
         relayHealthMonitor.start(appScope)
+        connectionRestoredResender.start(appScope)
         appScope.launch { processOutboxUseCase.processDue(System.currentTimeMillis()) }
     }
 }

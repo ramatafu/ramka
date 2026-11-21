@@ -71,6 +71,11 @@ class RelayTransportRepositoryTest {
         override fun reportDelivery(endpoint: RelayEndpoint, contact: Contact, latencyMillis: Long, fallback: Boolean) {
             deliveries.add(Triple(endpoint, contact, fallback))
         }
+
+        val routeChanges = AtomicInteger(0)
+        override fun onRouteChanged() {
+            routeChanges.incrementAndGet()
+        }
     }
 
     private class FakeClient : RelayTunnelClient {
@@ -612,5 +617,67 @@ class RelayTransportRepositoryTest {
         } finally {
             job.cancel()
         }
+    }
+
+    // ---- смена маршрута (прокси) ----
+
+    @Test
+    fun `смена маршрута перезапускает регистрации и сообщает провайдеру`() = runBlocking {
+        val client = FakeClient()
+        val provider = FakeProvider(listOf(endpoint1), emptyList())
+        val generation = MutableStateFlow(0L)
+        val job = collectInBackground(RelayTransportRepository(FakeChannel(), client, provider, routeGeneration = generation))
+        try {
+            awaitCondition("первая регистрация") { client.started(endpoint1) == 1 }
+            assertEquals(0, provider.routeChanges.get())
+
+            generation.value = 1
+
+            awaitCondition("регистрация перезапущена") { client.started(endpoint1) == 2 && client.active(endpoint1) == 1 }
+            assertEquals(1, provider.routeChanges.get())
+        } finally {
+            job.cancel()
+        }
+    }
+
+    @Test
+    fun `отправка, начатая по старому маршруту, не отправляет данные и не винит релей`() = runBlocking {
+        val client = FakeClient()
+        val generation = MutableStateFlow(0L)
+        val socket = Socket()
+        client.connectResults[endpoint1] = RelayConnectResult.Connected(socket)
+        client.onConnect = { generation.value = generation.value + 1 } // прокси сменили, пока шло подключение
+        val channel = FakeChannel()
+        val provider = FakeProvider(emptyList(), listOf(endpoint1))
+
+        val delivered = RelayTransportRepository(channel, client, provider, routeGeneration = generation)
+            .sendEncryptedPacket(contact, byteArrayOf(1))
+
+        assertFalse(delivered)
+        assertTrue(channel.sendCalls.isEmpty())   // по старому маршруту ничего не ушло
+        assertTrue(socket.isClosed)
+        assertTrue(provider.reports.isEmpty() && provider.deliveries.isEmpty())
+    }
+
+    @Test
+    fun `обрыв подключения из-за смены маршрута не считается ошибкой релея`() = runBlocking {
+        val client = FakeClient() // результата нет: по умолчанию Failed(UNREACHABLE)
+        val generation = MutableStateFlow(0L)
+        client.onConnect = { generation.value = generation.value + 1 }
+        val provider = FakeProvider(emptyList(), listOf(endpoint1))
+
+        val delivered = RelayTransportRepository(FakeChannel(), client, provider, routeGeneration = generation)
+            .sendEncryptedPacket(contact, byteArrayOf(1))
+
+        assertFalse(delivered)
+        assertTrue(provider.reports.isEmpty())
+    }
+
+    @Test
+    fun `без смены маршрута ошибка релея по-прежнему учитывается`() = runBlocking {
+        val provider = FakeProvider(emptyList(), listOf(endpoint1))
+        RelayTransportRepository(FakeChannel(), FakeClient(), provider, routeGeneration = MutableStateFlow(0L))
+            .sendEncryptedPacket(contact, byteArrayOf(1))
+        assertEquals(listOf(endpoint1 to RelayFailure.UNREACHABLE), provider.reports.toList())
     }
 }

@@ -8,6 +8,7 @@ import com.ramka.app.offline.NoiseXOfflineSealer
 import com.ramka.app.relay.AndroidLocalNetworkDetector
 import com.ramka.app.relay.LocalNetworkDetector
 import com.ramka.app.relay.RelayPoolSettings
+import com.ramka.app.connection.NetworkKindMonitor
 import com.ramka.app.turn.TurnServerChecker
 import com.ramka.app.turn.TurnServerMonitor
 import com.ramka.app.yggmail.JavaMailYggmailMail
@@ -35,6 +36,7 @@ import com.ramka.domain.repository.MessageRepository
 import com.ramka.domain.repository.OutboxRepository
 import com.ramka.domain.repository.TransportRepository
 import com.ramka.domain.usecase.AttemptDeliveryUseCase
+import com.ramka.domain.usecase.AutoResendFailedFilesUseCase
 import com.ramka.domain.usecase.DelayedAckSender
 import com.ramka.domain.usecase.FileTransferManager
 import com.ramka.domain.usecase.HandleIncomingFileUseCase
@@ -269,8 +271,8 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideRelayClient(keyManager: KeyManager): RelayClient =
-        RelayClient(KeyManagerRelayIdentity(keyManager), TlsRelayConnector())
+    fun provideRelayClient(keyManager: KeyManager, proxyManager: ProxyManager): RelayClient =
+        RelayClient(KeyManagerRelayIdentity(keyManager), TlsRelayConnector(proxyManager))
 
     @Provides
     fun provideRelayChecker(client: RelayClient): RelayChecker = client
@@ -280,8 +282,9 @@ object AppModule {
     fun provideRelayTransportRepository(
         secureLanChannel: SecureLanChannel,
         relayClient: RelayClient,
-        relayProvider: PoolRelayProvider
-    ) = RelayTransportRepository(secureLanChannel, relayClient, relayProvider)
+        relayProvider: PoolRelayProvider,
+        proxyManager: ProxyManager
+    ) = RelayTransportRepository(secureLanChannel, relayClient, relayProvider, routeGeneration = proxyManager.generation)
 
     @Provides
     @Singleton
@@ -383,7 +386,9 @@ object AppModule {
         transportRepository: TransportRepository
     ): AttemptDeliveryUseCase = AttemptDeliveryUseCase(contactRepository, transportRepository)
 
+    // Singleton: у ProcessOutboxUseCase есть состояние (inFlight), общее для приложения, sweep-воркера и триггеров.
     @Provides
+    @Singleton
     fun provideProcessOutboxUseCase(
         outboxRepository: OutboxRepository,
         messageRepository: MessageRepository,
@@ -440,6 +445,14 @@ object AppModule {
         sendFile: SendFileUseCase
     ) = FileTransferManager(appScope, sendFile)
 
+    @Provides
+    @Singleton
+    fun provideAutoResendFailedFilesUseCase(
+        messageRepository: MessageRepository,
+        contactRepository: ContactRepository,
+        fileTransferManager: FileTransferManager
+    ) = AutoResendFailedFilesUseCase(messageRepository, contactRepository, fileTransferManager)
+
     /** Единый источник джиттера (этап 2.5): границы — в PrivacyTimingConfig, по умолчанию ВКЛ. */
     @Provides
     @Singleton
@@ -488,8 +501,14 @@ object AppModule {
     @Provides
     @Singleton
     fun provideTurnServerMonitor(
+        @dagger.hilt.android.qualifiers.ApplicationContext ctx: Context,
         store: TurnSettingsDataStore,
         checker: TurnServerChecker,
         appScope: CoroutineScope
-    ): TurnServerMonitor = TurnServerMonitor(store, checker, appScope)
+    ): TurnServerMonitor = TurnServerMonitor(
+        servers = store.serversFlow,
+        check = { url -> checker.check(url) },
+        networkChanges = NetworkKindMonitor(ctx).observe(),
+        appScope = appScope
+    )
 }

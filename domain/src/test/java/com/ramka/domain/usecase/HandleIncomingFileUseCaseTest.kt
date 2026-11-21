@@ -94,7 +94,9 @@ class HandleIncomingFileUseCaseTest {
     ) = AppMessage.FileMeta(id, name, size, chunks, chunk, mime)
 
     private fun chunk(id: String, index: Int, bytes: ByteArray = slice(index)) = AppMessage.FileChunk(id, index, bytes)
-    private fun slice(index: Int) = data.copyOfRange(index * chunkSize, minOf(data.size, (index + 1) * chunkSize))
+    // Индекс за пределами файла (тесты 5 и 7) даёт пустой чанк: copyOfRange с from > to бросает IllegalArgumentException.
+    private fun slice(index: Int) =
+        data.copyOfRange(minOf(data.size, index * chunkSize), minOf(data.size, (index + 1) * chunkSize))
 
     private suspend fun sendMeta(m: AppMessage.FileMeta) = useCase.onMeta(contact, m, now) { acks += it }
     private suspend fun sendChunk(c: AppMessage.FileChunk) =

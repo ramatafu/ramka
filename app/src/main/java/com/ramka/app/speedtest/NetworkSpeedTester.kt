@@ -3,6 +3,9 @@ package com.ramka.app.speedtest
 import com.ramka.app.relay.RelayPoolStore
 import com.ramka.domain.relay.RelayCheckResult
 import com.ramka.domain.relay.RelayChecker
+import com.ramka.network.proxy.ProxyManager
+import com.ramka.network.proxy.ProxyMisconfiguredException
+import com.ramka.network.proxy.ProxyNotReadyException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -16,13 +19,16 @@ import javax.inject.Singleton
  *    включён: выключенный пул означает «к релеям не обращаться»).
  *  - Download: HTTP GET на пользовательский https-URL. Upload: POST 1 МБ на тот же URL, если сервер принимает.
  *  - Если URL пуст, измеряются только Ping и Jitter.
- * Результат кэшируется на час (ключ — URL и набор релеев): повторный запуск в этот срок сети не использует.
+ * Результат кэшируется на час (ключ — URL, набор релеев и настройки прокси: замер по другому маршруту не
+ * показывается как текущий): повторный запуск в этот срок сети не использует.
+ * Если прокси включён, но настроен неверно, Download и Upload пропускаются с [SpeedTestSkip.PROXY_ERROR].
  */
 @Singleton
 class NetworkSpeedTester @Inject constructor(
     private val relayChecker: RelayChecker,
     private val relayPool: RelayPoolStore,
-    private val transfer: SpeedTestTransfer
+    private val transfer: SpeedTestTransfer,
+    private val proxyManager: ProxyManager
 ) {
     /** Подменяется в тестах. */
     internal var nowMillis: () -> Long = { System.currentTimeMillis() }
@@ -43,7 +49,9 @@ class NetworkSpeedTester @Inject constructor(
     ): SpeedTestOutcome = mutex.withLock {
         val url = testUrl?.takeIf { it.isNotBlank() }
         val entries = relayPool.pool.value.activeEntries
-        val key = url.orEmpty() + "|" + entries.joinToString(",") { it.address.format() }
+        val proxy = proxyManager.settings()
+        val key = url.orEmpty() + "|" + entries.joinToString(",") { it.address.format() } +
+            "|proxy:${proxy.enabled},${proxy.type},${proxy.host},${proxy.port},${proxy.username.isNotEmpty()}"
 
         val cached = cache
         if (!force && cached != null && cached.key == key && nowMillis() - cached.atMillis < CACHE_MILLIS) {
@@ -71,14 +79,24 @@ class NetworkSpeedTester @Inject constructor(
             try {
                 val t = transfer.download(url, MAX_DOWNLOAD_BYTES, MAX_DOWNLOAD_MILLIS)
                 download = SpeedTestAnalysis.mbps(t.bytes, t.nanos)
+            } catch (e: ProxyMisconfiguredException) {
+                skipped += SpeedTestSkip.PROXY_ERROR
+            } catch (e: ProxyNotReadyException) {
+                skipped += SpeedTestSkip.PROXY_ERROR
             } catch (e: IOException) {
                 skipped += SpeedTestSkip.DOWNLOAD_FAILED
             }
             if (download != null) {
                 onStage(SpeedTestStage.UPLOAD)
-                val t = transfer.upload(url, UPLOAD_BYTES)
-                if (t == null) skipped += SpeedTestSkip.UPLOAD_UNSUPPORTED
-                else upload = SpeedTestAnalysis.mbps(t.bytes, t.nanos)
+                try {
+                    val t = transfer.upload(url, UPLOAD_BYTES)
+                    if (t == null) skipped += SpeedTestSkip.UPLOAD_UNSUPPORTED
+                    else upload = SpeedTestAnalysis.mbps(t.bytes, t.nanos)
+                } catch (e: ProxyMisconfiguredException) {
+                    skipped += SpeedTestSkip.PROXY_ERROR // настройки сменились посреди теста
+                } catch (e: ProxyNotReadyException) {
+                    skipped += SpeedTestSkip.PROXY_ERROR
+                }
             }
         }
 

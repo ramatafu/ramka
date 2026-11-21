@@ -33,7 +33,10 @@ enum class RelayFailure {
     REPLACED,
 
     /** Внутренняя ошибка релея. */
-    INTERNAL
+    INTERNAL,
+
+    /** Прокси не дал подключиться: недоступен, отклонил логин или пароль, настроен неверно или не загружен. */
+    PROXY
 }
 
 /**
@@ -62,6 +65,12 @@ interface RelayProvider {
      * [fallback] — релей был не первым в очереди. По умолчанию ничего не делает.
      */
     fun reportDelivery(endpoint: RelayEndpoint, contact: Contact, latencyMillis: Long, fallback: Boolean) {}
+
+    /**
+     * Маршрут к релеям сменился (прокси включили, выключили или изменили): прежние ошибки и паузы относились к
+     * старому маршруту, их надо забыть. По умолчанию ничего не делает.
+     */
+    fun onRouteChanged() {}
 
     /** Состояние регистрации на релее (приём). По умолчанию сводится к [report]. */
     fun reportLink(endpoint: RelayEndpoint, state: RelayLinkState) {

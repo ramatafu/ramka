@@ -64,6 +64,12 @@ class PoolRelayProvider(
         afterChange()
     }
 
+    override fun onRouteChanged() {
+        health.clearPauses()
+        lastFailureState.value = null
+        afterChange()
+    }
+
     override fun reportLink(endpoint: RelayEndpoint, state: RelayLinkState) {
         linkStates.update { it + (endpoint.address to state) }
         when (state) {

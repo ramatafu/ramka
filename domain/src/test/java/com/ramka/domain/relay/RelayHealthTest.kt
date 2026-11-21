@@ -280,4 +280,26 @@ class RelayHealthTest {
         assertEquals(a, health.stickyFor("c1"))
         assertFalse(health.isCoolingDown(b))
     }
+
+    @Test
+    fun `смена маршрута сбрасывает паузы и залипание, но не накопленные счётчики`() {
+        health.recordDelivery(a, "c1", 10, fallback = false)
+        health.recordFailure(b, RelayFailure.UNREACHABLE)
+        health.recordFailure(c, RelayFailure.AUTH)
+        assertEquals(a, health.stickyFor("c1"))
+        assertTrue(health.isCoolingDown(b))
+        assertTrue(health.isCoolingDown(c))
+
+        health.clearPauses()
+
+        assertFalse(health.isCoolingDown(b))
+        assertFalse(health.isCoolingDown(c))
+        assertNull(health.stickyFor("c1"))
+        assertEquals(1L, health.metrics(a).successCount)
+        assertEquals(1L, health.metrics(b).failureCount)
+        assertEquals(0, health.metrics(b).consecutiveFailures)
+        // после сброса пауза снова начинается с первой ступени, а не продолжает нарастать
+        health.recordFailure(b, RelayFailure.UNREACHABLE)
+        assertEquals(30_000L, health.cooldownRemainingMillis(b))
+    }
 }

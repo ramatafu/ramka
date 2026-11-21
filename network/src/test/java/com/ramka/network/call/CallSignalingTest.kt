@@ -74,6 +74,9 @@ class CallSignalingTest {
         override suspend fun removeContact(localId: String) = Unit
         override suspend fun incrementUnreadCount(localId: String) = Unit
         override suspend fun resetUnreadCount(localId: String) = Unit
+        override suspend fun getOrCreateSelfContact(): Contact = error("CallSignaling не обращается к «Избранному»")
+        override suspend fun updatePhotoUri(localId: String, photoUri: String?) = Unit
+        override suspend fun updateYggmailAddress(localId: String, address: String?) = Unit
     }
 
     private fun signaling(transport: TransportRepository, known: Contact? = contact) =

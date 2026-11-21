@@ -43,6 +43,7 @@ import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.ramka.app.connection.ColorYggdrasil
 import com.ramka.app.connection.ConnectionLogo
+import com.ramka.app.connection.ConnectionStatusHelpButton
 import com.ramka.app.connection.ConnectionIndicatorViewModel
 import com.ramka.app.connection.resolveConnectionState
 import com.ramka.app.panic.PanicViewModel
@@ -104,7 +105,8 @@ fun ContactsScreen(
         relayConnected = link.relayConnected,
         peersDiscoveredInLan = isLanPeerDiscovered,
         turnReady = link.turnReady,
-        yggdrasilActive = link.yggdrasilActive
+        yggdrasilActive = link.yggdrasilActive,
+        proxyEnabled = link.proxyEnabled
     )
     
     val context = LocalContext.current
@@ -161,7 +163,8 @@ fun ContactsScreen(
                                 .padding(start = 2.dp, top = 8.dp, end = 8.dp, bottom = 8.dp)
                         )
                     }
-                }
+                },
+                actions = { ConnectionStatusHelpButton() }
             )
         },
         floatingActionButton = {

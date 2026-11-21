@@ -59,6 +59,9 @@ class MessageRepositoryImpl(private val dao: MessageDao) : MessageRepository {
     override suspend fun failInterruptedFileTransfers() {
         dao.failInterruptedFileTransfers()
     }
+
+    override suspend fun failedOutgoingFiles(maxBytes: Long): List<Message> =
+        dao.failedOutgoingFiles(maxBytes).map { it.toDomain() }
 }
 
 private fun MessageEntity.toDomain(): Message = Message(

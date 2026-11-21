@@ -141,6 +141,7 @@ class HandleIncomingTextUseCaseTest {
         override suspend fun getOrCreateSelfContact(): Contact = fakeContact(com.ramka.domain.model.ContactConstants.SELF_CONTACT_ID, 0)
         override suspend fun updateAlias(localId: String, alias: String) {}
         override suspend fun updatePhotoUri(localId: String, photoUri: String?) {}
+        override suspend fun updateYggmailAddress(localId: String, address: String?) {}
         override suspend fun updateLastKnownAddress(localId: String, address: NetworkAddress) {}
         override suspend fun markKeyChanged(localId: String, newPublicKey: ByteArray) {}
         override suspend fun removeContact(localId: String) {}

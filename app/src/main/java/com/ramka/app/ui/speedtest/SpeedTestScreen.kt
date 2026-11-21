@@ -160,14 +160,14 @@ private fun ResultSection(outcome: SpeedTestOutcome, onForceRerun: () -> Unit, e
                 title = "Download",
                 value = test.downloadSpeedMbps?.let { formatMbps(it) },
                 quality = test.downloadSpeedMbps?.let { SpeedTestAnalysis.speedQuality(it) },
-                caption = if (test.downloadSpeedMbps != null) null else missingCaption(skipped, SpeedTestSkip.DOWNLOAD_FAILED)
+                caption = if (test.downloadSpeedMbps != null) null else missingCaption(skipped, SpeedTestSkip.PROXY_ERROR, SpeedTestSkip.DOWNLOAD_FAILED)
             )
             if (test.downloadSpeedMbps != null) {
                 MetricCard(
                     title = "Upload",
                     value = test.uploadSpeedMbps?.let { formatMbps(it) },
                     quality = test.uploadSpeedMbps?.let { SpeedTestAnalysis.speedQuality(it) },
-                    caption = if (test.uploadSpeedMbps != null) null else missingCaption(skipped, SpeedTestSkip.UPLOAD_UNSUPPORTED)
+                    caption = if (test.uploadSpeedMbps != null) null else missingCaption(skipped, SpeedTestSkip.PROXY_ERROR, SpeedTestSkip.UPLOAD_UNSUPPORTED)
                 )
             }
         }

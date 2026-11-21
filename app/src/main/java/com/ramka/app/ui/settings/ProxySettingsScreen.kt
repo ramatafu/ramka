@@ -17,6 +17,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.ramka.app.connection.ConnectionStatusHelpButton
 import com.ramka.network.proxy.ProxyType
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -36,7 +37,8 @@ fun ProxySettingsScreen(
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Назад")
                     }
-                }
+                },
+                actions = { ConnectionStatusHelpButton() }
             )
         }
     ) { paddingValues ->

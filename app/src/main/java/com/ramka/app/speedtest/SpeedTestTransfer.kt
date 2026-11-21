@@ -4,6 +4,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
+import com.ramka.network.proxy.ProxyAuth
+import com.ramka.network.proxy.ProxyManager
+import com.ramka.network.proxy.ProxyMisconfiguredException
+import com.ramka.network.proxy.ProxyNotReadyException
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
@@ -12,16 +16,30 @@ import javax.inject.Inject
 /** Сколько байт и за сколько наносекунд передано. */
 data class Transfer(val bytes: Long, val nanos: Long)
 
-/** HTTP-часть теста; интерфейс нужен, чтобы тестировать [NetworkSpeedTester] без сети. */
+/**
+ * HTTP-часть теста; интерфейс нужен, чтобы тестировать [NetworkSpeedTester] без сети.
+ * Если включён прокси, запрос идёт через него; при неверных настройках прокси или их незагруженности запрос НЕ
+ * выполняется ([ProxyMisconfiguredException], [ProxyNotReadyException]), напрямую он не уходит.
+ */
 interface SpeedTestTransfer {
-    /** @throws IOException любая сетевая ошибка, ответ не 200 или пустое тело */
+    /**
+     * @throws ProxyMisconfiguredException прокси включён, но настроен неверно
+     * @throws ProxyNotReadyException настройки прокси ещё не загружены
+     * @throws IOException любая сетевая ошибка, ответ не 200 или пустое тело
+     */
     suspend fun download(url: String, maxBytes: Long, maxMillis: Long): Transfer
 
-    /** POST [size] нулевых байт. null — сервер не принял POST (не 2xx) или запрос не удался. */
+    /**
+     * POST [size] нулевых байт. null — сервер не принял POST (не 2xx) или запрос не удался.
+     * @throws ProxyMisconfiguredException см. [download]
+     * @throws ProxyNotReadyException см. [download]
+     */
     suspend fun upload(url: String, size: Int): Transfer?
 }
 
-class HttpUrlSpeedTestTransfer @Inject constructor() : SpeedTestTransfer {
+class HttpUrlSpeedTestTransfer @Inject constructor(
+    private val proxyManager: ProxyManager
+) : SpeedTestTransfer {
 
     override suspend fun download(url: String, maxBytes: Long, maxMillis: Long): Transfer =
         withContext(Dispatchers.IO) {
@@ -57,6 +75,8 @@ class HttpUrlSpeedTestTransfer @Inject constructor() : SpeedTestTransfer {
             val conn = try {
                 open(url)
             } catch (e: IOException) {
+                // Ошибки прокси не «сервер не принял POST»: пусть дойдут до пользователя как есть.
+                if (e is ProxyMisconfiguredException || e is ProxyNotReadyException) throw e
                 return@withContext null
             }
             try {
@@ -85,8 +105,22 @@ class HttpUrlSpeedTestTransfer @Inject constructor() : SpeedTestTransfer {
             }
         }
 
-    private fun open(url: String): HttpURLConnection {
-        val conn = URL(url).openConnection() as? HttpURLConnection ?: throw IOException("Не HTTP(S)-адрес")
+    /**
+     * Соединение с учётом прокси. Решение принимается по одному снимку настроек: адрес и логин берутся из одного и
+     * того же состояния. Глобальный `Authenticator` не используется: для HTTP-прокси заголовок
+     * `Proxy-Authorization` ставится вручную.
+     *
+     * Ограничение платформы: `HttpURLConnection` не умеет SOCKS5 с логином без `Authenticator`. Такой запрос
+     * завершится ошибкой (напрямую он не уйдёт), для релея SOCKS5 с логином поддерживается ручным рукопожатием.
+     */
+    private suspend fun open(url: String): HttpURLConnection {
+        val settings = proxyManager.awaitUsableSettings() // null: прокси выключен; иначе настройки гарантированно верны
+        val target = URL(url)
+        val raw = if (settings == null) target.openConnection() else target.openConnection(ProxyManager.proxyFor(settings))
+        val conn = raw as? HttpURLConnection ?: throw IOException("Не HTTP(S)-адрес")
+        if (settings != null) {
+            ProxyAuth.headerFor(settings)?.let { conn.setRequestProperty("Proxy-Authorization", it) }
+        }
         conn.connectTimeout = TIMEOUT_MS
         conn.readTimeout = TIMEOUT_MS
         conn.useCaches = false

@@ -9,6 +9,14 @@ import com.ramka.domain.relay.RelayEndpoint
 import com.ramka.domain.relay.RelayEntry
 import com.ramka.domain.relay.RelayFailure
 import com.ramka.domain.relay.RelayPool
+import com.ramka.network.proxy.ProxyManager
+import com.ramka.network.proxy.ProxyMisconfiguredException
+import com.ramka.network.proxy.ProxyNotReadyException
+import com.ramka.network.proxy.ProxySettings
+import com.ramka.network.proxy.ProxySettingsSource
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.runBlocking
@@ -49,6 +57,14 @@ class NetworkSpeedTesterTest {
         }
     }
 
+    private class FakeProxySource(initial: ProxySettings = ProxySettings.DISABLED) : ProxySettingsSource {
+        val state = MutableStateFlow(initial)
+        override val settings: Flow<ProxySettings> = state
+    }
+
+    private fun proxyManager(source: ProxySettingsSource = FakeProxySource()) =
+        ProxyManager(source, CoroutineScope(Dispatchers.Unconfined))
+
     private fun entry(host: String = "relay.example.com") = RelayEntry(
         id = host,
         address = (RelayAddress.parse("$host:443") as RelayAddressParseResult.Success).address,
@@ -63,8 +79,9 @@ class NetworkSpeedTesterTest {
     private fun tester(
         checker: RelayChecker = FakeChecker { RelayCheckResult.Ok },
         store: RelayPoolStore = FakeStore(pool(true, entry())),
-        transfer: SpeedTestTransfer = FakeTransfer()
-    ) = NetworkSpeedTester(checker, store, transfer).also { it.nowMillis = { clock } }
+        transfer: SpeedTestTransfer = FakeTransfer(),
+        proxy: ProxyManager = proxyManager()
+    ) = NetworkSpeedTester(checker, store, transfer, proxy).also { it.nowMillis = { clock } }
 
     private var clock = 1_000_000L
 
@@ -176,5 +193,41 @@ class NetworkSpeedTesterTest {
         val callsAfterFirst = checker.calls
         t.runSpeedTest(null)
         assertTrue(checker.calls > callsAfterFirst)
+    }
+
+    @Test
+    fun proxyErrorsAreReportedAsProxyErrorNotDownloadFailure() = runBlocking {
+        val failing = object : SpeedTestTransfer {
+            override suspend fun download(url: String, maxBytes: Long, maxMillis: Long): Transfer =
+                throw ProxyMisconfiguredException("bad")
+            override suspend fun upload(url: String, size: Int): Transfer? = null
+        }
+        val outcome = tester(transfer = failing).runSpeedTest("https://example.com/f.bin")
+        assertTrue(SpeedTestSkip.PROXY_ERROR in outcome.skipped)
+        assertFalse(SpeedTestSkip.DOWNLOAD_FAILED in outcome.skipped)
+        assertNull(outcome.test.downloadSpeedMbps)
+    }
+
+    @Test
+    fun notReadyProxyDuringUploadIsProxyError() = runBlocking {
+        val t = object : SpeedTestTransfer {
+            override suspend fun download(url: String, maxBytes: Long, maxMillis: Long) = Transfer(2_000_000, 1_000_000_000)
+            override suspend fun upload(url: String, size: Int): Transfer? = throw ProxyNotReadyException()
+        }
+        val outcome = tester(transfer = t).runSpeedTest("https://example.com/f.bin")
+        assertNotNull(outcome.test.downloadSpeedMbps)
+        assertTrue(SpeedTestSkip.PROXY_ERROR in outcome.skipped)
+        assertFalse(SpeedTestSkip.UPLOAD_UNSUPPORTED in outcome.skipped)
+    }
+
+    @Test
+    fun cacheIsNotReusedAfterProxyChange() = runBlocking {
+        val source = FakeProxySource()
+        val transfer = FakeTransfer()
+        val t = tester(transfer = transfer, proxy = proxyManager(source))
+        t.runSpeedTest("https://example.com/f.bin")
+        source.state.value = ProxySettings(true, host = "proxy.example.org", port = 1080)
+        assertFalse(t.runSpeedTest("https://example.com/f.bin").fromCache)
+        assertEquals(2, transfer.downloads)
     }
 }

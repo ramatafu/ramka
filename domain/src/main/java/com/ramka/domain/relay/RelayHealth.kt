@@ -77,6 +77,19 @@ class RelayHealth(
     private val states = HashMap<RelayAddress, State>()
     private val sticky = HashMap<String, Sticky>()
 
+    /**
+     * Маршрут к релеям сменился (например, включили или сменили прокси): ошибки, набранные на старом маршруте,
+     * больше ничего не говорят о релеях. Паузы, счётчик подряд идущих ошибок и «залипание» сбрасываются;
+     * накопленные счётчики успехов, ошибок и задержки остаются.
+     */
+    fun clearPauses() = synchronized(lock) {
+        for (state in states.values) {
+            state.cooldownUntil = NO_COOLDOWN
+            state.consecutive = 0
+        }
+        sticky.clear()
+    }
+
     /** Ошибка при обращении к релею. Нейтральные ошибки штрафа не дают и считаются признаком исправности. */
     fun recordFailure(address: RelayAddress, failure: RelayFailure) = synchronized(lock) {
         val kind = kindOf(failure)
@@ -203,7 +216,7 @@ class RelayHealth(
             RelayFailure.TARGET_OFFLINE, RelayFailure.REPLACED -> RelayFailureKind.NEUTRAL
             RelayFailure.AUTH, RelayFailure.TLS13_UNSUPPORTED -> RelayFailureKind.CONFIGURATION
             RelayFailure.UNREACHABLE, RelayFailure.TLS, RelayFailure.TIMEOUT, RelayFailure.BUSY,
-            RelayFailure.INTERNAL, RelayFailure.PROTOCOL -> RelayFailureKind.INFRASTRUCTURE
+            RelayFailure.INTERNAL, RelayFailure.PROTOCOL, RelayFailure.PROXY -> RelayFailureKind.INFRASTRUCTURE
         }
     }
 }

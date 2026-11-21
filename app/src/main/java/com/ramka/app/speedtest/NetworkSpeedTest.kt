@@ -36,7 +36,10 @@ enum class SpeedTestSkip {
     DOWNLOAD_FAILED,
 
     /** Сервер не принял POST: Upload пропущен. */
-    UPLOAD_UNSUPPORTED
+    UPLOAD_UNSUPPORTED,
+
+    /** Прокси включён, но настроен неверно или не загружен: Download и Upload не выполнялись (напрямую тест не идёт). */
+    PROXY_ERROR
 }
 
 enum class SpeedTestStage { PING, DOWNLOAD, UPLOAD }

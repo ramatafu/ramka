@@ -17,10 +17,15 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.SendChannel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import java.net.Socket
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * Бюджет времени отправки через релеи. Раньше каждый релей получал полный дедлайн (15 с), и при трёх
@@ -50,14 +55,28 @@ data class RelaySendConfig(
  * Какие релеи и в каком порядке пробовать, решает [RelayProvider] ([com.ramka.domain.relay.PoolRelayProvider]
  * учитывает приоритеты, паузы после ошибок и «залипание»); этот класс только идёт по списку в рамках бюджета
  * времени и сообщает провайдеру итоги.
+ *
+ * Смена маршрута ([routeGeneration] растёт, когда включили, выключили или изменили прокси): коннектор уже закрыл все
+ * сокеты, а здесь регистрации приёма перезапускаются сразу (без ожидания backoff), отправка, начатая по старому
+ * маршруту, не считается ни доставкой, ни виной релея (сообщение останется в Outbox и уйдёт по новому маршруту),
+ * провайдер забывает паузы, набранные на старом маршруте.
  */
 class RelayTransportRepository(
     private val tunnels: TunnelMessageChannel,
     private val client: RelayTunnelClient,
     private val provider: RelayProvider,
     private val clock: RelayClock = RelayClock.System,
-    private val sendConfig: RelaySendConfig = RelaySendConfig()
+    private val sendConfig: RelaySendConfig = RelaySendConfig(),
+    private val routeGeneration: StateFlow<Long> = MutableStateFlow(0L)
 ) : TransportRepository {
+
+    private val seenGeneration = AtomicLong(routeGeneration.value)
+
+    /** Маршрут сменился с прошлого вызова: провайдер забывает паузы старого маршрута. */
+    private fun syncRoute() {
+        val now = routeGeneration.value
+        if (seenGeneration.getAndSet(now) != now) provider.onRouteChanged()
+    }
 
     override suspend fun sendEncryptedPacket(contact: Contact, packet: ByteArray): Boolean {
         // Контракт TransportRepository: отправка НЕ бросает исключений, `false` = «не вышло, сообщение
@@ -73,6 +92,8 @@ class RelayTransportRepository(
     }
 
     private suspend fun sendViaRelays(contact: Contact, packet: ByteArray): Boolean {
+        syncRoute()
+        val routeAtStart = routeGeneration.value
         val started = clock.nowMillis()
         for ((index, endpoint) in provider.relaysFor(contact).withIndex()) {
             val remaining = sendConfig.totalBudgetMillis - (clock.nowMillis() - started)
@@ -82,6 +103,11 @@ class RelayTransportRepository(
 
             when (val result = client.connectTo(endpoint, contact.signingPublicKey, minOf(limit, remaining))) {
                 is RelayConnectResult.Connected -> {
+                    if (routeGeneration.value != routeAtStart) {
+                        // Соединение открыто по старому маршруту: ничего по нему не отправляем.
+                        closeQuietly(result.socket)
+                        return false
+                    }
                     provider.report(endpoint, null)
                     // Рукопожатие и отправка — как в LAN; итог (в т.ч. «подпись собеседника не сошлась») окончателен.
                     val delivered = sendOverTunnel(result.socket, contact, packet)
@@ -91,6 +117,7 @@ class RelayTransportRepository(
                     return delivered
                 }
                 is RelayConnectResult.Failed -> {
+                    if (routeGeneration.value != routeAtStart) return false // оборвано сменой прокси, релей не виноват
                     // «Получателя нет в сети» — это не поломка релея; пробуем следующий (он мог быть
                     // тем, где собеседник зарегистрирован).
                     provider.report(endpoint, result.failure.takeUnless { it == RelayFailure.TARGET_OFFLINE })
@@ -129,7 +156,18 @@ class RelayTransportRepository(
      */
     override fun incomingPackets(): Flow<Pair<ByteArray, ByteArray>> = channelFlow {
         val registrations = HashMap<RelayEndpoint, Job>()
-        provider.ownRelays.collect { endpoints ->
+        var seen = routeGeneration.value
+        combine(provider.ownRelays, routeGeneration) { endpoints, generation -> endpoints to generation }.collect { (endpoints, generation) ->
+            if (generation != seen) {
+                seen = generation
+                // Маршрут сменился: сокеты уже закрыты коннектором. Регистрации перезапускаем сразу, чтобы не ждать
+                // backoff, и только после остановки старых (они тоже могли отчитаться об ошибке) забываем паузы.
+                val old = registrations.values.toList()
+                registrations.clear()
+                old.forEach { it.cancel() }
+                withTimeoutOrNull(RESTART_JOIN_MILLIS) { old.forEach { it.join() } }
+                syncRoute()
+            }
             val wanted = endpoints.toSet()
             for (gone in registrations.keys.filter { it !in wanted }) registrations.remove(gone)?.cancel()
             for (endpoint in wanted) {
@@ -153,5 +191,10 @@ class RelayTransportRepository(
         RelayConnectionState.Connecting -> RelayLinkState.Connecting
         RelayConnectionState.Registered -> RelayLinkState.Connected
         is RelayConnectionState.Failed -> RelayLinkState.Failed(failure, retryInMillis)
+    }
+
+    private companion object {
+        /** Сколько ждём остановки старых регистраций при смене маршрута. */
+        const val RESTART_JOIN_MILLIS = 3_000L
     }
 }

@@ -55,6 +55,10 @@ internal class StubMessageRepository(
         val body = it.body as? com.ramka.domain.model.MessageBody.File ?: return@replace it
         it.copy(body = body.copy(uri = uri))
     }
+    override suspend fun failedOutgoingFiles(maxBytes: Long): List<Message> = all().filter {
+        val body = it.body as? com.ramka.domain.model.MessageBody.File
+        it.direction == MessageDirection.OUTGOING && it.status == MessageStatus.FAILED && body != null && body.fileSize <= maxBytes
+    }
     override suspend fun failInterruptedFileTransfers() = synchronized(store) {
         for (i in store.indices) {
             val m = store[i]
@@ -89,6 +93,7 @@ internal class StubContactRepository : ContactRepository {
     override suspend fun updateAlias(localId: String, alias: String) = Unit
 
     override suspend fun updatePhotoUri(localId: String, photoUri: String?) = Unit
+    override suspend fun updateYggmailAddress(localId: String, address: String?) = Unit
     override suspend fun updateLastKnownAddress(localId: String, address: NetworkAddress) = Unit
     override suspend fun markKeyChanged(localId: String, newPublicKey: ByteArray) = Unit
     override suspend fun removeContact(localId: String) = Unit
@@ -105,12 +110,15 @@ internal class StubOutboxRepository(private val entries: List<OutboxEntry>) : Ou
     data class Failure(val messageLocalId: String, val attemptCount: Int, val nextAttemptAtEpochMillis: Long)
 
     val failures = mutableListOf<Failure>()
+    val removed = mutableListOf<String>()
 
     override fun observePending(): Flow<List<OutboxEntry>> = MutableStateFlow(entries)
     override suspend fun enqueue(entry: OutboxEntry) = Unit
-    override suspend fun due(nowEpochMillis: Long): List<OutboxEntry> = entries
+    override suspend fun due(nowEpochMillis: Long): List<OutboxEntry> = entries.filter { it.nextAttemptAtEpochMillis <= nowEpochMillis }
     override suspend fun recordFailedAttempt(messageLocalId: String, attemptCount: Int, nextAttemptAtEpochMillis: Long) {
         failures += Failure(messageLocalId, attemptCount, nextAttemptAtEpochMillis)
     }
-    override suspend fun remove(messageLocalId: String) = Unit
+    override suspend fun remove(messageLocalId: String) {
+        synchronized(removed) { removed += messageLocalId }
+    }
 }

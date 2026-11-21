@@ -67,6 +67,14 @@ interface MessageDao {
     @Query("UPDATE messages SET fileUri = :uri WHERE localId = :localId")
     suspend fun updateFileUri(localId: String, uri: String)
 
+    @Query(
+        """
+        SELECT * FROM messages WHERE direction = 'OUTGOING' AND bodyType = 'FILE' AND status = 'FAILED'
+        AND fileSize IS NOT NULL AND fileSize <= :maxBytes ORDER BY localCreatedAtEpochMillis ASC
+        """
+    )
+    suspend fun failedOutgoingFiles(maxBytes: Long): List<MessageEntity>
+
     @Query("UPDATE messages SET status = 'FAILED' WHERE bodyType = 'FILE' AND status = 'SENDING'")
     suspend fun failInterruptedFileTransfers()
 

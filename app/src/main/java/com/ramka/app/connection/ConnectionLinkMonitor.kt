@@ -1,6 +1,7 @@
 package com.ramka.app.connection
 
 import android.content.Context
+import com.ramka.app.data.ProxyDataStore
 import com.ramka.app.preferences.AppPreferences
 import com.ramka.domain.repository.ContactRepository
 import com.ramka.network.ygg.YggdrasilNetwork
@@ -17,6 +18,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -27,7 +29,9 @@ data class LinkSnapshot(
     val relayConnected: Boolean,
     val turnReady: Boolean,
     /** Yggdrasil доступен: включён, на устройстве есть его интерфейс и есть контакты с Yggmail-адресом. */
-    val yggdrasilActive: Boolean = false
+    val yggdrasilActive: Boolean = false,
+    /** Прокси включён в настройках (для окраски индикатора релея, см. [resolveConnectionState]). */
+    val proxyEnabled: Boolean = false
 )
 
 @Singleton
@@ -36,6 +40,7 @@ class ConnectionLinkMonitor @Inject constructor(
     relayProvider: PoolRelayProvider,
     turnMonitor: TurnServerMonitor, // <-- ДОБАВЛЕН ПАРАМЕТР
     prefs: AppPreferences,
+    proxyDataStore: ProxyDataStore,
     contactRepository: ContactRepository,
     appScope: CoroutineScope
 ) {
@@ -56,9 +61,11 @@ class ConnectionLinkMonitor @Inject constructor(
             .map { states -> states.values.any { it is RelayLinkState.Connected } }
             .distinctUntilChanged(),
         turnMonitor.isTurnReady, // <-- ДОБАВЛЕН ПОТОК
-        yggdrasilActive
-    ) { network, relay, turn, ygg ->
-        LinkSnapshot(network, relay, turn, ygg)
+        yggdrasilActive,
+        // onStart: индикатор не ждёт чтения настроек прокси с диска (до первого значения считаем «выключен»)
+        proxyDataStore.settings.map { it.enabled }.onStart { emit(false) }.distinctUntilChanged()
+    ) { network, relay, turn, ygg, proxy ->
+        LinkSnapshot(network, relay, turn, ygg, proxy)
     }
         .stateIn(appScope, SharingStarted.WhileSubscribed(5_000), LinkSnapshot(NetworkKind.NONE, false, false, false))
 

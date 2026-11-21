@@ -35,11 +35,14 @@ internal fun skipCaption(skip: SpeedTestSkip): String? = when (skip) {
     SpeedTestSkip.RELAY_FAILED -> "Не удалось получить достаточно ответов от relay"
     SpeedTestSkip.DOWNLOAD_FAILED -> "Не удалось скачать файл по этому URL"
     SpeedTestSkip.UPLOAD_UNSUPPORTED -> "Сервер не принимает POST, отправка не проверена"
+    SpeedTestSkip.PROXY_ERROR -> "Прокси включён, но настроен неверно: проверьте адрес и порт. Напрямую тест не выполняется"
     SpeedTestSkip.NO_URL -> null
 }
 
 /** Сообщение, когда не измерено ничего. */
 internal fun emptyResultMessage(skipped: Set<SpeedTestSkip>): String = when {
+    SpeedTestSkip.PROXY_ERROR in skipped ->
+        "Прокси включён, но настроен неверно или ещё не загружен. Проверьте настройки прокси: напрямую тест не выполняется."
     SpeedTestSkip.DOWNLOAD_FAILED in skipped && SpeedTestSkip.RELAY_FAILED in skipped ->
         "Не удалось подключиться ни к relay, ни к адресу для теста. Проверьте интернет и настройки."
     SpeedTestSkip.DOWNLOAD_FAILED in skipped ->
