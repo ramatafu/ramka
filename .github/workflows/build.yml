@@ -1,9 +1,5 @@
 name: Build
 
-# Только push и pull request — никаких секретов в этом workflow не используется
-# и не должно использоваться: сборка debug-варианта и unit-тесты не требуют
-# подписи релиза или доступа к чему-либо за пределами публичных Maven/Google
-# репозиториев.
 on:
   push:
   pull_request:
@@ -11,6 +7,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -21,8 +18,16 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Accept Android SDK licenses
+        run: yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
 
       - name: Run unit tests
         run: ./gradlew test
@@ -30,9 +35,10 @@ jobs:
       - name: Assemble debug APK
         run: ./gradlew :app:assembleDebug
 
-      # Намеренно НЕТ шага upload-artifact: debug-APK подписан debug-ключом
-      # (не секрет сам по себе), но публиковать собранные артефакты как
-      # артефакты CI без явного решения владельца проекта — не задача этого
-      # workflow. Если понадобится — добавлять отдельно и осознанно, никогда
-      # не публикуя release-подписанные сборки или что-либо из */schemas
-      # вместе с реальными пользовательскими данными.
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: ramka-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 7
