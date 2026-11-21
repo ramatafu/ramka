@@ -151,6 +151,7 @@ fun RamkaNavHost() {
                 onBack = { navController.popBackStack() },
                 onOpenRelays = { navController.navigate(Routes.RELAY_LIST) },
                 onOpenTurnServers = { navController.navigate(Routes.TURN_SERVERS) },
+                onOpenProxySettings = { navController.navigate(Routes.PROXY_SETTINGS) },
                 onOpenSpeedTest = { navController.navigate(Routes.SPEED_TEST) }
             )
         }

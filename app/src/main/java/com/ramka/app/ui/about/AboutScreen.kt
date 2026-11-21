@@ -46,12 +46,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.ramka.app.R
 import kotlinx.coroutines.delay
 
 private const val GITHUB_TEXT = "github.com/ramatafu/ramka"
@@ -99,12 +101,29 @@ fun AboutScreen(onBack: () -> Unit) {
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp, vertical = 8.dp)
         ) {
+            // Логотип в нейтральном цвете: это не индикатор подключения, цвет от состояния сети не зависит.
+            Icon(
+                painter = painterResource(R.drawable.ic_ramka_logo),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier
+                    .size(72.dp)
+                    .align(Alignment.CenterHorizontally)
+            )
+            Spacer(Modifier.height(12.dp))
+            Text(
+                text = "Ramka",
+                style = MaterialTheme.typography.headlineMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.align(Alignment.CenterHorizontally)
+            )
+            Spacer(Modifier.height(4.dp))
             Text(
                 text = "Версия $versionName",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface,
                 // Скрытый клик без визуальной ряби (indication = null)
-                modifier = Modifier.clickable(
+                modifier = Modifier.align(Alignment.CenterHorizontally).clickable(
                     indication = null,
                     interactionSource = remember { MutableInteractionSource() }
                 ) {
