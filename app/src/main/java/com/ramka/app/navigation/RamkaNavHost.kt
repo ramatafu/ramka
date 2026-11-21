@@ -20,9 +20,13 @@ import com.ramka.app.ui.relay.RelayEditScreen
 import com.ramka.app.ui.relay.RelayListScreen
 import com.ramka.app.ui.relay.TurnGuideScreen
 import com.ramka.app.ui.relayguide.RelayGuideScreen
+import com.ramka.app.ui.settings.CallSettingsScreen
+import com.ramka.app.ui.settings.GeneralSettingsScreen
 import com.ramka.app.ui.settings.NetworkServersScreen
 import com.ramka.app.ui.settings.ProxySettingsScreen // <-- ДОБАВЛЕНО: импорт нового экрана
+import com.ramka.app.ui.settings.ServersScreen
 import com.ramka.app.ui.settings.SettingsScreen
+import com.ramka.app.ui.settings.YggdrasilSettingsScreen
 import com.ramka.app.ui.speedtest.SpeedTestScreen
 import com.ramka.app.ui.turn.TurnServerEditScreen
 import com.ramka.app.ui.turn.TurnServerEditViewModel
@@ -37,7 +41,11 @@ object Routes {
     const val CHAT = "chat/{contactId}"
     const val QR = "qr"
     const val SETTINGS = "settings"
+    const val GENERAL_SETTINGS = "general_settings"
+    const val CALL_SETTINGS = "call_settings"
     const val NETWORK_SERVERS = "network_servers"
+    const val SERVERS = "servers"
+    const val YGGDRASIL = "yggdrasil"
     const val PROXY_SETTINGS = "proxy_settings" // <-- ДОБАВЛЕНО: маршрут для прокси
     const val ABOUT = "about"
     const val RELAY_GUIDE = "relay_guide"
@@ -128,10 +136,19 @@ fun RamkaNavHost() {
         composable(Routes.SETTINGS) {
             SettingsScreen(
                 onBack = { navController.popBackStack() },
+                onOpenGeneral = { navController.navigate(Routes.GENERAL_SETTINGS) },
+                onOpenCalls = { navController.navigate(Routes.CALL_SETTINGS) },
                 onOpenNetworkServers = { navController.navigate(Routes.NETWORK_SERVERS) },
-                onOpenProxySettings = { navController.navigate(Routes.PROXY_SETTINGS) }, // <-- ДОБАВЛЕНО
                 onOpenAbout = { navController.navigate(Routes.ABOUT) }
             )
+        }
+
+        composable(Routes.GENERAL_SETTINGS) {
+            GeneralSettingsScreen(onBack = { navController.popBackStack() })
+        }
+
+        composable(Routes.CALL_SETTINGS) {
+            CallSettingsScreen(onBack = { navController.popBackStack() })
         }
 
         composable(Routes.ABOUT) {
@@ -149,11 +166,23 @@ fun RamkaNavHost() {
         composable(Routes.NETWORK_SERVERS) {
             NetworkServersScreen(
                 onBack = { navController.popBackStack() },
-                onOpenRelays = { navController.navigate(Routes.RELAY_LIST) },
-                onOpenTurnServers = { navController.navigate(Routes.TURN_SERVERS) },
-                onOpenProxySettings = { navController.navigate(Routes.PROXY_SETTINGS) },
+                onOpenServers = { navController.navigate(Routes.SERVERS) },
+                onOpenYggdrasil = { navController.navigate(Routes.YGGDRASIL) },
                 onOpenSpeedTest = { navController.navigate(Routes.SPEED_TEST) }
             )
+        }
+
+        composable(Routes.SERVERS) {
+            ServersScreen(
+                onBack = { navController.popBackStack() },
+                onOpenRelays = { navController.navigate(Routes.RELAY_LIST) },
+                onOpenTurnServers = { navController.navigate(Routes.TURN_SERVERS) },
+                onOpenProxySettings = { navController.navigate(Routes.PROXY_SETTINGS) }
+            )
+        }
+
+        composable(Routes.YGGDRASIL) {
+            YggdrasilSettingsScreen(onBack = { navController.popBackStack() })
         }
 
         composable(Routes.RELAY_LIST) {
