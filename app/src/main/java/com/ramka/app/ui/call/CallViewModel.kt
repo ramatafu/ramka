@@ -15,7 +15,6 @@ import androidx.lifecycle.viewModelScope
 import com.ramka.app.call.CallAlerts
 import com.ramka.app.data.TurnCredentials
 import com.ramka.app.data.TurnSettingsDataStore
-import com.ramka.app.preferences.AppPreferences
 import com.ramka.app.webrtc.createAnswerSdp
 import com.ramka.app.webrtc.createOfferSdp
 import com.ramka.app.webrtc.setLocalSdp
@@ -65,7 +64,7 @@ class CallViewModel @Inject constructor(
     private val signaling: CallSignaling,
     private val contactRepository: ContactRepository,
     private val turnSettings: TurnSettingsDataStore,
-    private val prefs: AppPreferences,
+
     private val alerts: CallAlerts
 ) : ViewModel(), CallManager {
 
@@ -128,9 +127,10 @@ class CallViewModel @Inject constructor(
      */
     val isSpeakerOn: StateFlow<Boolean> = _isSpeakerOn.asStateFlow()
 
-    // R-1: приватность по умолчанию. Значение читается из AppPreferences при каждом звонке.
-    private val allowDirectP2p: Boolean
-        get() = prefs.allowDirectP2pEnabled
+    // R-1: по умолчанию звонок идёт ТОЛЬКО через TURN (relay): ни Google STUN, ни host/srflx-кандидаты, реальный IP
+    // не раскрывается ни STUN-серверу, ни собеседнику.
+    // TODO: Добавить тумблер "Разрешить прямое P2P-соединение (раскрывает IP)" в настройки
+    private val allowDirectP2p: Boolean = false
 
     private val commands = Channel<suspend () -> Unit>(Channel.UNLIMITED)
 

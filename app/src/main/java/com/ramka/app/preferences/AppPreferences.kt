@@ -55,11 +55,6 @@ class AppPreferences(context: Context) : BackgroundDeliveryPrefs, MdnsPrefs {
         get() = prefs.getBoolean(KEY_YGGMAIL, false)
         set(value) = prefs.edit().putBoolean(KEY_YGGMAIL, value).apply()
 
-    /** Разрешить прямое P2P-соединение (раскрывает IP). По умолчанию выключено (только TURN, политика R-1). */
-    var allowDirectP2pEnabled: Boolean
-        get() = prefs.getBoolean(KEY_ALLOW_DIRECT_P2P, false)
-        set(value) = prefs.edit().putBoolean(KEY_ALLOW_DIRECT_P2P, value).apply()
-
     fun legacyRelaySnapshot(secrets: RelaySecrets): LegacyRelaySnapshot? {
         val enabled = prefs.getBoolean(KEY_RELAY_ENABLED, false)
         val address = prefs.getString(KEY_RELAY_ADDRESS, "")?.takeIf { it.isNotBlank() }
@@ -88,7 +83,6 @@ class AppPreferences(context: Context) : BackgroundDeliveryPrefs, MdnsPrefs {
         private const val KEY_CALL_VIBRATION = "call_vibration_enabled"
         private const val KEY_YGGDRASIL = "yggdrasil_enabled"
         private const val KEY_YGGMAIL = "yggmail_enabled"
-        private const val KEY_ALLOW_DIRECT_P2P = "allow_direct_p2p_enabled"
         private const val KEY_RELAY_ENABLED = "relay_enabled"
         private const val KEY_RELAY_ADDRESS = "relay_address"
         private const val KEY_RELAY_PIN = "relay_pin"
