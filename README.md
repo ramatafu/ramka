@@ -73,7 +73,7 @@ Ramka — мобильный мессенджер для тех, кто цени
 
 ## Лицензия
 
-[https://github.com/ramatafu/ramka/blob/main/LICENSE]
+https://github.com/ramatafu/ramka/blob/main/LICENSE
 
 ## Установка
 
