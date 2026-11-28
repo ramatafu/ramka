@@ -1,4 +1,8 @@
-<img width="1254" height="1254" alt="изображение" src="https://github.com/user-attachments/assets/7afff5dc-dfe4-406a-be94-1dedd896bba5" />
+<img width="1080" height="2167" alt="изображение" src="https://github.com/user-attachments/assets/5d91f1c8-6c54-4e72-9efa-f54bfae2a76a" />
+<img width="1079" height="2186" alt="изображение" src="https://github.com/user-attachments/assets/decf2dfe-ce1b-43b9-8a81-d1a6ffe47b18" />
+<img width="738" height="1467" alt="изображение" src="https://github.com/user-attachments/assets/f0c16e67-3e78-4d22-840d-3531f6e3b11f" />
+<img width="1079" height="2154" alt="изображение" src="https://github.com/user-attachments/assets/fc70ca37-251a-4741-a7ef-bd955912ff40" />
+
 
 ## О проекте
 
